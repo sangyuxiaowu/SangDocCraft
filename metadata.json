@@ -1,0 +1,6 @@
+{
+  "name": "DocuCraft A4 - Markdown交付文档转换工具",
+  "description": "标准A4设计文档与技术规格书转换工具，支持Markdown编辑预览、页眉页脚、封面、目录、标题列表样式定制及JSON主题导入导出",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
