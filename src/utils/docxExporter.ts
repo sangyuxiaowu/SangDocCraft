@@ -487,7 +487,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
   // 4. Headers and Footers Construction
   const headerChildren: (Paragraph | Table)[] = [];
   if (header.show) {
-    const headerTextLeft = header.leftText || meta.projectName || '';
+    const headerTextLeft = header.leftText || '';
     const headerTextCenter = header.centerText || '';
     const headerTextRight = header.rightText || meta.title || '';
 
@@ -575,7 +575,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
 
   // Pack to blob and download
   const blob = await Packer.toBlob(doc);
-  const outName = filename || `${meta.title || '交付文档'}_${meta.version || 'v1.0'}.docx`;
+  const outName = filename || `${meta.title || '交付文档'}.docx`;
 
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);

@@ -195,7 +195,7 @@ export const Editor: React.FC<EditorProps> = ({ value, onChange, uiMode = 'dark'
         <button
           onMouseDown={(e) => e.preventDefault()}
           onClick={insertPageBreak}
-          className="p-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded transition shadow-xs"
+          className={`p-1.5 rounded transition ${btnHoverClass}`}
           title="插入强行分页标志 <!-- pagebreak -->"
         >
           <FilePlus className="w-4 h-4" />

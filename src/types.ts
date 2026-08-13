@@ -10,11 +10,9 @@ export interface CoverListItem {
 export interface DocumentMeta {
   title: string;
   subtitle: string;
-  version: string;
   author: string;
   department: string;
   organization: string;
-  projectName: string;
   date: string;
   logoUrl?: string;
   logo?: string;
@@ -34,6 +32,8 @@ export interface HeaderConfig {
   logoUrl?: string;
   logoHeight?: number;
   logoOpacity?: number;
+  logoTopOffset?: number;
+  leftTextOffset?: number;
 }
 
 export interface ImageStyleConfig {

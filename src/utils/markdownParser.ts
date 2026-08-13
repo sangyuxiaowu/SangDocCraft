@@ -62,9 +62,7 @@ function processFrontmatterData(data: Record<string, any>): Partial<DocumentMeta
   if (data.author && typeof data.author === 'string') meta.author = String(data.author);
   if (data.organization && typeof data.organization === 'string') meta.organization = String(data.organization);
   if (data.department && typeof data.department === 'string') meta.department = String(data.department);
-  if (data.version !== undefined) meta.version = String(data.version);
   if (data.date !== undefined) meta.date = String(data.date);
-  if (data.projectName && typeof data.projectName === 'string') meta.projectName = String(data.projectName);
   if (data.number !== undefined) meta.number = String(data.number);
 
   // logo or logoUrl
@@ -145,8 +143,6 @@ export function getEffectiveMeta(baseMeta: DocumentMeta, markdown: string): Docu
     author: em.author ?? baseMeta.author,
     organization: em.organization ?? baseMeta.organization,
     department: em.department ?? baseMeta.department,
-    projectName: em.projectName ?? baseMeta.projectName,
-    version: em.version ?? baseMeta.version,
     date: em.date ?? baseMeta.date,
     logo: em.logo ?? baseMeta.logo,
     logoUrl: em.logoUrl ?? baseMeta.logoUrl,
@@ -171,8 +167,6 @@ export function updateMarkdownFrontmatter(markdown: string, meta: DocumentMeta):
   if (meta.author) yamlObj.author = meta.author; else delete yamlObj.author;
   if (meta.organization) yamlObj.organization = meta.organization; else delete yamlObj.organization;
   if (meta.department) yamlObj.department = meta.department; else delete yamlObj.department;
-  if (meta.projectName) yamlObj.projectName = meta.projectName; else delete yamlObj.projectName;
-  if (meta.version) yamlObj.version = meta.version; else delete yamlObj.version;
   if (meta.date) yamlObj.date = meta.date; else delete yamlObj.date;
   if (meta.number) yamlObj.number = meta.number; else delete yamlObj.number;
 

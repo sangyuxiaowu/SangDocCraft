@@ -316,6 +316,9 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
       border-bottom: ${header.lineStyle === 'none' ? 'none' : header.lineStyle === 'double' ? '3px double ' + style.accentColor : '1px solid ' + style.accentColor};
       shrink: 0;
     }
+    .doc-header-left {
+      transition: margin-left 0.1s ease;
+    }
     .doc-footer {
       width: 100%;
       display: flex;
@@ -610,7 +613,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
   <div class="a4-page cover-page-wrapper">
     ${header.show && !header.hideOnCover ? `
     <div class="doc-header">
-      <span>${header.leftText || meta.projectName || ''}</span>
+      <span>${header.leftText || ''}</span>
       <span>${header.rightText || meta.title || ''}</span>
     </div>
     ` : ''}
@@ -623,7 +626,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
               ${(meta.logo || meta.logoUrl) ? `<img src="${meta.logo || meta.logoUrl}" style="max-height: 28px; object-fit: contain;" alt="Logo" />` : ''}
               <span style="font-size: 12px; font-weight: bold; color: var(--primary-color); background: rgba(0,0,0,0.05); padding: 4px 12px; border-radius: 4px;">${meta.organization || 'SPECIFICATION'}</span>
             </div>
-            ${(meta.number || meta.version) ? `<span style="background: var(--accent-color); color: #fff; padding: 3px 12px; border-radius: 9999px; font-size: 11px; font-family: monospace; font-weight: bold;">${meta.number || meta.version}</span>` : ''}
+            ${meta.number ? `<span style="background: var(--accent-color); color: #fff; padding: 3px 12px; border-radius: 9999px; font-size: 11px; font-family: monospace; font-weight: bold;">${meta.number}</span>` : ''}
           </div>
           <div style="margin: auto 0; padding: 20px 0;">
             <div class="cover-title" style="text-align: left; font-size: 36px; font-weight: 900;">${meta.title || '设计交付文档'}</div>
@@ -641,7 +644,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
             <div style="font-weight: bold; font-size: 12px; color: var(--primary-color); letter-spacing: 2px; text-transform: uppercase;">${meta.organization || '标准交付文件'}</div>
           </div>
           <div style="text-align: center; margin: auto 0; padding: 20px 0;">
-            ${(meta.number || meta.version) ? `<div style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 8px; font-family: monospace; letter-spacing: 1px;">文档编号：${meta.number || 'SPEC-' + meta.version}</div>` : ''}
+            ${meta.number ? `<div style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 8px; font-family: monospace; letter-spacing: 1px;">文档编号：${meta.number}</div>` : ''}
             <div class="cover-title" style="font-size: 32px;">${meta.title || '规范设计交付文档'}</div>
             ${meta.subtitle ? `<div class="cover-subtitle" style="font-size: 16px;">${meta.subtitle}</div>` : ''}
           </div>
@@ -713,7 +716,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
   <div class="a4-page toc-page-wrapper">
     ${header.show ? `
     <div class="doc-header">
-      <span>${header.leftText || meta.projectName || ''}</span>
+      <span>${header.leftText || ''}</span>
       <span>${header.rightText || meta.title || ''}</span>
     </div>
     ` : ''}
@@ -754,10 +757,10 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
       return `
   <div class="a4-page content-page-wrapper">
     ${header.show ? `
+    ${header.logoUrl ? `<img src="${header.logoUrl}" style="position: absolute; left: 75px; top: ${header.logoTopOffset ?? 15}px; z-index: 10; height: ${header.logoHeight || 20}px; width: auto; object-fit: contain; opacity: ${header.logoOpacity ?? 1}; pointer-events: none;" alt="Header Logo" />` : ''}
     <div class="doc-header">
-      <div style="display: flex; align-items: center; gap: 8px;">
-        ${header.logoUrl ? `<img src="${header.logoUrl}" style="height: ${header.logoHeight || 20}px; object-fit: contain;" alt="Header Logo" />` : ''}
-        <span>${header.leftText || meta.projectName || ''}</span>
+      <div class="doc-header-left" style="margin-left: ${header.leftTextOffset ?? 0}px;">
+        <span>${header.leftText || ''}</span>
       </div>
       <span>${header.rightText || meta.title || ''}</span>
     </div>
@@ -779,7 +782,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
 export function exportToHtmlFile(markdownText: string, theme: DocumentTheme, filename?: string): void {
   const htmlContent = generateStandaloneHtml(markdownText, theme);
   const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-  const outName = filename || `${theme.meta.title || '交付文档'}_${theme.meta.version || 'v1.0'}.html`;
+  const outName = filename || `${theme.meta.title || '交付文档'}.html`;
 
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);

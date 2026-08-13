@@ -60,10 +60,6 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
     ? 'bg-[#181818] border-[#2A2A2A] text-white placeholder-zinc-600 focus:border-blue-500 focus:outline-hidden'
     : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-hidden';
 
-  const buttonClass = isDark
-    ? 'bg-[#1F1F1F] hover:bg-[#282828] text-zinc-200 border-[#333]'
-    : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200 shadow-2xs';
-
   const buttonDashedClass = isDark
     ? 'bg-[#1A1A1A] hover:bg-[#252525] border-[#333] text-blue-400'
     : 'bg-white hover:bg-slate-100 border-slate-200 text-blue-600 shadow-2xs';
@@ -160,20 +156,6 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
     onChange({
       ...theme,
       style: { ...theme.style, [field]: val },
-    });
-  };
-
-  const updateHeadingFont = (level: 'h1' | 'h2' | 'h3' | 'h4', field: 'fontFamily' | 'fontSize' | 'bold', value: string | number | boolean) => {
-    const defaults = {
-      h1: { fontSize: 24, bold: true },
-      h2: { fontSize: 20, bold: true },
-      h3: { fontSize: 17, bold: true },
-      h4: { fontSize: 15, bold: true },
-    };
-    updateStyle('headingFonts', {
-      ...defaults,
-      ...theme.style.headingFonts,
-      [level]: { ...defaults[level], ...theme.style.headingFonts?.[level], [field]: value },
     });
   };
 
@@ -467,8 +449,11 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                         <button
                           type="button"
                           onClick={() => {
-                            updateMeta('logo', '');
-                            updateMeta('logoUrl', '');
+                            updateFullMeta({
+                              ...theme.meta,
+                              logo: '',
+                              logoUrl: '',
+                            });
                           }}
                           className="text-[10px] text-red-500 hover:text-red-600 font-medium flex items-center gap-1"
                         >
@@ -607,6 +592,15 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                     />
                   </div>
                   <div>
+                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>中间文本</label>
+                    <input
+                      type="text"
+                      value={theme.header.centerText}
+                      onChange={(e) => updateHeader('centerText', e.target.value)}
+                      className={`w-full rounded px-2 py-1 ${inputSubClass}`}
+                    />
+                  </div>
+                  <div>
                     <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>右侧文本 (如文档名/保密标记)</label>
                     <input
                       type="text"
@@ -643,38 +637,97 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   </div>
 
                   <div className={`pt-2 border-t ${sectionBorderClass} space-y-2`}>
+                    <div className="flex items-center justify-between">
+                      <label className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 ${labelClass}`}>
+                        <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
+                        页眉 Logo
+                      </label>
+                      {theme.header.logoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => updateHeader('logoUrl', '')}
+                          className="text-[10px] text-red-500 hover:text-red-600 font-medium flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          清除 Logo
+                        </button>
+                      )}
+                    </div>
+                    {theme.header.logoUrl && (
+                      <div className={`flex items-center gap-3 p-2 rounded border ${subCardBgClass}`}>
+                        <img
+                          src={theme.header.logoUrl}
+                          alt="Header Logo Preview"
+                          className="h-8 w-auto object-contain bg-slate-100/50 p-1 rounded"
+                        />
+                        <span className="text-[10px] text-emerald-600 font-bold truncate font-mono">已加载 Logo 图片</span>
+                      </div>
+                    )}
                     <div>
-                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>页眉左上角 Logo 地址</label>
                       <input
                         type="text"
                         value={theme.header.logoUrl || ''}
                         onChange={(e) => updateHeader('logoUrl', e.target.value)}
-                        placeholder="图片 URL 或本地相对路径 (如: ./assets/logo.png)"
+                        placeholder="输入图片 URL 或本地相对路径 (如: ./assets/logo.png)"
                         className={`w-full rounded px-2 py-1 ${inputSubClass}`}
                       />
                     </div>
                     {theme.header.logoUrl && (
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-3 pt-1">
                         <div>
-                          <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>Logo 高度 (px)</label>
+                          <div className={`flex justify-between text-[10px] font-bold mb-1 ${labelClass}`}>
+                            <span>Logo 高度 (px)</span>
+                            <span>{theme.header.logoHeight ?? 20}px</span>
+                          </div>
                           <input
-                            type="number"
+                            type="range"
                             min={10}
-                            max={60}
-                            value={theme.header.logoHeight || 20}
+                            max={70}
+                            value={theme.header.logoHeight ?? 20}
                             onChange={(e) => updateHeader('logoHeight', Number(e.target.value))}
-                            className={`w-full rounded px-2 py-1 ${inputSubClass}`}
+                            className="w-full accent-blue-600"
                           />
                         </div>
                         <div>
-                          <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>Logo 透明度 (%)</label>
+                          <div className={`flex justify-between text-[10px] font-bold mb-1 ${labelClass}`}>
+                            <span>Logo 透明度 (%)</span>
+                            <span>{Math.round((theme.header.logoOpacity ?? 1) * 100)}%</span>
+                          </div>
                           <input
-                            type="number"
-                            min={0}
+                            type="range"
+                            min={10}
                             max={100}
                             value={Math.round((theme.header.logoOpacity ?? 1) * 100)}
                             onChange={(e) => updateHeader('logoOpacity', Math.min(1, Math.max(0, Number(e.target.value) / 100)))}
-                            className={`w-full rounded px-2 py-1 ${inputSubClass}`}
+                            className="w-full accent-blue-600"
+                          />
+                        </div>
+                        <div>
+                          <div className={`flex justify-between text-[10px] font-bold mb-1 ${labelClass}`}>
+                            <span>左侧文本偏移 (px)</span>
+                            <span>{theme.header.leftTextOffset ?? 0}px</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={0}
+                            max={400}
+                            value={theme.header.leftTextOffset ?? 0}
+                            onChange={(e) => updateHeader('leftTextOffset', Number(e.target.value))}
+                            className="w-full accent-blue-600"
+                          />
+                        </div>
+                        <div>
+                          <div className={`flex justify-between text-[10px] font-bold mb-1 ${labelClass}`}>
+                            <span>Logo 顶部距离 (px)</span>
+                            <span>{theme.header.logoTopOffset ?? 15}px</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={0}
+                            max={120}
+                            value={theme.header.logoTopOffset ?? 15}
+                            onChange={(e) => updateHeader('logoTopOffset', Number(e.target.value))}
+                            className="w-full accent-blue-600"
                           />
                         </div>
                       </div>
@@ -709,6 +762,26 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       onChange={(e) => updateFooter('leftText', e.target.value)}
                       className={`w-full rounded px-2 py-1 ${inputSubClass}`}
                     />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>中间文本</label>
+                      <input
+                        type="text"
+                        value={theme.footer.centerText}
+                        onChange={(e) => updateFooter('centerText', e.target.value)}
+                        className={`w-full rounded px-2 py-1 ${inputSubClass}`}
+                      />
+                    </div>
+                    <div>
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>右侧文本</label>
+                      <input
+                        type="text"
+                        value={theme.footer.rightText}
+                        onChange={(e) => updateFooter('rightText', e.target.value)}
+                        className={`w-full rounded px-2 py-1 ${inputSubClass}`}
+                      />
+                    </div>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-2">
@@ -818,6 +891,15 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                 </div>
 
                 <div className={`pt-2 border-t ${sectionBorderClass}`}>
+                  <label className={`flex items-center gap-2 cursor-pointer font-bold text-[11px] mb-2 ${textSubClass}`}>
+                    <input
+                      type="checkbox"
+                      checked={theme.toc.showPageNumbers}
+                      onChange={(e) => updateToc('showPageNumbers', e.target.checked)}
+                      className={`rounded text-blue-600 ${isDark ? 'bg-[#0A0A0A] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
+                    />
+                    <span>显示目录页码</span>
+                  </label>
                   <label className={`flex items-center gap-2 cursor-pointer font-bold text-[11px] ${textSubClass}`}>
                     <input
                       type="checkbox"
@@ -1082,46 +1164,6 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   <option value="plain">普通纯文字 (Plain)</option>
                 </select>
               </div>
-
-              {(['h1', 'h2', 'h3', 'h4'] as const).map((level) => {
-                const defaults = { h1: 24, h2: 20, h3: 17, h4: 15 };
-                const headingFont = theme.style.headingFonts?.[level];
-                return (
-                  <div key={level} className={`grid grid-cols-[auto_1fr_72px_auto] items-end gap-2 p-2.5 rounded-lg border ${subCardBgClass}`}>
-                    <span className={`pb-1 text-xs font-bold uppercase ${textSubClass}`}>{level}</span>
-                    <label>
-                      <span className={`block text-[10px] font-bold mb-1 ${labelClass}`}>字体</span>
-                      <input
-                        type="text"
-                        value={headingFont?.fontFamily || ''}
-                        placeholder="继承正文"
-                        onChange={(e) => updateHeadingFont(level, 'fontFamily', e.target.value)}
-                        className={`w-full rounded px-2 py-1 ${inputClass}`}
-                      />
-                    </label>
-                    <label>
-                      <span className={`block text-[10px] font-bold mb-1 ${labelClass}`}>字号 px</span>
-                      <input
-                        type="number"
-                        min={12}
-                        max={40}
-                        value={headingFont?.fontSize ?? defaults[level]}
-                        onChange={(e) => updateHeadingFont(level, 'fontSize', Number(e.target.value))}
-                        className={`w-full rounded px-2 py-1 ${inputClass}`}
-                      />
-                    </label>
-                    <label className={`flex items-center gap-1 pb-1 cursor-pointer text-[10px] font-bold ${textSubClass}`}>
-                      <input
-                        type="checkbox"
-                        checked={headingFont?.bold ?? true}
-                        onChange={(e) => updateHeadingFont(level, 'bold', e.target.checked)}
-                        className="rounded text-blue-600"
-                      />
-                      加粗
-                    </label>
-                  </div>
-                );
-              })}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

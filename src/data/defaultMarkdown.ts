@@ -29,11 +29,13 @@ title: 下一代 AIGC 创意工作流与云原生系统架构方案
 subtitle: 企业级微服务重构与智能化交付白皮书
 author: 某某团队
 number: DOC-DEMO-001
-logo: https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=160&auto=format&fit=crop&q=80
+logo: https://iph.href.lu/160x60?text=logo
 coverlist:
-  - 文档类型: 架构设计说明
-  - 撰写团队: 某某团队
-  - 适用范围: 内部示例
+  - 📁项目名称: Project Name
+  - 🏷️文档版本: v1.5
+  - ✍️撰写团队: 前沿探索组
+  - 🏢所属部门: 基础架构研发中心
+  - 📅交付日期: 2026年Q3
 ---
 
 # 1. 项目概述与设计目标
@@ -167,7 +169,7 @@ title: 某某体验设计语言与组件规范
 subtitle: 全终端一致性视觉体系与 Design Token 交付指南
 author: 某某设计团队
 number: DOC-DEMO-002
-logo: https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=160&auto=format&fit=crop&q=80
+logo: https://iph.href.lu/160x60?text=logo
 coverlist:
   - 文档类型: 体验设计规范
   - 撰写团队: 某某设计团队

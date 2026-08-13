@@ -216,11 +216,19 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                 color: style.textColor,
               }}
             >
-              
+              {header.show && (page.type !== 'cover' || !header.hideOnCover) && header.logoUrl && (
+                <img
+                  src={resolveImageSrc(header.logoUrl)}
+                  alt="Header Logo"
+                  className="absolute left-[75px] z-10 object-contain pointer-events-none"
+                  style={{ top: `${header.logoTopOffset ?? 15}px`, height: `${header.logoHeight || 20}px`, width: 'auto', opacity: header.logoOpacity ?? 1 }}
+                />
+              )}
+
               {/* Page Header Bar */}
               {header.show && (page.type !== 'cover' || !header.hideOnCover) && (
                 <div 
-                  className="w-full flex items-center justify-between text-[11px] text-slate-500 pb-2 mb-6 select-none shrink-0"
+                  className="w-full relative flex items-center justify-between text-[11px] text-slate-500 pb-2 mb-6 select-none shrink-0"
                   style={{
                     borderBottom: header.lineStyle === 'none' ? 'none' :
                                   header.lineStyle === 'double' ? `3px double ${style.accentColor}` :
@@ -228,18 +236,11 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                                   `1px solid #cbd5e1`,
                   }}
                 >
-                  <div className="flex items-center gap-2 font-medium text-slate-600 shrink-0">
-                    {header.logoUrl && (
-                      <img 
-                        src={resolveImageSrc(header.logoUrl)} 
-                        alt="Header Logo" 
-                        className="object-contain" 
-                        style={{ height: `${header.logoHeight || 20}px`, opacity: header.logoOpacity ?? 1 }} 
-                      />
-                    )}
-                    <span>{header.leftText || meta.projectName || ''}</span>
+                  <div className="font-medium text-slate-600 shrink-0" style={{ marginLeft: `${header.leftTextOffset ?? 0}px` }}>
+                    <span>{header.leftText || ''}</span>
                   </div>
-                  <span className="text-slate-400 truncate ml-4">{header.rightText || meta.title || ''}</span>
+                  <span className="text-slate-400 truncate px-4 text-center flex-1">{header.centerText || ''}</span>
+                  <span className="text-slate-400 truncate">{header.rightText || meta.title || ''}</span>
                 </div>
               )}
 
@@ -256,7 +257,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                         {/* Top Organization Badge & Optional Logo */}
                         <div className="pt-2 space-y-2">
                           {(meta.logo || meta.logoUrl) && (
-                            <img src={meta.logo || meta.logoUrl} alt="Logo" className="h-10 max-w-[180px] object-contain mx-auto mb-2" />
+                            <img src={meta.logo || meta.logoUrl} alt="Logo" className="h-10 w-auto object-contain mx-auto mb-2" />
                           )}
                           <span 
                             className="text-xs uppercase tracking-widest font-bold px-4 py-1.5 rounded-full inline-block"
@@ -326,7 +327,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                         <div className="flex items-center justify-between pt-2">
                           <div className="flex items-center gap-3">
                             {(meta.logo || meta.logoUrl) && (
-                              <img src={meta.logo || meta.logoUrl} alt="Logo" className="h-8 max-w-[120px] object-contain" />
+                              <img src={meta.logo || meta.logoUrl} alt="Logo" className="h-8 w-auto object-contain" />
                             )}
                             <span 
                               className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded"
@@ -335,12 +336,12 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                               {meta.organization || 'SPECIFICATION'}
                             </span>
                           </div>
-                          {(meta.number || meta.version) && (
+                          {meta.number && (
                             <span 
                               className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full text-white shadow-xs"
                               style={{ backgroundColor: style.accentColor }}
                             >
-                              {meta.number || meta.version}
+                              {meta.number}
                             </span>
                           )}
                         </div>
@@ -379,7 +380,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                         {/* Top Formal Banner */}
                         <div className="text-center border-b pb-3 space-y-1" style={{ borderColor: `${style.primaryColor}30` }}>
                           {(meta.logo || meta.logoUrl) && (
-                            <img src={meta.logo || meta.logoUrl} alt="Logo" className="h-8 max-w-[140px] object-contain mx-auto mb-1" />
+                            <img src={meta.logo || meta.logoUrl} alt="Logo" className="h-8 w-auto object-contain mx-auto mb-1" />
                           )}
                           <div className="text-xs font-bold uppercase tracking-widest" style={{ color: style.primaryColor }}>
                             {meta.organization || '国家与企业标准交付文件'}
@@ -388,9 +389,9 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
 
                         {/* Main Title Area */}
                         <div className="text-center my-auto py-8 space-y-4">
-                          {(meta.number || meta.version) && (
+                          {meta.number && (
                             <div className="text-xs font-mono font-bold px-3 py-1 inline-block rounded bg-slate-100 text-slate-700 border border-slate-200">
-                              文档编号：{meta.number || (meta.version ? `SPEC-${meta.version}` : 'SPEC-DOC-2026')}
+                              文档编号：{meta.number}
                             </div>
                           )}
                           <h1 
@@ -428,7 +429,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                             {meta.organization || 'DOCUMENTATION'}
                           </span>
                           {(meta.logo || meta.logoUrl) && (
-                            <img src={meta.logo || meta.logoUrl} alt="Logo" className="h-6 max-w-[100px] object-contain opacity-80" />
+                            <img src={meta.logo || meta.logoUrl} alt="Logo" className="h-6 w-auto object-contain opacity-80" />
                           )}
                         </div>
 
@@ -477,7 +478,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                               {meta.organization || 'CREATIVE SPEC'}
                             </div>
                             {(meta.logo || meta.logoUrl) && (
-                              <img src={meta.logo || meta.logoUrl} alt="Logo" className="h-7 max-w-[100px] object-contain brightness-0 invert opacity-90" />
+                              <img src={meta.logo || meta.logoUrl} alt="Logo" className="h-7 w-auto object-contain brightness-0 invert opacity-90" />
                             )}
                           </div>
                           <div>
@@ -568,13 +569,15 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                                 <div 
                                   className="flex-1 mx-2 border-b border-dotted border-slate-300 h-2"
                                   style={{
-                                    borderStyle: toc.leaderStyle === 'dashes' ? 'dashed' : 'dotted',
+                                    borderStyle: toc.leaderStyle === 'dashes' ? 'dashed' : toc.leaderStyle === 'line' ? 'solid' : 'dotted',
                                   }}
                                 />
                               )}
-                              <span className="text-slate-600 font-mono text-[11px] font-semibold shrink-0">
-                                {item.pageNumber ?? 1}
-                              </span>
+                              {toc.showPageNumbers && (
+                                <span className="text-slate-600 font-mono text-[11px] font-semibold shrink-0">
+                                  {item.pageNumber ?? 1}
+                                </span>
+                              )}
                             </button>
                           );
                         })}
@@ -626,8 +629,10 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
           color: var(--primary-color);
           margin-top: 1.6em;
           margin-bottom: 0.6em;
-          padding-bottom: 0.3em;
-          border-bottom: 2px solid var(--accent-color);
+          padding: ${style.h1Style === 'badge' ? '0.25em 0.5em' : style.h1Style === 'accent-block' ? '0 0 0 0.45em' : '0 0 0.3em'};
+          background: ${style.h1Style === 'badge' ? `${style.accentColor}18` : 'transparent'};
+          border-bottom: ${style.h1Style === 'underline' ? '2px solid var(--accent-color)' : 'none'};
+          border-left: ${style.h1Style === 'accent-block' ? '5px solid var(--accent-color)' : 'none'};
         }
         .markdown-rendered-body h1:first-child {
           margin-top: 0;
@@ -639,8 +644,10 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
           color: var(--primary-color);
           margin-top: 1.4em;
           margin-bottom: 0.5em;
-          padding-left: 8px;
-          border-left: 4px solid var(--accent-color);
+          padding-left: ${style.h2Style === 'border-left' ? '8px' : '0'};
+          border-left: ${style.h2Style === 'border-left' ? '4px solid var(--accent-color)' : 'none'};
+          padding-bottom: ${style.h2Style === 'underline-subtle' ? '0.25em' : '0'};
+          border-bottom: ${style.h2Style === 'underline-subtle' ? '1px solid var(--accent-color)' : 'none'};
         }
         .markdown-rendered-body h3 {
           font-family: ${style.headingFonts?.h3.fontFamily || 'inherit'};
@@ -722,11 +729,16 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
         .markdown-rendered-body ol {
           margin: 0.8em 0;
           padding-left: 20px;
-          list-style-type: decimal;
+          list-style-type: ${style.numberStyle === 'chinese' ? 'cjk-ideographic' : style.numberStyle === 'paren' ? 'none' : 'decimal'};
         }
         .markdown-rendered-body ol li {
           margin-bottom: 0.3em;
         }
+        ${style.numberStyle === 'paren' ? `
+        .markdown-rendered-body ol { counter-reset: item; }
+        .markdown-rendered-body ol li { counter-increment: item; }
+        .markdown-rendered-body ol li::before { content: '(' counter(item) ') '; color: var(--accent-color); font-weight: 700; }
+        ` : ''}
         .markdown-rendered-body table {
           width: 100%;
           border-collapse: collapse;
