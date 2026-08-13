@@ -16,7 +16,7 @@ export default function App() {
   // Load initial theme from localStorage or fallback to enterprise default
   const [theme, setTheme] = useState<DocumentTheme>(() => {
     try {
-      const saved = localStorage.getItem('docucraft_current_theme');
+      const saved = localStorage.getItem('sangdoccraft_current_theme') || localStorage.getItem('docucraft_current_theme');
       if (saved) return JSON.parse(saved);
     } catch (e) {
       // ignore
@@ -27,7 +27,7 @@ export default function App() {
   // Load initial markdown from localStorage or fallback to sample
   const [markdown, setMarkdown] = useState<string>(() => {
     try {
-      const saved = localStorage.getItem('docucraft_markdown');
+      const saved = localStorage.getItem('sangdoccraft_markdown') || localStorage.getItem('docucraft_markdown');
       if (saved) return saved;
     } catch (e) {
       // ignore
@@ -38,7 +38,7 @@ export default function App() {
   // UI Theme Mode (Dark / Light)
   const [uiMode, setUiMode] = useState<'dark' | 'light'>(() => {
     try {
-      const saved = localStorage.getItem('docucraft_ui_mode');
+      const saved = localStorage.getItem('sangdoccraft_ui_mode') || localStorage.getItem('docucraft_ui_mode');
       if (saved === 'light' || saved === 'dark') return saved;
     } catch (e) {
       // ignore
@@ -52,7 +52,7 @@ export default function App() {
   // Split View ratio state (%)
   const [splitRatio, setSplitRatio] = useState<number>(() => {
     try {
-      const saved = localStorage.getItem('docucraft_split_ratio');
+      const saved = localStorage.getItem('sangdoccraft_split_ratio') || localStorage.getItem('docucraft_split_ratio');
       if (saved) return parseFloat(saved);
     } catch (e) {}
     return 42;
@@ -61,7 +61,7 @@ export default function App() {
   // Collapsible Style Config Panel state
   const [isConfigPanelOpen, setIsConfigPanelOpen] = useState<boolean>(() => {
     try {
-      const saved = localStorage.getItem('docucraft_config_panel_open');
+      const saved = localStorage.getItem('sangdoccraft_config_panel_open') || localStorage.getItem('docucraft_config_panel_open');
       if (saved !== null) return saved === 'true';
     } catch (e) {}
     return true;
@@ -94,31 +94,31 @@ export default function App() {
   // Auto-save to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('docucraft_current_theme', JSON.stringify(theme));
+      localStorage.setItem('sangdoccraft_current_theme', JSON.stringify(theme));
     } catch (e) {}
   }, [theme]);
 
   useEffect(() => {
     try {
-      localStorage.setItem('docucraft_markdown', markdown);
+      localStorage.setItem('sangdoccraft_markdown', markdown);
     } catch (e) {}
   }, [markdown]);
 
   useEffect(() => {
     try {
-      localStorage.setItem('docucraft_ui_mode', uiMode);
+      localStorage.setItem('sangdoccraft_ui_mode', uiMode);
     } catch (e) {}
   }, [uiMode]);
 
   useEffect(() => {
     try {
-      localStorage.setItem('docucraft_split_ratio', splitRatio.toString());
+      localStorage.setItem('sangdoccraft_split_ratio', splitRatio.toString());
     } catch (e) {}
   }, [splitRatio]);
 
   useEffect(() => {
     try {
-      localStorage.setItem('docucraft_config_panel_open', isConfigPanelOpen.toString());
+      localStorage.setItem('sangdoccraft_config_panel_open', isConfigPanelOpen.toString());
     } catch (e) {}
   }, [isConfigPanelOpen]);
 
@@ -187,10 +187,6 @@ export default function App() {
     }
   };
 
-  const handlePrintPdf = () => {
-    window.print();
-  };
-
   const isDark = uiMode === 'dark';
 
   return (
@@ -207,10 +203,11 @@ export default function App() {
         onMarkdownChange={setMarkdown}
         onExportDocx={handleExportDocx}
         onExportHtml={handleExportHtml}
-        onPrintPdf={handlePrintPdf}
         onOpenJsonModal={() => setShowJsonModal(true)}
         uiMode={uiMode}
         onToggleUiMode={toggleUiMode}
+        isConfigPanelOpen={isConfigPanelOpen}
+        onToggleConfigPanel={() => setIsConfigPanelOpen(!isConfigPanelOpen)}
       />
 
       {/* Main Workspace Layout */}

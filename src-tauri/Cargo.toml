@@ -1,8 +1,8 @@
 [package]
-name = "docucraft-a4"
+name = "sangdoccraft"
 version = "1.0.0"
-description = "DocuCraft A4 - Markdown to Printed A4 Document Generator"
-authors = ["DocuCraft Team"]
+description = "SangDocCraft - Markdown to Printed A4 Document Generator"
+authors = ["SangDocCraft Team"]
 edition = "2021"
 
 [build-dependencies]

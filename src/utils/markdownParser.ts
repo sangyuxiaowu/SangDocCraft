@@ -1073,37 +1073,7 @@ export function getFooterSlots(pageNum: number, totalPages: number, footer: Foot
  * Preprocesses markdown text to detect table captions and inject markers before table HTML
  */
 export function preprocessMarkdownCaptions(markdownText: string): string {
-  if (!markdownText) return '';
-
-  const lines = markdownText.split('\n');
-  const processedLines: string[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    const nextLine = (i + 1 < lines.length) ? lines[i + 1].trim() : '';
-
-    const isNextLineTable = nextLine.startsWith('|');
-
-    if (isNextLineTable) {
-      // 1) <!-- caption: XXX --> or <!-- table-caption: XXX -->
-      const commentMatch = line.match(/^<!--\s*(?:table-)?caption:\s*(.*?)\s*-->$/i);
-      // 2) Table: XXX or 表: XXX or 表 1: XXX or 表1: XXX
-      const tablePrefixMatch = line.match(/^(?:Table|表)\s*\d*[:：]?\s*(.+)$/i);
-      // 3) [表 1: XXX] or [Table 1: XXX]
-      const bracketMatch = line.match(/^\[(?:Table|表)\s*\d*[:：]?\s*(.+)\]$/i);
-
-      const matchedCaption = commentMatch?.[1] || bracketMatch?.[1] || (tablePrefixMatch && !line.startsWith('|') ? tablePrefixMatch[1] : null);
-
-      if (matchedCaption) {
-        processedLines.push(`<div class="doc-table-caption-hook" data-caption="${escapeHtmlAttr(matchedCaption)}"></div>`);
-        continue;
-      }
-    }
-
-    processedLines.push(lines[i]);
-  }
-
-  return processedLines.join('\n');
+  return markdownText || '';
 }
 
 function escapeHtmlAttr(str: string): string {
@@ -1173,27 +1143,42 @@ export function postProcessRenderedHtml(
   });
 
   // 2. Process Tables and Table Captions
+  const handleTableCaption = (captionRaw: string, tableHtml: string) => {
+    if (!tblConfig.showCaption || !captionRaw) {
+      return tableHtml;
+    }
+
+    let cleanCaption = captionRaw.replace(/^(?:图|表|Figure|Table)\s*\d*[:：]?\s*/i, '').trim();
+    if (tblConfig.autoNumber) {
+      counters.tableCount++;
+      cleanCaption = `${tblConfig.numberPrefix}${counters.tableCount}: ${cleanCaption}`;
+    }
+
+    const captionElement = `<div class="doc-table-caption" style="text-align: ${tblConfig.captionAlign};">${cleanCaption}</div>`;
+
+    if (tblConfig.captionPosition === 'top') {
+      return `<div class="doc-table-wrapper" style="margin: 1.2em 0;">${captionElement}${tableHtml}</div>`;
+    } else {
+      return `<div class="doc-table-wrapper" style="margin: 1.2em 0;">${tableHtml}${captionElement}</div>`;
+    }
+  };
+
+  // 2a. Match comment captions: <!-- caption: XXX --> or <!-- table-caption: XXX --> (with optional <p> or newlines) before <table>
+  processed = processed.replace(
+    /(?:<p>\s*)?<!--\s*(?:table-)?caption:\s*([\s\S]*?)\s*-->(?:\s*<\/p>)?\s*(<table[\s\S]*?<\/table>)/gi,
+    (_, captionRaw, tableHtml) => handleTableCaption(captionRaw, tableHtml)
+  );
+
+  // 2b. Match text captions: <p>表 1: XXX</p> or <p>[表 1: XXX]</p> or <p>Table 1: XXX</p> before <table>
+  processed = processed.replace(
+    /<p>\s*(?:\[)?(?:Table|表)\s*\d*[:：]?\s*(.*?)(?:\])?\s*<\/p>\s*(<table[\s\S]*?<\/table>)/gi,
+    (_, captionRaw, tableHtml) => handleTableCaption(captionRaw, tableHtml)
+  );
+
+  // 2c. Match hook tags if present
   processed = processed.replace(
     /<div\s+class=["']doc-table-caption-hook["']\s+data-caption=["']([^"']*)["']><\/div>\s*(<table[\s\S]*?<\/table>)/gi,
-    (_, captionRaw, tableHtml) => {
-      if (!tblConfig.showCaption || !captionRaw) {
-        return tableHtml;
-      }
-
-      let cleanCaption = captionRaw.replace(/^(?:图|表|Figure|Table)\s*\d*[:：]?\s*/i, '').trim();
-      if (tblConfig.autoNumber) {
-        counters.tableCount++;
-        cleanCaption = `${tblConfig.numberPrefix}${counters.tableCount}: ${cleanCaption}`;
-      }
-
-      const captionElement = `<div class="doc-table-caption" style="text-align: ${tblConfig.captionAlign};">${cleanCaption}</div>`;
-
-      if (tblConfig.captionPosition === 'top') {
-        return `<div class="doc-table-wrapper" style="margin: 1.2em 0;">${captionElement}${tableHtml}</div>`;
-      } else {
-        return `<div class="doc-table-wrapper" style="margin: 1.2em 0;">${tableHtml}${captionElement}</div>`;
-      }
-    }
+    (_, captionRaw, tableHtml) => handleTableCaption(captionRaw, tableHtml)
   );
 
   return processed;

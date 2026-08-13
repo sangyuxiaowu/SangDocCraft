@@ -27,34 +27,51 @@ export const Editor: React.FC<EditorProps> = ({ value, onChange, uiMode = 'dark'
   const isDark = uiMode === 'dark';
 
   // Insert helper for formatting buttons
-  const insertText = (before: string, after: string = '') => {
+  const insertText = (before: string, after: string = '', defaultText: string = '') => {
     const textarea = textareaRef.current;
     if (!textarea) return;
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
+    const scrollTop = textarea.scrollTop;
+
     const selectedText = value.substring(start, end);
-    const replacement = `${before}${selectedText || '文本'}${after}`;
+    const insertContent = selectedText || defaultText;
+    const replacement = `${before}${insertContent}${after}`;
 
     const newValue = value.substring(0, start) + replacement + value.substring(end);
     onChange(newValue);
 
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(
-        start + before.length,
-        start + before.length + (selectedText.length || 2)
-      );
-    }, 10);
+    let selectStart: number;
+    let selectEnd: number;
+
+    if (selectedText) {
+      selectStart = start + before.length;
+      selectEnd = start + before.length + selectedText.length;
+    } else if (defaultText) {
+      selectStart = start + before.length;
+      selectEnd = start + before.length + defaultText.length;
+    } else {
+      selectStart = start + before.length;
+      selectEnd = start + before.length;
+    }
+
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(selectStart, selectEnd);
+        textareaRef.current.scrollTop = scrollTop;
+      }
+    });
   };
 
   const insertTable = () => {
-    const tableTemplate = `\n\n| 表头1 | 表头2 | 表头3 |\n| :--- | :---: | ---: |\n| 内容数据A | 中心对齐 | 右对齐 |\n| 内容数据B | 中心对齐 | 右对齐 |\n\n`;
-    insertText(tableTemplate);
+    const tableTemplate = `\n\n<!-- caption: 题注内容 -->\n| 表头1 | 表头2 | 表头3 |\n| :--- | :---: | ---: |\n| 内容数据A | 中心对齐 | 右对齐 |\n| 内容数据B | 中心对齐 | 右对齐 |\n\n`;
+    insertText(tableTemplate, '', '');
   };
 
   const insertPageBreak = () => {
-    insertText('\n\n<!-- pagebreak -->\n\n');
+    insertText('\n\n<!-- pagebreak -->\n\n', '', '');
   };
 
   const lineCount = value.split('\n').length;
@@ -73,21 +90,24 @@ export const Editor: React.FC<EditorProps> = ({ value, onChange, uiMode = 'dark'
       <div className={`${isDark ? 'bg-[#121212] border-[#2A2A2A] text-zinc-300' : 'bg-slate-50 border-slate-200 text-slate-700'} border-b px-3 py-2 flex items-center gap-1 flex-wrap text-xs transition-colors duration-200`}>
         
         <button
-          onClick={() => insertText('# ', '')}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => insertText('# ', '', '')}
           className={`p-1.5 rounded transition font-bold ${btnHoverClass}`}
           title="一级标题 H1"
         >
           <Heading1 className="w-4 h-4" />
         </button>
         <button
-          onClick={() => insertText('## ', '')}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => insertText('## ', '', '')}
           className={`p-1.5 rounded transition font-bold ${btnHoverClass}`}
           title="二级标题 H2"
         >
           <Heading2 className="w-4 h-4" />
         </button>
         <button
-          onClick={() => insertText('### ', '')}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => insertText('### ', '', '')}
           className={`p-1.5 rounded transition font-bold ${btnHoverClass}`}
           title="三级标题 H3"
         >
@@ -97,14 +117,16 @@ export const Editor: React.FC<EditorProps> = ({ value, onChange, uiMode = 'dark'
         <div className={`w-px h-4 mx-1 ${dividerClass}`} />
 
         <button
-          onClick={() => insertText('**', '**')}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => insertText('**', '**', '加粗文本')}
           className={`p-1.5 rounded transition ${btnHoverClass}`}
           title="粗体"
         >
           <Bold className="w-4 h-4" />
         </button>
         <button
-          onClick={() => insertText('*', '*')}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => insertText('*', '*', '斜体文本')}
           className={`p-1.5 rounded transition ${btnHoverClass}`}
           title="斜体"
         >
@@ -114,14 +136,16 @@ export const Editor: React.FC<EditorProps> = ({ value, onChange, uiMode = 'dark'
         <div className={`w-px h-4 mx-1 ${dividerClass}`} />
 
         <button
-          onClick={() => insertText('* ', '')}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => insertText('* ', '', '')}
           className={`p-1.5 rounded transition ${btnHoverClass}`}
           title="无序列表"
         >
           <List className="w-4 h-4" />
         </button>
         <button
-          onClick={() => insertText('1. ', '')}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => insertText('1. ', '', '')}
           className={`p-1.5 rounded transition ${btnHoverClass}`}
           title="有序列表"
         >
@@ -131,14 +155,16 @@ export const Editor: React.FC<EditorProps> = ({ value, onChange, uiMode = 'dark'
         <div className={`w-px h-4 mx-1 ${dividerClass}`} />
 
         <button
-          onClick={() => insertText('> ', '')}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => insertText('> ', '', '')}
           className={`p-1.5 rounded transition ${btnHoverClass}`}
           title="引用块"
         >
           <Quote className="w-4 h-4" />
         </button>
         <button
-          onClick={() => insertText('```json\n', '\n```')}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => insertText('```json\n', '\n```', '// 代码内容')}
           className={`p-1.5 rounded transition ${btnHoverClass}`}
           title="代码块"
         >
@@ -146,6 +172,7 @@ export const Editor: React.FC<EditorProps> = ({ value, onChange, uiMode = 'dark'
         </button>
 
         <button
+          onMouseDown={(e) => e.preventDefault()}
           onClick={insertTable}
           className={`p-1.5 rounded transition flex items-center gap-1 ${btnHoverClass}`}
           title="插入格式化表格"
@@ -157,6 +184,7 @@ export const Editor: React.FC<EditorProps> = ({ value, onChange, uiMode = 'dark'
 
         {/* Page Break Tag Insert */}
         <button
+          onMouseDown={(e) => e.preventDefault()}
           onClick={insertPageBreak}
           className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 transition shadow-xs"
           title="插入强行分页标志 <!-- pagebreak -->"

@@ -27,10 +27,11 @@ interface HeaderBarProps {
   onMarkdownChange: (md: string) => void;
   onExportDocx: () => void;
   onExportHtml: () => void;
-  onPrintPdf: () => void;
   onOpenJsonModal: () => void;
   uiMode: 'dark' | 'light';
   onToggleUiMode: () => void;
+  isConfigPanelOpen?: boolean;
+  onToggleConfigPanel?: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -41,7 +42,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onMarkdownChange,
   onExportDocx,
   onExportHtml,
-  onPrintPdf,
   onOpenJsonModal,
   uiMode,
   onToggleUiMode,
@@ -62,20 +62,20 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         <div className="flex items-center gap-4 flex-wrap justify-start">
           {/* Brand & Title */}
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center font-mono font-black text-white text-sm shadow-md shrink-0">
-              MD
+            <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center font-mono font-black text-white text-xs shadow-md shrink-0">
+              SDC
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-black tracking-tighter">
-                  DOC<span className="text-blue-500">CRAFT</span>
+                  SANG<span className="text-blue-500">DOCCRAFT</span>
                 </h1>
                 <span className="text-[9px] uppercase font-bold tracking-widest px-2 py-0.5 rounded bg-blue-500/20 text-blue-500 border border-blue-500/30 shrink-0">
                   A4 DOC SPEC
                 </span>
               </div>
               <p className={`text-[10px] uppercase tracking-[0.2em] font-bold ${isDark ? 'text-zinc-500' : 'text-slate-500'}`}>
-                MD TO PROFESSIONAL WORD / HTML / PDF
+                MD TO PROFESSIONAL WORD / HTML
               </p>
             </div>
           </div>
@@ -341,24 +341,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   <div>
                     <div className="font-bold uppercase tracking-wider">导出 HTML 网页 (.html)</div>
                     <div className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-slate-500'}`}>单文件自包含格式，随时网页查阅</div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    onPrintPdf();
-                    setShowExportDropdown(false);
-                  }}
-                  className={`w-full text-left px-3 py-2.5 rounded text-xs flex items-center gap-2.5 transition ${
-                    isDark ? 'text-white hover:bg-[#2A2A2A]' : 'text-slate-800 hover:bg-slate-100'
-                  }`}
-                >
-                  <div className="w-7 h-7 rounded bg-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                    P
-                  </div>
-                  <div>
-                    <div className="font-bold uppercase tracking-wider">打印 / 保存为 PDF</div>
-                    <div className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-slate-500'}`}>调起系统标准 A4 打印预览</div>
                   </div>
                 </button>
               </div>
