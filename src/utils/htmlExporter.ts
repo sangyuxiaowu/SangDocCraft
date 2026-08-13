@@ -56,12 +56,8 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
   const coverListItems = (meta.coverlist && meta.coverlist.length > 0)
     ? meta.coverlist
     : [
-        { label: '项目名称', value: meta.projectName },
-        { label: '文档版本', value: meta.version },
         { label: '撰写团队', value: meta.author },
         { label: '所属部门', value: meta.department },
-        { label: '所属机构', value: meta.organization },
-        { label: '交付日期', value: meta.date },
       ].filter(item => !!item.value);
 
   const renderMetaTableRows = () => {

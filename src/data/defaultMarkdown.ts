@@ -1,17 +1,39 @@
 export const SAMPLE_MARKDOWNS = {
+  systemTemplate: `---
+title: 系统使用说明
+subtitle: SangDocCraft Markdown 文档范本
+author: 文档编写人
+---
+
+# 文档概述
+
+本文档使用 **Markdown** 编写，可通过右侧面板设置封面、页眉页脚、目录与排版。
+
+## 基础内容
+
+正文默认使用中文字体与 Times New Roman 英文字体。封面属性由 coverlist 自由定义，可插入表格、代码、图片和分页符。
+
+### 图片示例
+
+![示例图片](https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&auto=format&fit=crop&q=80)
+
+#### 交付检查
+
+- 检查目录链接
+- 检查页眉页脚
+- 导出 Word 后更新目录字段
+`,
+
   architectureDoc: `---
 title: 下一代 AIGC 创意工作流与云原生系统架构方案
 subtitle: 企业级微服务重构与智能化交付白皮书
-author: 诺倾情
-organization: 前沿技术架构委员会
-number: TSRH-TL-RRep-01
+author: 某某团队
+number: DOC-DEMO-001
 logo: https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=160&auto=format&fit=crop&q=80
 coverlist:
-  - 📁项目名称: Project Hyperion
-  - 🏷️文档版本: v1.5
-  - ✍️撰写团队: 前沿探索组
-  - 🏢所属部门: 基础架构研发中心
-  - 📅交付日期: 2026年Q3
+  - 文档类型: 架构设计说明
+  - 撰写团队: 某某团队
+  - 适用范围: 内部示例
 ---
 
 # 1. 项目概述与设计目标
@@ -141,23 +163,21 @@ CREATE TABLE \`t_orders\` (
 `,
 
   uiDesignDoc: `---
-title: NextGen 体验设计语言与组件规范
+title: 某某体验设计语言与组件规范
 subtitle: 全终端一致性视觉体系与 Design Token 交付指南
-author: 设计系统团队
-organization: 体验设计中心 (UX Center)
-number: DS-UI-2026-v2.0
+author: 某某设计团队
+number: DOC-DEMO-002
 logo: https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=160&auto=format&fit=crop&q=80
 coverlist:
-  - 🎨系统名称: NextGen Design System
-  - 🏷️版本号: v2.0.4
-  - 🏢适用团队: 全平台前端与UI团队
-  - 📅发布日期: 2026年8月
+  - 文档类型: 体验设计规范
+  - 撰写团队: 某某设计团队
+  - 适用范围: 内部示例
 ---
 
 # 1. 体验设计原则与 Token 系统
 
 ## 1.1 设计视觉语言
-本规范定义了 **NextGen Design System** 的基础视觉组件与交互范式。旨在为全终端应用提供一致、优雅、无障碍（WCAG 2.1 AA）的用户体验。
+本规范定义了 **某某设计系统** 的基础视觉组件与交互范式。旨在为全终端应用提供一致、优雅、无障碍（WCAG 2.1 AA）的用户体验。
 
 主要核心理念包括：
 * **克制与秩序**：利用严格的 8px 空间网格，消除视觉噪音。

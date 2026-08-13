@@ -3,6 +3,7 @@ import {
   Heading1, 
   Heading2, 
   Heading3, 
+  Heading4,
   Bold, 
   Italic, 
   List, 
@@ -113,6 +114,14 @@ export const Editor: React.FC<EditorProps> = ({ value, onChange, uiMode = 'dark'
         >
           <Heading3 className="w-4 h-4" />
         </button>
+        <button
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => insertText('#### ', '', '')}
+          className={`p-1.5 rounded transition font-bold ${btnHoverClass}`}
+          title="四级标题 H4"
+        >
+          <Heading4 className="w-4 h-4" />
+        </button>
 
         <div className={`w-px h-4 mx-1 ${dividerClass}`} />
 
@@ -186,11 +195,10 @@ export const Editor: React.FC<EditorProps> = ({ value, onChange, uiMode = 'dark'
         <button
           onMouseDown={(e) => e.preventDefault()}
           onClick={insertPageBreak}
-          className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 transition shadow-xs"
+          className="p-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded transition shadow-xs"
           title="插入强行分页标志 <!-- pagebreak -->"
         >
-          <FilePlus className="w-3.5 h-3.5" />
-          <span>插入 A4 分页符</span>
+          <FilePlus className="w-4 h-4" />
         </button>
 
       </div>

@@ -102,11 +102,8 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
 
   // Cover List Helper
   const currentCoverList: CoverListItem[] = theme.meta.coverlist || [
-    { label: '项目名称', value: theme.meta.projectName || '' },
-    { label: '文档版本', value: theme.meta.version || '' },
     { label: '撰写团队', value: theme.meta.author || '' },
     { label: '所属部门', value: theme.meta.department || '' },
-    { label: '交付日期', value: theme.meta.date || '' },
   ].filter(item => !!item.value || !!item.label);
 
   const handleUpdateCoverList = (newList: CoverListItem[]) => {
@@ -131,12 +128,9 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
 
   const handleResetCoverList = () => {
     const defaultList: CoverListItem[] = [
-      { label: '📁 项目名称', value: theme.meta.projectName || 'Project Hyperion' },
-      { label: '🏷️ 文档版本', value: theme.meta.version || 'v1.0' },
-      { label: '✍️ 撰写团队', value: theme.meta.author || '核心团队' },
-      { label: '🏢 所属部门', value: theme.meta.department || '技术委员会' },
-      { label: '🏛️ 所属机构', value: theme.meta.organization || '企业集团' },
-      { label: '📅 交付日期', value: theme.meta.date || '2026年8月' },
+      { label: '撰写团队', value: theme.meta.author || '核心团队' },
+      { label: '所属部门', value: theme.meta.department || '技术委员会' },
+      { label: '备注', value: '请在此填写交付信息' },
     ];
     handleUpdateCoverList(defaultList);
   };
@@ -169,6 +163,20 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
     });
   };
 
+  const updateHeadingFont = (level: 'h1' | 'h2' | 'h3' | 'h4', field: 'fontFamily' | 'fontSize' | 'bold', value: string | number | boolean) => {
+    const defaults = {
+      h1: { fontSize: 24, bold: true },
+      h2: { fontSize: 20, bold: true },
+      h3: { fontSize: 17, bold: true },
+      h4: { fontSize: 15, bold: true },
+    };
+    updateStyle('headingFonts', {
+      ...defaults,
+      ...theme.style.headingFonts,
+      [level]: { ...defaults[level], ...theme.style.headingFonts?.[level], [field]: value },
+    });
+  };
+
   const tabInactiveClass = isDark 
     ? 'text-zinc-400 hover:text-white hover:bg-[#2A2A2A]' 
     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/80';
@@ -190,7 +198,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>1. 封面</span>
+            <span>封面</span>
           </button>
 
           <button
@@ -200,7 +208,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
             }`}
           >
             <Sliders className="w-3.5 h-3.5" />
-            <span>2. 页眉页脚</span>
+            <span>页眉页脚</span>
           </button>
 
           <button
@@ -210,7 +218,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>3. 目录</span>
+            <span>目录</span>
           </button>
 
           <button
@@ -220,7 +228,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
             }`}
           >
             <Palette className="w-3.5 h-3.5" />
-            <span>4. 配色</span>
+            <span>配色</span>
           </button>
 
           <button
@@ -230,7 +238,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
             }`}
           >
             <List className="w-3.5 h-3.5" />
-            <span>5. 列表</span>
+            <span>列表</span>
           </button>
         </div>
       </div>
@@ -575,7 +583,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
             {/* Header Settings */}
             <div className={`space-y-3 p-3 rounded-lg border ${cardBgClass}`}>
               <div className={`flex items-center justify-between pb-1 border-b ${sectionBorderClass}`}>
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${textMainClass}`}>🔝 页眉信息设置 (Header)</span>
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${textMainClass}`}>页眉信息设置</span>
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input
                     type="checkbox"
@@ -646,16 +654,29 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       />
                     </div>
                     {theme.header.logoUrl && (
-                      <div>
-                        <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>Logo 高度 (px)</label>
-                        <input
-                          type="number"
-                          min={10}
-                          max={60}
-                          value={theme.header.logoHeight || 20}
-                          onChange={(e) => updateHeader('logoHeight', Number(e.target.value))}
-                          className={`w-28 rounded px-2 py-1 ${inputSubClass}`}
-                        />
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>Logo 高度 (px)</label>
+                          <input
+                            type="number"
+                            min={10}
+                            max={60}
+                            value={theme.header.logoHeight || 20}
+                            onChange={(e) => updateHeader('logoHeight', Number(e.target.value))}
+                            className={`w-full rounded px-2 py-1 ${inputSubClass}`}
+                          />
+                        </div>
+                        <div>
+                          <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>Logo 透明度 (%)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={Math.round((theme.header.logoOpacity ?? 1) * 100)}
+                            onChange={(e) => updateHeader('logoOpacity', Math.min(1, Math.max(0, Number(e.target.value) / 100)))}
+                            className={`w-full rounded px-2 py-1 ${inputSubClass}`}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -666,7 +687,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
             {/* Footer & Page Number Settings */}
             <div className={`space-y-3 p-3 rounded-lg border ${cardBgClass}`}>
               <div className={`flex items-center justify-between pb-1 border-b ${sectionBorderClass}`}>
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${textMainClass}`}>🔚 页脚与页码设置 (Footer)</span>
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${textMainClass}`}>页脚与页码设置</span>
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input
                     type="checkbox"
@@ -901,6 +922,17 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
               </div>
             </div>
 
+            <div>
+              <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>段落英文字体</label>
+              <input
+                type="text"
+                value={theme.style.latinFontFamily || 'Times New Roman'}
+                onChange={(e) => updateStyle('latinFontFamily', e.target.value)}
+                placeholder="Times New Roman"
+                className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>主色调 (Primary Color)</label>
@@ -1050,6 +1082,46 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   <option value="plain">普通纯文字 (Plain)</option>
                 </select>
               </div>
+
+              {(['h1', 'h2', 'h3', 'h4'] as const).map((level) => {
+                const defaults = { h1: 24, h2: 20, h3: 17, h4: 15 };
+                const headingFont = theme.style.headingFonts?.[level];
+                return (
+                  <div key={level} className={`grid grid-cols-[auto_1fr_72px_auto] items-end gap-2 p-2.5 rounded-lg border ${subCardBgClass}`}>
+                    <span className={`pb-1 text-xs font-bold uppercase ${textSubClass}`}>{level}</span>
+                    <label>
+                      <span className={`block text-[10px] font-bold mb-1 ${labelClass}`}>字体</span>
+                      <input
+                        type="text"
+                        value={headingFont?.fontFamily || ''}
+                        placeholder="继承正文"
+                        onChange={(e) => updateHeadingFont(level, 'fontFamily', e.target.value)}
+                        className={`w-full rounded px-2 py-1 ${inputClass}`}
+                      />
+                    </label>
+                    <label>
+                      <span className={`block text-[10px] font-bold mb-1 ${labelClass}`}>字号 px</span>
+                      <input
+                        type="number"
+                        min={12}
+                        max={40}
+                        value={headingFont?.fontSize ?? defaults[level]}
+                        onChange={(e) => updateHeadingFont(level, 'fontSize', Number(e.target.value))}
+                        className={`w-full rounded px-2 py-1 ${inputClass}`}
+                      />
+                    </label>
+                    <label className={`flex items-center gap-1 pb-1 cursor-pointer text-[10px] font-bold ${textSubClass}`}>
+                      <input
+                        type="checkbox"
+                        checked={headingFont?.bold ?? true}
+                        onChange={(e) => updateHeadingFont(level, 'bold', e.target.checked)}
+                        className="rounded text-blue-600"
+                      />
+                      加粗
+                    </label>
+                  </div>
+                );
+              })}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

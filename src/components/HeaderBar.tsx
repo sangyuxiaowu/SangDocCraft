@@ -236,6 +236,17 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               }`}>
                 <button
                   onClick={() => {
+                    onMarkdownChange(SAMPLE_MARKDOWNS.systemTemplate);
+                    setShowSampleDropdown(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded text-xs font-medium transition ${
+                    isDark ? 'text-zinc-200 hover:bg-[#2A2A2A]' : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  本系统 Markdown 范本
+                </button>
+                <button
+                  onClick={() => {
                     onMarkdownChange(SAMPLE_MARKDOWNS.architectureDoc);
                     setShowSampleDropdown(false);
                   }}
@@ -243,7 +254,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     isDark ? 'text-zinc-200 hover:bg-[#2A2A2A]' : 'text-slate-700 hover:bg-slate-100'
                   }`}
                 >
-                  📄 1. 分布式系统架构设计说明书
+                  分布式系统架构设计说明书
                 </button>
                 <button
                   onClick={() => {
@@ -254,7 +265,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     isDark ? 'text-zinc-200 hover:bg-[#2A2A2A]' : 'text-slate-700 hover:bg-slate-100'
                   }`}
                 >
-                  🎨 2. UI/UX 体验设计交付规范
+                  UI/UX 体验设计交付规范
                 </button>
                 <button
                   onClick={() => {
@@ -265,7 +276,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     isDark ? 'text-zinc-500 hover:text-zinc-200 hover:bg-[#2A2A2A] border-[#2A2A2A]' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100 border-slate-200'
                   }`}
                 >
-                  ✏️ 清空并创建空白文档
+                  清空并创建空白文档
                 </button>
               </div>
             )}

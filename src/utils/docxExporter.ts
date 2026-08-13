@@ -16,6 +16,7 @@ import {
   ShadingType,
   PageBreak,
   TableOfContents,
+  ImageRun,
 } from 'docx';
 import { marked } from 'marked';
 import { DocumentTheme } from '../types';
@@ -47,6 +48,41 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
                    style.fontFamily === 'kaiti' ? 'KaiTi' :
                    style.fontFamily === 'heiti' ? 'SimHei' :
                    style.fontFamily === 'mono' ? 'Consolas' : 'Microsoft YaHei';
+  const latinFontName = style.latinFontFamily || 'Times New Roman';
+  const docxFont = { ascii: latinFontName, hAnsi: latinFontName, eastAsia: fontName };
+
+  const createInlineRuns = async (tokens: any[], options: { bold?: boolean; italics?: boolean; size?: number; color?: string } = {}): Promise<(TextRun | ImageRun)[]> => {
+    const runs: (TextRun | ImageRun)[] = [];
+    for (const inlineToken of tokens || []) {
+      const inherited = { bold: options.bold, italics: options.italics, size: options.size || 22, color: options.color || textHex, font: docxFont };
+      if (inlineToken.type === 'strong' || inlineToken.type === 'em' || inlineToken.type === 'del' || inlineToken.type === 'link') {
+        runs.push(...await createInlineRuns(inlineToken.tokens, {
+          ...options,
+          bold: inlineToken.type === 'strong' || options.bold,
+          italics: inlineToken.type === 'em' || options.italics,
+        }));
+      } else if (inlineToken.tokens?.length) {
+        runs.push(...await createInlineRuns(inlineToken.tokens, options));
+      } else if (inlineToken.type === 'codespan') {
+        runs.push(new TextRun({ text: inlineToken.text, ...inherited, font: 'Consolas', shading: { fill: 'F1F5F9', type: ShadingType.CLEAR } }));
+      } else if (inlineToken.type === 'image') {
+        try {
+          const response = await fetch(inlineToken.href);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.arrayBuffer();
+          const contentType = response.headers.get('content-type') || '';
+          const imageType = contentType.includes('png') ? 'png' : contentType.includes('gif') ? 'gif' : contentType.includes('bmp') ? 'bmp' : 'jpg';
+          runs.push(new ImageRun({ type: imageType, data, transformation: { width: 480, height: 270 }, altText: { title: inlineToken.text || '图片', description: inlineToken.text || '图片', name: inlineToken.text || '图片' } }));
+        } catch (error) {
+          console.warn('DOCX image export failed:', inlineToken.href, error);
+          runs.push(new TextRun({ text: inlineToken.text || '[图片]', ...inherited }));
+        }
+      } else {
+        runs.push(new TextRun({ text: inlineToken.text || inlineToken.raw || '', ...inherited }));
+      }
+    }
+    return runs;
+  };
 
   // Section children array
   const sectionsChildren: (Paragraph | Table | TableOfContents)[] = [];
@@ -107,12 +143,8 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
     const coverListItems = (meta.coverlist && meta.coverlist.length > 0)
       ? meta.coverlist
       : [
-          { label: '项目名称', value: meta.projectName },
-          { label: '文档版本', value: meta.version },
           { label: '撰写团队', value: meta.author },
           { label: '所属部门', value: meta.department },
-          { label: '所属机构', value: meta.organization },
-          { label: '交付日期', value: meta.date },
         ].filter(item => !!item.value);
 
     if (coverListItems.length > 0) {
@@ -223,7 +255,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
   // 3. Parse Markdown Tokens
   const tokens = marked.lexer(bodyText);
 
-  tokens.forEach((token) => {
+  for (const token of tokens) {
     switch (token.type) {
       case 'heading': {
         const level = token.depth;
@@ -246,25 +278,27 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
           headingLevel = HeadingLevel.HEADING_2;
           fontSize = 28; // 14pt
           color = accentHex;
-        } else {
+        } else if (level === 3) {
           headingLevel = HeadingLevel.HEADING_3;
           fontSize = 24; // 12pt
           color = textHex;
+        } else {
+          headingLevel = HeadingLevel.HEADING_4;
+          fontSize = 22; // 11pt
+          color = textHex;
         }
+
+        const headingConfig = style.headingFonts?.[`h${Math.min(level, 4)}` as 'h1' | 'h2' | 'h3' | 'h4'];
 
         sectionsChildren.push(
           new Paragraph({
             heading: headingLevel,
             spacing: { before: 400, after: 200 },
-            children: [
-              new TextRun({
-                text: token.text,
-                bold: true,
-                size: fontSize,
-                color: color,
-                font: fontName,
-              }),
-            ],
+            children: await createInlineRuns(token.tokens || [{ type: 'text', text: token.text }], {
+              bold: headingConfig?.bold ?? true,
+              size: headingConfig?.fontSize ? headingConfig.fontSize * 2 : fontSize,
+              color,
+            }),
           })
         );
         break;
@@ -285,14 +319,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
           new Paragraph({
             spacing: { before: 120, after: 120, line: 320 },
             indent: style.indentParagraph ? { firstLine: 480 } : undefined,
-            children: [
-              new TextRun({
-                text: token.text,
-                size: 22, // 11pt
-                color: textHex,
-                font: fontName,
-              }),
-            ],
+            children: await createInlineRuns(token.tokens || [{ type: 'text', text: token.text }]),
           })
         );
         break;
@@ -311,15 +338,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
                 size: 24, // 3pt
               },
             },
-            children: [
-              new TextRun({
-                text: token.text,
-                italics: true,
-                size: 22,
-                color: '475569', // Slate 600
-                font: fontName,
-              }),
-            ],
+            children: await createInlineRuns(token.tokens || [{ type: 'text', text: token.text }], { italics: true, color: '475569' }),
           })
         );
         break;
@@ -351,7 +370,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
       }
 
       case 'list': {
-        token.items.forEach((item, index) => {
+        for (const [index, item] of token.items.entries()) {
           const prefix = token.ordered ? `${index + 1}. ` : '• ';
           sectionsChildren.push(
             new Paragraph({
@@ -365,16 +384,11 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
                   size: 22,
                   font: fontName,
                 }),
-                new TextRun({
-                  text: item.text,
-                  size: 22,
-                  color: textHex,
-                  font: fontName,
-                }),
+                ...(await createInlineRuns(item.tokens || [{ type: 'text', text: item.text }])),
               ],
             })
           );
-        });
+        }
         break;
       }
 
@@ -458,92 +472,81 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
         break;
       }
 
+      case 'html': {
+        if (/<!--\s*pagebreak\s*-->/i.test(token.raw)) {
+          sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
+        }
+        break;
+      }
+
       default:
         break;
     }
-  });
+  }
 
   // 4. Headers and Footers Construction
-  const headerChildren: Paragraph[] = [];
+  const headerChildren: (Paragraph | Table)[] = [];
   if (header.show) {
     const headerTextLeft = header.leftText || meta.projectName || '';
+    const headerTextCenter = header.centerText || '';
     const headerTextRight = header.rightText || meta.title || '';
 
     headerChildren.push(
-      new Paragraph({
-        alignment: AlignmentType.RIGHT,
-        border: header.lineStyle !== 'none' ? {
-          bottom: {
-            color: accentHex,
-            size: header.lineStyle === 'double' ? 18 : 12,
-            style: BorderStyle.SINGLE,
-          },
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        borders: header.lineStyle !== 'none' ? {
+          bottom: { color: accentHex, size: header.lineStyle === 'double' ? 18 : 12, style: BorderStyle.SINGLE },
         } : undefined,
-        children: [
-          new TextRun({
-            text: `${headerTextLeft}${headerTextLeft && headerTextRight ? '  |  ' : ''}${headerTextRight}`,
-            size: 18, // 9pt
-            color: '64748B',
-            font: fontName,
-          }),
-        ],
+        rows: [new TableRow({ children: [
+          { text: headerTextLeft, alignment: AlignmentType.LEFT },
+          { text: headerTextCenter, alignment: AlignmentType.CENTER },
+          { text: headerTextRight, alignment: AlignmentType.RIGHT },
+        ].map((cell) => new TableCell({
+          borders: { top: { style: BorderStyle.NONE, size: 0, color: 'auto' }, bottom: { style: BorderStyle.NONE, size: 0, color: 'auto' }, left: { style: BorderStyle.NONE, size: 0, color: 'auto' }, right: { style: BorderStyle.NONE, size: 0, color: 'auto' } },
+          children: [new Paragraph({ alignment: cell.alignment, children: [new TextRun({ text: cell.text, size: 18, color: '64748B', font: docxFont })] })],
+        })),
+        })],
       })
     );
   }
 
-  const footerChildren: Paragraph[] = [];
+  const footerChildren: (Paragraph | Table)[] = [];
   if (footer.show) {
     const leftFooter = footer.leftText || meta.organization || '';
+    const pageNumberRuns = (): TextRun[] => {
+      const run = (text?: string, children?: (typeof PageNumber)[keyof typeof PageNumber][]) => new TextRun({ text, children, size: 18, color: '64748B', font: docxFont });
+      if (footer.pageNumberFormat === 'none') return [];
+      if (footer.pageNumberFormat === 'simple') return [run(undefined, [PageNumber.CURRENT])];
+      if (footer.pageNumberFormat === 'hyphen') return [run('- '), run(undefined, [PageNumber.CURRENT]), run(' -')];
+      if (footer.pageNumberFormat === 'page') return [run('第 '), run(undefined, [PageNumber.CURRENT]), run(' 页')];
+      return [run('第 '), run(undefined, [PageNumber.CURRENT]), run(' 页 / 共 '), run(undefined, [PageNumber.TOTAL_PAGES]), run(' 页')];
+    };
+    const footerCells = [
+      { text: leftFooter, alignment: AlignmentType.LEFT, includePage: footer.pageNumberPosition === 'left' },
+      { text: footer.centerText || '', alignment: AlignmentType.CENTER, includePage: footer.pageNumberPosition === 'center' },
+      { text: footer.rightText || '', alignment: AlignmentType.RIGHT, includePage: footer.pageNumberPosition === 'right' },
+    ];
     footerChildren.push(
-      new Paragraph({
-        alignment: footer.pageNumberPosition === 'center' ? AlignmentType.CENTER : AlignmentType.RIGHT,
-        children: [
-          new TextRun({
-            text: leftFooter ? `${leftFooter}    ` : '',
-            size: 18,
-            color: '64748B',
-            font: fontName,
-          }),
-          new TextRun({
-            text: '第 ',
-            size: 18,
-            color: '64748B',
-            font: fontName,
-          }),
-          new TextRun({
-            children: [PageNumber.CURRENT],
-            size: 18,
-            color: '64748B',
-            font: fontName,
-          }),
-          new TextRun({
-            text: ' 页 / 共 ',
-            size: 18,
-            color: '64748B',
-            font: fontName,
-          }),
-          new TextRun({
-            children: [PageNumber.TOTAL_PAGES],
-            size: 18,
-            color: '64748B',
-            font: fontName,
-          }),
-          new TextRun({
-            text: ' 页',
-            size: 18,
-            color: '64748B',
-            font: fontName,
-          }),
-        ],
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: [new TableRow({ children: footerCells.map((cell) => new TableCell({
+          borders: { top: { style: BorderStyle.NONE, size: 0, color: 'auto' }, bottom: { style: BorderStyle.NONE, size: 0, color: 'auto' }, left: { style: BorderStyle.NONE, size: 0, color: 'auto' }, right: { style: BorderStyle.NONE, size: 0, color: 'auto' } },
+          children: [new Paragraph({ alignment: cell.alignment, children: [
+            new TextRun({ text: cell.text, size: 18, color: '64748B', font: docxFont }),
+            ...(cell.includePage ? pageNumberRuns() : []),
+          ] })],
+        })) })],
       })
     );
   }
 
   // Create docx Document
   const doc = new Document({
+    features: { updateFields: true },
     sections: [
       {
         properties: {
+                    titlePage: meta.showCover && (header.hideOnCover || footer.hideOnCover),
           page: {
             margin: {
               top: 1440, // 1 inch
@@ -554,11 +557,13 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
           },
         },
         headers: {
+          first: new Header({ children: header.hideOnCover ? [] : headerChildren }),
           default: new Header({
             children: headerChildren,
           }),
         },
         footers: {
+          first: new Footer({ children: footer.hideOnCover ? [] : footerChildren }),
           default: new Footer({
             children: footerChildren,
           }),

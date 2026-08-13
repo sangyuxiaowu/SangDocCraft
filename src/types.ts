@@ -33,6 +33,7 @@ export interface HeaderConfig {
   hideOnCover: boolean;
   logoUrl?: string;
   logoHeight?: number;
+  logoOpacity?: number;
 }
 
 export interface ImageStyleConfig {
@@ -73,6 +74,12 @@ export interface TocConfig {
 
 export type FontChoice = 'sans' | 'serif' | 'kaiti' | 'heiti' | 'mono';
 
+export interface HeadingFontStyle {
+  fontFamily?: string;
+  fontSize: number;
+  bold: boolean;
+}
+
 export interface StyleConfig {
   primaryColor: string;
   accentColor: string;
@@ -80,6 +87,7 @@ export interface StyleConfig {
   backgroundColor: string;
   coverBgColor: string;
   fontFamily: FontChoice;
+  latinFontFamily?: string;
   fontSize: number; // base font size in px (e.g., 14)
   lineHeight: number; // e.g. 1.6
   
@@ -87,6 +95,12 @@ export interface StyleConfig {
   h1Style: 'underline' | 'accent-block' | 'badge' | 'minimal';
   h2Style: 'border-left' | 'number-prefix' | 'underline-subtle' | 'plain';
   h3Style: 'bullet' | 'bold' | 'plain';
+  headingFonts?: {
+    h1: HeadingFontStyle;
+    h2: HeadingFontStyle;
+    h3: HeadingFontStyle;
+    h4: HeadingFontStyle;
+  };
   h1PageBreak?: boolean; // 一级标题另起一页 (默认 false)
   indentParagraph?: boolean; // 正文首行缩进2字符 (默认 false)
   

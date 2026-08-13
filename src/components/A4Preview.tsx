@@ -66,14 +66,23 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
   };
 
   // Font Family Stack
-  const fontStack = style.fontFamily === 'serif' ? 'SimSun, "Songti SC", STSong, "Times New Roman", serif' :
+  const chineseFontStack = style.fontFamily === 'serif' ? 'SimSun, "Songti SC", STSong, serif' :
                     style.fontFamily === 'kaiti' ? 'KaiTi, "Kaiti SC", STKaiti, serif' :
                     style.fontFamily === 'heiti' ? 'SimHei, "Heiti SC", STHeiti, sans-serif' :
                     style.fontFamily === 'mono' ? 'Consolas, "Fira Code", Monaco, monospace' :
-                    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif';
+                    '"PingFang SC", "Microsoft YaHei", sans-serif';
+  const fontStack = `${style.latinFontFamily || 'Times New Roman'}, ${chineseFontStack}`;
 
   // Parse Table of Contents items
   const tocItems: TocItem[] = toc.show ? parseTableOfContents(markdown, toc.maxDepth, meta, toc.show, style.h1PageBreak) : [];
+
+  useEffect(() => {
+    const headings = containerRef.current?.querySelectorAll<HTMLElement>('.markdown-rendered-body h1, .markdown-rendered-body h2, .markdown-rendered-body h3, .markdown-rendered-body h4');
+    headings?.forEach((heading, index) => {
+      const tocItem = tocItems[index];
+      if (tocItem) heading.id = tocItem.id;
+    });
+  }, [markdown, tocItems]);
 
   // List bullet icon mapping
   const bulletChar = style.bulletStyle === 'square' ? '■' :
@@ -142,12 +151,8 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
   const coverListItems = (meta.coverlist && meta.coverlist.length > 0)
     ? meta.coverlist
     : [
-        { label: '项目名称', value: meta.projectName },
-        { label: '文档版本', value: meta.version },
         { label: '撰写团队', value: meta.author },
         { label: '所属部门', value: meta.department },
-        { label: '所属机构', value: meta.organization },
-        { label: '交付日期', value: meta.date },
       ].filter(item => !!item.value);
 
   return (
@@ -229,7 +234,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                         src={resolveImageSrc(header.logoUrl)} 
                         alt="Header Logo" 
                         className="object-contain" 
-                        style={{ height: `${header.logoHeight || 20}px` }} 
+                        style={{ height: `${header.logoHeight || 20}px`, opacity: header.logoOpacity ?? 1 }} 
                       />
                     )}
                     <span>{header.leftText || meta.projectName || ''}</span>
@@ -552,7 +557,12 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                                               item.level === 2 ? 'pl-4 text-slate-700' : 'pl-8 text-slate-600';
                           
                           return (
-                            <div key={item.id} className={`flex items-center justify-between ${indentClass}`}>
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                              className={`w-full flex items-center justify-between text-left cursor-pointer hover:text-blue-600 ${indentClass}`}
+                            >
                               <span className="shrink-0 max-w-[80%]">{item.text}</span>
                               {toc.leaderStyle !== 'none' && (
                                 <div 
@@ -565,7 +575,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                               <span className="text-slate-600 font-mono text-[11px] font-semibold shrink-0">
                                 {item.pageNumber ?? 1}
                               </span>
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
@@ -610,8 +620,9 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
       {/* Embedded CSS for Markdown Elements Rendering */}
       <style>{`
         .markdown-rendered-body h1 {
-          font-size: 1.5em;
-          font-weight: 700;
+          font-family: ${style.headingFonts?.h1.fontFamily || 'inherit'};
+          font-size: ${style.headingFonts?.h1.fontSize || 24}px;
+          font-weight: ${style.headingFonts?.h1.bold ?? true ? 700 : 400};
           color: var(--primary-color);
           margin-top: 1.6em;
           margin-bottom: 0.6em;
@@ -622,8 +633,9 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
           margin-top: 0;
         }
         .markdown-rendered-body h2 {
-          font-size: 1.25em;
-          font-weight: 700;
+          font-family: ${style.headingFonts?.h2.fontFamily || 'inherit'};
+          font-size: ${style.headingFonts?.h2.fontSize || 20}px;
+          font-weight: ${style.headingFonts?.h2.bold ?? true ? 700 : 400};
           color: var(--primary-color);
           margin-top: 1.4em;
           margin-bottom: 0.5em;
@@ -631,11 +643,20 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
           border-left: 4px solid var(--accent-color);
         }
         .markdown-rendered-body h3 {
-          font-size: 1.1em;
-          font-weight: 600;
+          font-family: ${style.headingFonts?.h3.fontFamily || 'inherit'};
+          font-size: ${style.headingFonts?.h3.fontSize || 17}px;
+          font-weight: ${style.headingFonts?.h3.bold ?? true ? 700 : 400};
           color: var(--primary-color);
           margin-top: 1.2em;
           margin-bottom: 0.4em;
+        }
+        .markdown-rendered-body h4 {
+          font-family: ${style.headingFonts?.h4.fontFamily || 'inherit'};
+          font-size: ${style.headingFonts?.h4.fontSize || 15}px;
+          font-weight: ${style.headingFonts?.h4.bold ?? true ? 700 : 400};
+          color: var(--primary-color);
+          margin-top: 1em;
+          margin-bottom: 0.35em;
         }
         .markdown-rendered-body p {
           margin-bottom: 0.9em;
