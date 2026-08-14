@@ -236,27 +236,33 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
 
     /* Meta Table & Grids */
     .cover-meta-table {
-      width: 80%;
-      max-width: 480px;
-      margin: 24px auto;
+      width: 55%;
+      max-width: 440px;
+      margin: 0 auto;
       border-collapse: collapse;
-      font-size: 12px;
+      font-size: 11px;
     }
     .cover-meta-table td {
       padding: 8px 12px;
-      border-bottom: 1px solid #f1f5f9;
+      border: none !important;
+      border-bottom: 1px solid #f1f5f9 !important;
+      background: transparent !important;
+    }
+    .cover-meta-table tr,
+    .cover-meta-table tr:nth-child(even) {
+      background: transparent;
     }
     .cover-meta-table td.label {
       font-weight: 600;
       color: #64748b;
       text-align: right;
-      width: 35%;
+      width: 33.333333%;
     }
     .cover-meta-table td.value {
-      font-weight: 600;
+      font-weight: 500;
       color: #1e293b;
       text-align: left;
-      width: 65%;
+      width: 66.666667%;
     }
 
     .cover-meta-grid {
@@ -735,11 +741,12 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
           <div class="cover-title">${meta.title || '设计交付文档'}</div>
           ${meta.subtitle ? `<div class="cover-subtitle">${meta.subtitle}</div>` : ''}
           <div class="cover-divider"></div>
+        </div>
+        <div style="width: 100%; padding-bottom: 16px;">
           <table class="cover-meta-table">
             ${renderMetaTableRows()}
           </table>
         </div>
-        <div></div>
       `}
     </div>
 
@@ -752,8 +759,11 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
     return `
   <div class="a4-page toc-page-wrapper">
     ${header.show ? `
+    ${header.logoUrl ? `<img src="${header.logoUrl}" style="position: absolute; left: 75px; top: ${header.logoTopOffset ?? 15}px; z-index: 10; height: ${header.logoHeight || 20}px; width: auto; object-fit: contain; opacity: ${header.logoOpacity ?? 1}; pointer-events: none;" alt="Header Logo" />` : ''}
     <div class="doc-header">
-      <span>${header.leftText || ''}</span>
+      <div class="doc-header-left" style="margin-left: ${header.leftTextOffset ?? 0}px;">
+        <span>${header.leftText || ''}</span>
+      </div>
       <span>${header.rightText || meta.title || ''}</span>
     </div>
     ` : ''}

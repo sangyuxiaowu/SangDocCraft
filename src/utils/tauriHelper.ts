@@ -48,6 +48,22 @@ export function resolveImageSrc(src?: string): string {
   return trimmed;
 }
 
+/** Resolves a local image against the Tauri process working directory for preview display. */
+export async function resolvePreviewImageSrc(source?: string): Promise<string> {
+  const normalizedSource = source?.trim() || '';
+  if (!normalizedSource || !isTauriEnvironment() || /^(https?:|data:|blob:)/i.test(normalizedSource)) {
+    return resolveImageSrc(normalizedSource);
+  }
+
+  try {
+    const absolutePath = await invoke<string>('resolve_image_path', { source: normalizedSource });
+    return convertFileSrc(absolutePath);
+  } catch (error) {
+    console.warn('Tauri preview image resolution failed:', normalizedSource, error);
+    return resolveImageSrc(normalizedSource);
+  }
+}
+
 function inferImageContentType(source: string): string {
   const extension = source.split('?')[0].split('.').pop()?.toLowerCase();
   if (extension === 'png') return 'image/png';

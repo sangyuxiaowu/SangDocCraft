@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { DocumentTheme, TocItem, DocumentMeta, ViewMode } from '../types';
 import { parseTableOfContents, getEffectiveMeta, parseFrontmatter, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml } from '../utils/markdownParser';
-import { resolveImageSrc } from '../utils/tauriHelper';
+import { resolveImageSrc, resolvePreviewImageSrc } from '../utils/tauriHelper';
 
 interface A4PreviewProps {
   markdown: string;
@@ -36,7 +36,16 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
 
   const [zoom, setZoom] = useState<number>(85);
   const [showZoomPresets, setShowZoomPresets] = useState<boolean>(false);
+  const [headerLogoSrc, setHeaderLogoSrc] = useState<string>('');
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    resolvePreviewImageSrc(header.logoUrl).then((src) => {
+      if (!cancelled) setHeaderLogoSrc(src);
+    });
+    return () => { cancelled = true; };
+  }, [header.logoUrl]);
 
   // Auto-calculate fit-to-width
   const handleFitWidth = () => {
@@ -216,9 +225,9 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                 color: style.textColor,
               }}
             >
-              {header.show && (page.type !== 'cover' || !header.hideOnCover) && header.logoUrl && (
+              {header.show && (page.type !== 'cover' || !header.hideOnCover) && headerLogoSrc && (
                 <img
-                  src={resolveImageSrc(header.logoUrl)}
+                  src={headerLogoSrc}
                   alt="Header Logo"
                   className="absolute left-[75px] z-10 object-contain pointer-events-none"
                   style={{ top: `${header.logoTopOffset ?? 15}px`, height: `${header.logoHeight || 20}px`, width: 'auto', opacity: header.logoOpacity ?? 1 }}

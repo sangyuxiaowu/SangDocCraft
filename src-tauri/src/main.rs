@@ -10,6 +10,41 @@ struct ImageBinary {
     content_type: Option<String>,
 }
 
+fn resolve_local_image_path(source: &str) -> Result<std::path::PathBuf, String> {
+    let direct_path = std::path::PathBuf::from(source);
+    if direct_path.exists() {
+        return Ok(direct_path);
+    }
+
+    let project_relative_path = source.trim_start_matches("../").trim_start_matches("./");
+    let current_dir = std::env::current_dir().map_err(|error| error.to_string())?;
+    for directory in current_dir.ancestors() {
+        let candidate = directory.join(project_relative_path);
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+
+    Err(format!("Image file not found: {source}"))
+}
+
+#[tauri::command]
+fn resolve_image_path(source: String) -> Result<String, String> {
+    if source.starts_with("http://") || source.starts_with("https://") || source.starts_with("data:") || source.starts_with("blob:") {
+        return Ok(source);
+    }
+
+    let path = if source.starts_with("file://") {
+        url::Url::parse(&source)
+            .map_err(|error| error.to_string())?
+            .to_file_path()
+            .map_err(|_| "Invalid local image path".to_string())?
+    } else {
+        resolve_local_image_path(&source)?
+    };
+    Ok(path.to_string_lossy().into_owned())
+}
+
 #[tauri::command]
 async fn read_image_binary(source: String) -> Result<ImageBinary, String> {
     if source.starts_with("http://") || source.starts_with("https://") {
@@ -32,7 +67,7 @@ async fn read_image_binary(source: String) -> Result<ImageBinary, String> {
             .to_file_path()
             .map_err(|_| "Invalid local image path".to_string())?
     } else {
-        std::path::PathBuf::from(source)
+        resolve_local_image_path(&source)?
     };
     let bytes = std::fs::read(path).map_err(|error| error.to_string())?;
     Ok(ImageBinary { bytes, content_type: None })
@@ -40,7 +75,7 @@ async fn read_image_binary(source: String) -> Result<ImageBinary, String> {
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![read_image_binary])
+        .invoke_handler(tauri::generate_handler![read_image_binary, resolve_image_path])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

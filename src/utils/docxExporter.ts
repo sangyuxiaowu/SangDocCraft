@@ -51,6 +51,30 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
                    style.fontFamily === 'mono' ? 'Consolas' : 'Microsoft YaHei';
   const latinFontName = style.latinFontFamily || 'Times New Roman';
   const docxFont = { ascii: latinFontName, hAnsi: latinFontName, eastAsia: fontName };
+  const noTableBorders = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'auto' },
+    bottom: { style: BorderStyle.NONE, size: 0, color: 'auto' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'auto' },
+    right: { style: BorderStyle.NONE, size: 0, color: 'auto' },
+    insideHorizontal: { style: BorderStyle.NONE, size: 0, color: 'auto' },
+    insideVertical: { style: BorderStyle.NONE, size: 0, color: 'auto' },
+  };
+
+  const createImageRun = async (source: string, altText: string, width = 480, height = 270): Promise<ImageRun | null> => {
+    try {
+      const { data, contentType } = await fetchImageBinary(source);
+      const imageType = contentType.includes('png') ? 'png' : contentType.includes('gif') ? 'gif' : contentType.includes('bmp') ? 'bmp' : 'jpg';
+      return new ImageRun({
+        type: imageType,
+        data,
+        transformation: { width, height },
+        altText: { title: altText, description: altText, name: altText },
+      });
+    } catch (error) {
+      console.warn('DOCX image export failed:', source, error);
+      return null;
+    }
+  };
 
   const createInlineRuns = async (tokens: any[], options: { bold?: boolean; italics?: boolean; size?: number; color?: string } = {}): Promise<(TextRun | ImageRun)[]> => {
     const runs: (TextRun | ImageRun)[] = [];
@@ -62,19 +86,17 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
           bold: inlineToken.type === 'strong' || options.bold,
           italics: inlineToken.type === 'em' || options.italics,
         }));
+      } else if (inlineToken.type === 'image') {
+        const imageRun = await createImageRun(inlineToken.href, inlineToken.text || '图片');
+        if (imageRun) {
+          runs.push(imageRun);
+        } else {
+          runs.push(new TextRun({ text: inlineToken.text || '[图片]', ...inherited }));
+        }
       } else if (inlineToken.tokens?.length) {
         runs.push(...await createInlineRuns(inlineToken.tokens, options));
       } else if (inlineToken.type === 'codespan') {
         runs.push(new TextRun({ text: inlineToken.text, ...inherited, font: 'Consolas', shading: { fill: 'F1F5F9', type: ShadingType.CLEAR } }));
-      } else if (inlineToken.type === 'image') {
-        try {
-          const { data, contentType } = await fetchImageBinary(inlineToken.href);
-          const imageType = contentType.includes('png') ? 'png' : contentType.includes('gif') ? 'gif' : contentType.includes('bmp') ? 'bmp' : 'jpg';
-          runs.push(new ImageRun({ type: imageType, data, transformation: { width: 480, height: 270 }, altText: { title: inlineToken.text || '图片', description: inlineToken.text || '图片', name: inlineToken.text || '图片' } }));
-        } catch (error) {
-          console.warn('DOCX image export failed:', inlineToken.href, error);
-          runs.push(new TextRun({ text: inlineToken.text || '[图片]', ...inherited }));
-        }
       } else {
         runs.push(new TextRun({ text: inlineToken.text || inlineToken.raw || '', ...inherited }));
       }
@@ -82,11 +104,53 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
     return runs;
   };
 
+  let imageCaptionCount = 0;
+  const getImageTokens = (tokens: any[]): any[] => {
+    return (tokens || []).flatMap((token) => token.type === 'image' ? [token] : getImageTokens(token.tokens || []));
+  };
+  const createImageCaptions = (tokens: any[]): Paragraph[] => {
+    const imageConfig = style.imageConfig;
+    if (imageConfig?.showCaption === false) return [];
+
+    return getImageTokens(tokens).flatMap((imageToken) => {
+      const caption = imageToken.text?.trim();
+      if (!caption) return [];
+      imageCaptionCount += 1;
+      const captionText = imageConfig?.autoNumber === false
+        ? caption
+        : `${imageConfig?.numberPrefix || '图 '}${imageCaptionCount}: ${caption}`;
+      const alignment = imageConfig?.captionAlign === 'left'
+        ? AlignmentType.LEFT
+        : imageConfig?.captionAlign === 'right'
+        ? AlignmentType.RIGHT
+        : AlignmentType.CENTER;
+      return [new Paragraph({
+        alignment,
+        spacing: { before: 60, after: 160 },
+        children: [new TextRun({ text: captionText, size: 18, color: '64748B', font: docxFont })],
+      })];
+    });
+  };
+
   // Section children array
   const sectionsChildren: (Paragraph | Table | TableOfContents)[] = [];
 
   // 1. Cover Page
   if (meta.showCover) {
+    const logoSource = meta.logo || meta.logoUrl;
+    if (logoSource) {
+      const logoRun = await createImageRun(logoSource, '文档标志');
+      if (logoRun) {
+        sectionsChildren.push(
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 400, after: 400 },
+            children: [logoRun],
+          })
+        );
+      }
+    }
+
     // Title
     sectionsChildren.push(
       new Paragraph({
@@ -203,6 +267,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
         new Table({
           width: { size: 8000, type: WidthType.DXA },
           alignment: AlignmentType.CENTER,
+          borders: noTableBorders,
           rows: tableRows,
         })
       );
@@ -313,13 +378,15 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
           break;
         }
 
+        const paragraphTokens = token.tokens || [{ type: 'text', text: token.text }];
         sectionsChildren.push(
           new Paragraph({
             spacing: { before: 120, after: 120, line: 320 },
             indent: style.indentParagraph ? { firstLine: 480 } : undefined,
-            children: await createInlineRuns(token.tokens || [{ type: 'text', text: token.text }]),
+            children: await createInlineRuns(paragraphTokens),
           })
         );
+        sectionsChildren.push(...createImageCaptions(paragraphTokens));
         break;
       }
 
@@ -489,19 +556,30 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
     const headerTextCenter = header.centerText || '';
     const headerTextRight = header.rightText || meta.title || '';
 
+    const headerLogoRun = header.logoUrl
+      ? await createImageRun(header.logoUrl, '页眉标志', 100, header.logoHeight || 20)
+      : null;
     headerChildren.push(
       new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
         borders: header.lineStyle !== 'none' ? {
           bottom: { color: accentHex, size: header.lineStyle === 'double' ? 18 : 12, style: BorderStyle.SINGLE },
-        } : undefined,
+          top: noTableBorders.top,
+          left: noTableBorders.left,
+          right: noTableBorders.right,
+          insideHorizontal: noTableBorders.insideHorizontal,
+          insideVertical: noTableBorders.insideVertical,
+        } : noTableBorders,
         rows: [new TableRow({ children: [
-          { text: headerTextLeft, alignment: AlignmentType.LEFT },
+          { text: headerTextLeft, alignment: AlignmentType.LEFT, logoRun: headerLogoRun },
           { text: headerTextCenter, alignment: AlignmentType.CENTER },
           { text: headerTextRight, alignment: AlignmentType.RIGHT },
         ].map((cell) => new TableCell({
-          borders: { top: { style: BorderStyle.NONE, size: 0, color: 'auto' }, bottom: { style: BorderStyle.NONE, size: 0, color: 'auto' }, left: { style: BorderStyle.NONE, size: 0, color: 'auto' }, right: { style: BorderStyle.NONE, size: 0, color: 'auto' } },
-          children: [new Paragraph({ alignment: cell.alignment, children: [new TextRun({ text: cell.text, size: 18, color: '64748B', font: docxFont })] })],
+          borders: noTableBorders,
+          children: [new Paragraph({ alignment: cell.alignment, children: [
+            ...(cell.logoRun ? [cell.logoRun] : []),
+            new TextRun({ text: cell.text, size: 18, color: '64748B', font: docxFont }),
+          ] })],
         })),
         })],
       })
