@@ -759,7 +759,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
     return `
   <div class="a4-page toc-page-wrapper">
     ${header.show ? `
-    ${header.logoUrl ? `<img src="${header.logoUrl}" style="position: absolute; left: 75px; top: ${header.logoTopOffset ?? 15}px; z-index: 10; height: ${header.logoHeight || 20}px; width: auto; object-fit: contain; opacity: ${header.logoOpacity ?? 1}; pointer-events: none;" alt="Header Logo" />` : ''}
+    ${header.logoUrl ? `<img src="${header.logoUrl}" style="position: absolute; top: ${header.logoTopOffset ?? 15}px; z-index: 10; height: ${header.logoHeight || 20}px; width: auto; object-fit: contain; opacity: ${header.logoOpacity ?? 1}; pointer-events: none;" alt="Header Logo" />` : ''}
     <div class="doc-header">
       <div class="doc-header-left" style="margin-left: ${header.leftTextOffset ?? 0}px;">
         <span>${header.leftText || ''}</span>
@@ -806,7 +806,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
       return `
   <div class="a4-page content-page-wrapper">
     ${header.show ? `
-    ${header.logoUrl ? `<img src="${header.logoUrl}" style="position: absolute; left: 75px; top: ${header.logoTopOffset ?? 15}px; z-index: 10; height: ${header.logoHeight || 20}px; width: auto; object-fit: contain; opacity: ${header.logoOpacity ?? 1}; pointer-events: none;" alt="Header Logo" />` : ''}
+    ${header.logoUrl ? `<img src="${header.logoUrl}" style="position: absolute; top: ${header.logoTopOffset ?? 15}px; z-index: 10; height: ${header.logoHeight || 20}px; width: auto; object-fit: contain; opacity: ${header.logoOpacity ?? 1}; pointer-events: none;" alt="Header Logo" />` : ''}
     <div class="doc-header">
       <div class="doc-header-left" style="margin-left: ${header.leftTextOffset ?? 0}px;">
         <span>${header.leftText || ''}</span>
