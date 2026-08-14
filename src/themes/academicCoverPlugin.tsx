@@ -10,7 +10,24 @@ import {
   TextRun,
   WidthType,
 } from 'docx';
-import type { CoverTemplatePlugin, CoverDocxRenderContext, CoverRenderContext } from './themeRegistry';
+import type { CoverTemplatePlugin, CoverDocxRenderContext, CoverRenderContext } from './contracts';
+
+function renderThumbnail(): React.ReactNode {
+  return (
+    <div className="h-full flex flex-col justify-between items-center p-1 text-center">
+      <div className="w-7 h-1 border-b border-slate-700" />
+      <div className="space-y-1 my-auto">
+        <div className="w-12 h-1.5 bg-slate-900 mx-auto" />
+        <div className="w-9 h-1 bg-slate-600 mx-auto" />
+      </div>
+      <div className="space-y-0.5 w-9">
+        <div className="h-px bg-slate-400" />
+        <div className="h-px bg-slate-400" />
+        <div className="h-px bg-slate-400" />
+      </div>
+    </div>
+  );
+}
 
 function renderPreview(context: CoverRenderContext): React.ReactNode {
   const { meta, style, coverListItems } = context;
@@ -114,6 +131,7 @@ export const academicCoverPlugin: CoverTemplatePlugin = {
   id: 'academic',
   name: '🎓 学术论文',
   description: '论文题目与信息填写栏',
+  renderThumbnail,
   renderPreview,
   renderHtml,
   renderDocx,

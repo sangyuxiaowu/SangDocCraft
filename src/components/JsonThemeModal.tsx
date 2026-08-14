@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Copy, Download, Upload, Check, AlertCircle } from 'lucide-react';
 import { DocumentTheme } from '../types';
+import { hasCoverTemplate, registerThemePlugin } from '../themes/themeRegistry';
 
 interface JsonThemeModalProps {
   isOpen: boolean;
@@ -51,6 +52,10 @@ export const JsonThemeModal: React.FC<JsonThemeModalProps> = ({
       if (!parsed.meta || !parsed.style) {
         throw new Error('无效的主题 JSON 格式：缺少必要的 meta 或 style 字段');
       }
+      if (!parsed.id || !parsed.name || !hasCoverTemplate(parsed.meta.coverStyle)) {
+        throw new Error(`无效的主题 JSON：请提供 ID、名称和已注册的封面模板（${parsed.meta.coverStyle || '未指定'}）`);
+      }
+      registerThemePlugin({ id: parsed.id, theme: parsed, source: 'custom' });
       onApplyTheme(parsed);
       setSuccessMsg('🎉 主题样式已成功更新应用！');
       setTimeout(() => {

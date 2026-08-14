@@ -1,8 +1,28 @@
 import React from 'react';
 import { AlignmentType, BorderStyle, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
-import type { CoverDocxRenderContext, CoverRenderContext, CoverTemplatePlugin } from './themeRegistry';
+import type { CoverDocxRenderContext, CoverRenderContext, CoverTemplatePlugin } from './contracts';
 
 const hasLabelSuffix = (label: string) => label.includes(':') || label.includes('：');
+
+function enterpriseThumbnail(): React.ReactNode {
+  return <div className="h-full flex flex-col justify-between items-center text-center py-1"><div className="w-8 h-1 rounded-full bg-blue-500/30" /><div className="space-y-0.5 my-auto"><div className="w-12 h-1.5 bg-slate-800 rounded mx-auto" /><div className="w-8 h-1 bg-blue-500 rounded mx-auto" /><div className="w-4 h-0.5 bg-blue-500 rounded mx-auto mt-1" /></div><div className="w-full space-y-0.5 px-0.5"><div className="h-0.5 bg-slate-200 w-full" /><div className="h-0.5 bg-slate-200 w-full" /><div className="h-0.5 bg-slate-200 w-full" /></div></div>;
+}
+
+function modernThumbnail(): React.ReactNode {
+  return <div className="h-full flex flex-col justify-between p-0.5 border-l-2 border-l-blue-600"><div className="flex justify-between items-center"><div className="w-5 h-0.5 bg-slate-400 rounded-xs" /><div className="w-3 h-1 bg-blue-500 rounded-full" /></div><div className="space-y-0.5 my-auto"><div className="w-14 h-2 bg-slate-900 rounded-xs" /><div className="w-8 h-1 bg-blue-500 rounded-xs" /><div className="w-5 h-0.5 bg-blue-500 rounded-xs mt-0.5" /></div><div className="w-full h-3 bg-slate-100 rounded-xs p-0.5 space-y-0.5"><div className="h-0.5 bg-slate-300 w-3/4" /><div className="h-0.5 bg-slate-300 w-1/2" /></div></div>;
+}
+
+function specThumbnail(): React.ReactNode {
+  return <div className="h-full border border-double border-slate-700 p-0.5 flex flex-col justify-between"><div className="text-center border-b border-slate-200 pb-0.5"><div className="w-8 h-0.5 bg-slate-600 mx-auto" /></div><div className="text-center space-y-0.5 my-auto"><div className="w-6 h-0.5 bg-slate-300 mx-auto" /><div className="w-12 h-1.5 bg-slate-900 mx-auto" /><div className="w-8 h-1 bg-red-600 mx-auto" /></div><div className="w-full h-2.5 bg-slate-50 border border-slate-200 rounded-xs p-0.5"><div className="h-0.5 bg-slate-300 w-full" /></div></div>;
+}
+
+function minimalThumbnail(): React.ReactNode {
+  return <div className="h-full flex flex-col justify-between p-1 text-left"><div className="w-5 h-0.5 bg-slate-300" /><div className="space-y-0.5 my-auto"><div className="w-14 h-1.5 bg-slate-800" /><div className="w-8 h-0.5 bg-slate-400" /><div className="w-4 h-px bg-slate-300 mt-1" /></div><div className="space-y-0.5"><div className="w-8 h-0.5 bg-slate-400" /><div className="w-6 h-0.5 bg-slate-300" /></div></div>;
+}
+
+function creativeThumbnail(): React.ReactNode {
+  return <div className="h-full flex flex-col justify-between p-0.5"><div className="w-full h-6 rounded-xs bg-gradient-to-br from-purple-600 to-blue-500 p-1"><div className="w-8 h-1 bg-white/90 rounded-xs" /><div className="w-5 h-0.5 bg-white/70 rounded-xs mt-0.5" /></div><div className="grid grid-cols-2 gap-0.5 my-auto w-full"><div className="h-2 bg-slate-100 rounded-xs" /><div className="h-2 bg-slate-100 rounded-xs" /><div className="h-2 bg-slate-100 rounded-xs" /><div className="h-2 bg-slate-100 rounded-xs" /></div><div className="w-8 h-0.5 bg-slate-300 mx-auto" /></div>;
+}
 
 async function renderStandardDocx(context: CoverDocxRenderContext): Promise<(Paragraph | Table)[]> {
   const { meta, coverListItems, primaryHex, accentHex, textHex, fontName, createImageRun } = context;
@@ -53,9 +73,9 @@ function minimalHtml({ meta, coverListItems }: CoverRenderContext): string { ret
 function creativeHtml({ meta, style, coverListItems }: CoverRenderContext): string { return `<div style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:space-between;"><div style="background:linear-gradient(135deg,${style.primaryColor},${style.accentColor});color:#fff;padding:28px 24px;border-radius:16px;text-align:left;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;opacity:.9;">${meta.organization || 'CREATIVE SPEC'}</div>${(meta.logo || meta.logoUrl) ? `<img src="${meta.logo || meta.logoUrl}" style="max-height:24px;filter:brightness(0) invert(1);" alt="Logo" />` : ''}</div>${meta.number ? `<div style="font-size:11px;font-family:monospace;opacity:.8;">NO. ${meta.number}</div>` : ''}<div style="font-size:30px;font-weight:800;line-height:1.2;">${meta.title || '设计交付文档'}</div>${meta.subtitle ? `<div style="font-size:14px;margin-top:8px;opacity:.9;">${meta.subtitle}</div>` : ''}</div><div class="creative-grid">${coverListItems.map((item) => `<div class="creative-card"><div style="overflow:hidden;width:100%;"><div class="label">${item.label}</div><div class="value">${item.value}</div></div></div>`).join('')}</div><div style="text-align:center;font-size:10px;color:#94a3b8;letter-spacing:2px;font-weight:bold;">DOC CRAFT CREATIVE SPECIFICATION</div></div>`; }
 
 export const builtinCoverPlugins: CoverTemplatePlugin[] = [
-  { id: 'enterprise', name: '🏢 企业经典', description: '经典居中与元数据表', renderPreview: enterprisePreview, renderHtml: enterpriseHtml, renderDocx: renderStandardDocx },
-  { id: 'modern', name: '💻 科技现代', description: '侧边深色条纹与卡片', renderPreview: modernPreview, renderHtml: modernHtml, renderDocx: renderStandardDocx },
-  { id: 'spec', name: '📜 政企规范', description: '双边框与文件编号', renderPreview: specPreview, renderHtml: specHtml, renderDocx: renderStandardDocx },
-  { id: 'minimal', name: '🌿 极简黑白', description: '高雅留白与纤细字号', renderPreview: minimalPreview, renderHtml: minimalHtml, renderDocx: renderStandardDocx },
-  { id: 'creative', name: '🎨 现代渐变', description: '渐变 Banner 与图示卡片', renderPreview: creativePreview, renderHtml: creativeHtml, renderDocx: renderStandardDocx },
+  { id: 'enterprise', name: '🏢 企业经典', description: '经典居中与元数据表', renderThumbnail: enterpriseThumbnail, renderPreview: enterprisePreview, renderHtml: enterpriseHtml, renderDocx: renderStandardDocx },
+  { id: 'modern', name: '💻 科技现代', description: '侧边深色条纹与卡片', renderThumbnail: modernThumbnail, renderPreview: modernPreview, renderHtml: modernHtml, renderDocx: renderStandardDocx },
+  { id: 'spec', name: '📜 政企规范', description: '双边框与文件编号', renderThumbnail: specThumbnail, renderPreview: specPreview, renderHtml: specHtml, renderDocx: renderStandardDocx },
+  { id: 'minimal', name: '🌿 极简黑白', description: '高雅留白与纤细字号', renderThumbnail: minimalThumbnail, renderPreview: minimalPreview, renderHtml: minimalHtml, renderDocx: renderStandardDocx },
+  { id: 'creative', name: '🎨 现代渐变', description: '渐变 Banner 与图示卡片', renderThumbnail: creativeThumbnail, renderPreview: creativePreview, renderHtml: creativeHtml, renderDocx: renderStandardDocx },
 ];
