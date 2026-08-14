@@ -227,7 +227,6 @@ export const Editor: React.FC<EditorProps> = ({ value, onChange, uiMode = 'dark'
         </div>
         <div className="flex items-center gap-1">
           <FileCode className="w-3.5 h-3.5 text-blue-500" />
-          <span>MARKDOWN TO A4 SPEC</span>
         </div>
       </div>
 

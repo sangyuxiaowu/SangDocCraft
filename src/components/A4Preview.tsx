@@ -572,12 +572,8 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
         <div className="flex items-center gap-2 sm:gap-3 text-[11px] font-mono">
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-            <span className="font-bold tracking-wider hidden sm:inline uppercase">A4 Stage</span>
+            <span className="font-medium">共 {totalPages} 页</span>
           </div>
-          <span className="text-zinc-500 dark:text-zinc-700">|</span>
-          <span className="font-medium">共 {totalPages} 页</span>
-          <span className="hidden md:inline text-zinc-500 dark:text-zinc-700">|</span>
-          <span className="hidden md:inline text-zinc-400 dark:text-zinc-500">210 × 297 mm</span>
         </div>
 
         {/* Zoom Controls */}

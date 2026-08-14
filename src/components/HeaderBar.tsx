@@ -71,11 +71,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   SANG<span className="text-blue-500">DOCCRAFT</span>
                 </h1>
                 <span className="text-[9px] uppercase font-bold tracking-widest px-2 py-0.5 rounded bg-blue-500/20 text-blue-500 border border-blue-500/30 shrink-0">
-                  A4 DOC SPEC
+                  V{__APP_VERSION__}
                 </span>
               </div>
               <p className={`text-[10px] uppercase tracking-[0.2em] font-bold ${isDark ? 'text-zinc-500' : 'text-slate-500'}`}>
-                MD TO PROFESSIONAL WORD / HTML
+                智能 Markdown 排版工具
               </p>
             </div>
           </div>
