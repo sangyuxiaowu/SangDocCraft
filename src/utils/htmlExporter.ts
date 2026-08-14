@@ -362,7 +362,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
     }
     .academic-cover-meta {
       width: 58%;
-      margin-bottom: 52px;
+      margin: 0 auto 52px;
       display: flex;
       flex-direction: column;
       gap: 12px;
@@ -381,6 +381,34 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
       white-space: pre;
     }
     .academic-cover-meta-value {
+      min-height: 24px;
+      padding: 0 4px;
+      border-bottom: 1px solid #334155;
+      color: #0f172a;
+      font-weight: 500;
+      text-align: center;
+    }
+    .enterprise-cover-meta {
+      width: 52%;
+      margin: 0 auto 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      font-size: 14px;
+      text-align: left;
+    }
+    .enterprise-cover-meta-row {
+      display: grid;
+      grid-template-columns: 6em minmax(0, 1fr);
+      align-items: end;
+      gap: 8px;
+    }
+    .enterprise-cover-meta-label {
+      color: #334155;
+      font-weight: 500;
+      white-space: pre;
+    }
+    .enterprise-cover-meta-value {
       min-height: 24px;
       padding: 0 4px;
       border-bottom: 1px solid #334155;
