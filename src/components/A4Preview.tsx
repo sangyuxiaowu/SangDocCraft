@@ -540,6 +540,43 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                       </div>
                     )}
 
+                    {meta.coverStyle === 'academic' && (
+                      <div className="flex-1 flex flex-col items-center px-8 py-4 text-center">
+                        <div className="w-full flex flex-col items-center gap-3 min-h-24">
+                          {(meta.logo || meta.logoUrl) && (
+                            <img src={meta.logo || meta.logoUrl} alt="Logo" className="h-16 max-w-[240px] w-auto object-contain" />
+                          )}
+                          <div className="text-xl font-bold tracking-[0.25em] leading-none" style={{ color: style.primaryColor }}>
+                            {meta.organization || '某某大学'}
+                          </div>
+                        </div>
+
+                        <div className="my-auto w-full space-y-4">
+                          <h1 className="text-3xl font-bold tracking-wide leading-relaxed" style={{ color: style.primaryColor }}>
+                            {meta.title || '论文题目'}
+                          </h1>
+                          {meta.subtitle && (
+                            <p className="text-lg text-slate-600 leading-relaxed">{meta.subtitle}</p>
+                          )}
+                        </div>
+
+                        <div className="w-[58%] space-y-3 text-sm text-left mb-14">
+                          {coverListItems.map((item, idx) => (
+                            <div key={idx} className="grid grid-cols-[6em_minmax(0,1fr)] items-end gap-2">
+                              <span className="font-medium tracking-wide whitespace-pre text-slate-700">{item.label}：</span>
+                              <span className="min-h-6 border-b border-slate-700 px-1 text-center font-medium text-slate-900">
+                                {item.value}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="text-sm tracking-[0.45em] text-slate-700 pr-[-0.45em]">
+                          {meta.date || '年    月    日'}
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                 )}
 

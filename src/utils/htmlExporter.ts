@@ -361,6 +361,81 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
       color: #1e293b;
     }
 
+    .academic-cover {
+      flex: 1;
+      height: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 10px 32px;
+    }
+    .academic-cover-logo {
+      max-height: 64px;
+      max-width: 240px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto 12px;
+    }
+    .academic-cover-organization {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 5px;
+      color: var(--primary-color);
+    }
+    .academic-cover-title-block {
+      width: 100%;
+      margin: auto 0;
+    }
+    .academic-cover-title {
+      font-size: 30px;
+      line-height: 1.6;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--primary-color);
+    }
+    .academic-cover-subtitle {
+      margin-top: 12px;
+      font-size: 18px;
+      line-height: 1.6;
+      color: #475569;
+    }
+    .academic-cover-meta {
+      width: 58%;
+      margin-bottom: 52px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      font-size: 14px;
+      text-align: left;
+    }
+    .academic-cover-meta-row {
+      display: grid;
+      grid-template-columns: 6em minmax(0, 1fr);
+      align-items: end;
+      gap: 8px;
+    }
+    .academic-cover-meta-label {
+      color: #334155;
+      font-weight: 500;
+      white-space: pre;
+    }
+    .academic-cover-meta-value {
+      min-height: 24px;
+      padding: 0 4px;
+      border-bottom: 1px solid #334155;
+      color: #0f172a;
+      font-weight: 500;
+      text-align: center;
+    }
+    .academic-cover-date {
+      padding-left: 6px;
+      font-size: 14px;
+      letter-spacing: 6px;
+      color: #334155;
+    }
+
     /* Header & Footer */
     .doc-header {
       width: 100%;
@@ -700,7 +775,22 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
     ` : ''}
 
     <div class="cover-page cover-style-${meta.coverStyle || 'enterprise'}">
-      ${meta.coverStyle === 'modern' ? `
+      ${meta.coverStyle === 'academic' ? `
+        <div class="academic-cover">
+          <div>
+            ${(meta.logo || meta.logoUrl) ? `<img src="${meta.logo || meta.logoUrl}" class="academic-cover-logo" alt="Logo" />` : ''}
+            <div class="academic-cover-organization">${meta.organization || '某某大学'}</div>
+          </div>
+          <div class="academic-cover-title-block">
+            <div class="academic-cover-title">${meta.title || '论文题目'}</div>
+            ${meta.subtitle ? `<div class="academic-cover-subtitle">${meta.subtitle}</div>` : ''}
+          </div>
+          <div class="academic-cover-meta">
+            ${coverListItems.map(item => `<div class="academic-cover-meta-row"><span class="academic-cover-meta-label">${item.label}：</span><span class="academic-cover-meta-value">${item.value}</span></div>`).join('')}
+          </div>
+          <div class="academic-cover-date">${meta.date || '年    月    日'}</div>
+        </div>
+      ` : meta.coverStyle === 'modern' ? `
         <div style="border-left: 4px solid var(--accent-color); padding-left: 20px; flex: 1; height: 100%; min-height: 0; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; text-align: left;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: 10px;">

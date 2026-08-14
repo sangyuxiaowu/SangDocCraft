@@ -139,23 +139,45 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
   if (meta.showCover) {
     const logoSource = meta.logo || meta.logoUrl;
     if (logoSource) {
-      const logoRun = await createImageRun(logoSource, '文档标志');
+      const logoRun = await createImageRun(
+        logoSource,
+        '文档标志',
+        meta.coverStyle === 'academic' ? 180 : 480,
+        meta.coverStyle === 'academic' ? 100 : 270,
+      );
       if (logoRun) {
         sectionsChildren.push(
           new Paragraph({
             alignment: AlignmentType.CENTER,
-            spacing: { before: 400, after: 400 },
+            spacing: { before: 400, after: meta.coverStyle === 'academic' ? 160 : 400 },
             children: [logoRun],
           })
         );
       }
     }
 
+    if (meta.coverStyle === 'academic') {
+      sectionsChildren.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 0, after: 180 },
+          children: [new TextRun({
+            text: meta.organization || '某某大学',
+            bold: true,
+            size: 32,
+            color: primaryHex,
+            characterSpacing: 80,
+            font: fontName,
+          })],
+        })
+      );
+    }
+
     // Title
     sectionsChildren.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 2400, after: 400 },
+        spacing: { before: meta.coverStyle === 'academic' ? 1800 : 2400, after: 400 },
         children: [
           new TextRun({
             text: meta.title || '设计交付文档',
@@ -187,19 +209,21 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
     }
 
     // Divider line
-    sectionsChildren.push(
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        spacing: { before: 400, after: 1600 },
-        children: [
-          new TextRun({
-            text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-            color: accentHex,
-            size: 20,
-          }),
-        ],
-      })
-    );
+    if (meta.coverStyle !== 'academic') {
+      sectionsChildren.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 400, after: 1600 },
+          children: [
+            new TextRun({
+              text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+              color: accentHex,
+              size: 20,
+            }),
+          ],
+        })
+      );
+    }
 
     // Meta Info Table in Cover Page
     const coverListItems = (meta.coverlist && meta.coverlist.length > 0)
@@ -215,7 +239,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
         return new TableRow({
           children: [
             new TableCell({
-              width: { size: 2500, type: WidthType.DXA },
+              width: { size: meta.coverStyle === 'academic' ? 1800 : 2500, type: WidthType.DXA },
               borders: {
                 top: { style: BorderStyle.NONE, size: 0, color: 'auto' },
                 bottom: { style: BorderStyle.NONE, size: 0, color: 'auto' },
@@ -224,7 +248,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
               },
               children: [
                 new Paragraph({
-                  alignment: AlignmentType.RIGHT,
+                  alignment: meta.coverStyle === 'academic' ? AlignmentType.LEFT : AlignmentType.RIGHT,
                   children: [
                     new TextRun({
                       text: cleanLabel,
@@ -238,10 +262,10 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
               ],
             }),
             new TableCell({
-              width: { size: 5500, type: WidthType.DXA },
+              width: { size: meta.coverStyle === 'academic' ? 4200 : 5500, type: WidthType.DXA },
               borders: {
                 top: { style: BorderStyle.NONE, size: 0, color: 'auto' },
-                bottom: { style: BorderStyle.NONE, size: 0, color: 'auto' },
+                bottom: { style: meta.coverStyle === 'academic' ? BorderStyle.SINGLE : BorderStyle.NONE, size: meta.coverStyle === 'academic' ? 4 : 0, color: primaryHex },
                 left: { style: BorderStyle.NONE, size: 0, color: 'auto' },
                 right: { style: BorderStyle.NONE, size: 0, color: 'auto' },
               },
@@ -265,10 +289,20 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
 
       sectionsChildren.push(
         new Table({
-          width: { size: 8000, type: WidthType.DXA },
+          width: { size: meta.coverStyle === 'academic' ? 6000 : 8000, type: WidthType.DXA },
           alignment: AlignmentType.CENTER,
           borders: noTableBorders,
           rows: tableRows,
+        })
+      );
+    }
+
+    if (meta.coverStyle === 'academic') {
+      sectionsChildren.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 1000, after: 0 },
+          children: [new TextRun({ text: meta.date || '年    月    日', size: 22, color: textHex, font: docxFont })],
         })
       );
     }

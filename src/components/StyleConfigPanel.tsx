@@ -265,6 +265,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       { id: 'spec', name: '📜 政企规范', desc: '双边框与文件编号' },
                       { id: 'minimal', name: '🌿 极简黑白', desc: '高雅留白与纤细字号' },
                       { id: 'creative', name: '🎨 现代渐变', desc: '渐变 Banner 与图示卡片' },
+                      { id: 'academic', name: '🎓 学术论文', desc: '论文题目与信息填写栏' },
                     ].map((opt) => {
                       const isSelected = (theme.meta.coverStyle || 'enterprise') === opt.id;
                       return (
@@ -369,6 +370,21 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                                 <div className="w-8 h-0.5 bg-slate-300 mx-auto" />
                               </div>
                             )}
+
+                            {opt.id === 'academic' && (
+                              <div className="h-full flex flex-col justify-between items-center p-1 text-center">
+                                <div className="w-7 h-1 border-b border-slate-700" />
+                                <div className="space-y-1 my-auto">
+                                  <div className="w-12 h-1.5 bg-slate-900 mx-auto" />
+                                  <div className="w-9 h-1 bg-slate-600 mx-auto" />
+                                </div>
+                                <div className="space-y-0.5 w-9">
+                                  <div className="h-px bg-slate-400" />
+                                  <div className="h-px bg-slate-400" />
+                                  <div className="h-px bg-slate-400" />
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           {/* Option Details */}
@@ -414,7 +430,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                     />
                   </div>
 
-                  {/* Document Number & Organization */}
+                  {/* Document Number & Date */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>文档编号 (Doc No.)</label>
@@ -427,12 +443,36 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       />
                     </div>
                     <div>
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>日期 (Date)</label>
+                      <input
+                        type="text"
+                        value={theme.meta.date || ''}
+                        onChange={(e) => updateMeta('date', e.target.value)}
+                        placeholder="如：2026年8月"
+                        className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Organization & Department */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
                       <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>所属机构 / 公司</label>
                       <input
                         type="text"
                         value={theme.meta.organization || ''}
                         onChange={(e) => updateMeta('organization', e.target.value)}
-                        placeholder="如：架构委员会"
+                        placeholder="如：某某大学"
+                        className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
+                      />
+                    </div>
+                    <div>
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>部门 / 团队</label>
+                      <input
+                        type="text"
+                        value={theme.meta.department || ''}
+                        onChange={(e) => updateMeta('department', e.target.value)}
+                        placeholder="如：经济管理学院"
                         className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
                       />
                     </div>

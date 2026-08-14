@@ -75,7 +75,7 @@ function processFrontmatterData(data: Record<string, any>): Partial<DocumentMeta
   // coverStyle
   if (data.coverStyle || data.style) {
     const styleVal = String(data.coverStyle || data.style).toLowerCase();
-    if (['enterprise', 'modern', 'spec', 'minimal', 'creative'].includes(styleVal)) {
+    if (['enterprise', 'modern', 'spec', 'minimal', 'creative', 'academic'].includes(styleVal)) {
       meta.coverStyle = styleVal as any;
     }
   }
