@@ -212,6 +212,85 @@ export interface DomPaginationOptions {
   h1PageBreak?: boolean;
   headerShow?: boolean;
   footerShow?: boolean;
+  style?: StyleConfig;
+}
+
+export function getDocumentFontStack(style: Pick<StyleConfig, 'fontFamily' | 'latinFontFamily'>): string {
+  const chineseFontStack = style.fontFamily === 'serif' ? 'SimSun, "Songti SC", STSong, serif' :
+    style.fontFamily === 'kaiti' ? 'KaiTi, "Kaiti SC", STKaiti, serif' :
+    style.fontFamily === 'heiti' ? 'SimHei, "Heiti SC", STHeiti, sans-serif' :
+    style.fontFamily === 'mono' ? 'Consolas, "Fira Code", Monaco, monospace' :
+    '"PingFang SC", "Microsoft YaHei", sans-serif';
+
+  return `${style.latinFontFamily || 'Times New Roman'}, ${chineseFontStack}`;
+}
+
+export function getMarkdownBodyCss(selector: string, style: StyleConfig): string {
+  const bulletChar = style.bulletStyle === 'square' ? '■' :
+    style.bulletStyle === 'checkmark' ? '✓' :
+    style.bulletStyle === 'arrow' ? '▸' : '•';
+
+  return `
+    ${selector} > :first-child { margin-top: 0 !important; }
+    ${selector} > :last-child { margin-bottom: 0 !important; }
+    ${selector} h1 {
+      font-family: ${style.headingFonts?.h1.fontFamily || 'inherit'};
+      font-size: ${style.headingFonts?.h1.fontSize || 24}px;
+      font-weight: ${style.headingFonts?.h1.bold ?? true ? 700 : 400};
+      color: var(--primary-color);
+      margin-top: 1.6em;
+      margin-bottom: 0.6em;
+      padding: ${style.h1Style === 'badge' ? '0.25em 0.5em' : style.h1Style === 'accent-block' ? '0 0 0 0.45em' : '0 0 0.3em'};
+      background: ${style.h1Style === 'badge' ? `${style.accentColor}18` : 'transparent'};
+      border-bottom: ${style.h1Style === 'underline' ? '2px solid var(--accent-color)' : 'none'};
+      border-left: ${style.h1Style === 'accent-block' ? '5px solid var(--accent-color)' : 'none'};
+    }
+    ${selector} h2 {
+      font-family: ${style.headingFonts?.h2.fontFamily || 'inherit'};
+      font-size: ${style.headingFonts?.h2.fontSize || 20}px;
+      font-weight: ${style.headingFonts?.h2.bold ?? true ? 700 : 400};
+      color: var(--primary-color);
+      margin-top: 1.4em;
+      margin-bottom: 0.5em;
+      padding-left: ${style.h2Style === 'border-left' ? '8px' : '0'};
+      border-left: ${style.h2Style === 'border-left' ? '4px solid var(--accent-color)' : 'none'};
+      padding-bottom: ${style.h2Style === 'underline-subtle' ? '0.25em' : '0'};
+      border-bottom: ${style.h2Style === 'underline-subtle' ? '1px solid var(--accent-color)' : 'none'};
+    }
+    ${selector} h3 {
+      font-family: ${style.headingFonts?.h3.fontFamily || 'inherit'};
+      font-size: ${style.headingFonts?.h3.fontSize || 17}px;
+      font-weight: ${style.headingFonts?.h3.bold ?? true ? 700 : 400};
+      color: var(--primary-color);
+      margin-top: 1.2em;
+      margin-bottom: 0.4em;
+    }
+    ${selector} h4 {
+      font-family: ${style.headingFonts?.h4.fontFamily || 'inherit'};
+      font-size: ${style.headingFonts?.h4.fontSize || 15}px;
+      font-weight: ${style.headingFonts?.h4.bold ?? true ? 700 : 400};
+      color: var(--primary-color);
+      margin-top: 1em;
+      margin-bottom: 0.35em;
+    }
+    ${selector} p { margin-bottom: 0.9em; line-height: inherit; text-indent: ${style.indentParagraph ? '2em' : '0'}; }
+    ${selector} p.p-continuation, ${selector} .p-continuation p, ${selector} blockquote p, ${selector} li p, ${selector} table p { text-indent: 0 !important; }
+    ${selector} blockquote { border-left: 4px solid var(--accent-color); background: #f8fafc; padding: 10px 16px; margin: 1.2em 0; border-radius: 0 6px 6px 0; color: #475569; font-style: italic; }
+    ${selector} pre { background: ${style.codeTheme === 'light' ? '#f1f5f9' : '#0f172a'}; color: ${style.codeTheme === 'light' ? '#0f172a' : '#f8fafc'}; padding: 12px 16px; border-radius: 6px; overflow-x: auto; font-family: Consolas, monospace; font-size: 0.85em; margin: 1em 0; white-space: pre-wrap; word-break: break-all; overflow-wrap: break-word; }
+    ${selector} code { background: #f1f5f9; color: #0f172a; padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 0.88em; }
+    ${selector} pre code { background: transparent; color: inherit; padding: 0; }
+    ${selector} ul { margin: 0.8em 0; padding-left: 20px; list-style: none; }
+    ${selector} ul li { position: relative; padding-left: 14px; margin-bottom: 0.3em; }
+    ${selector} ul li::before { content: "${bulletChar}"; position: absolute; left: 0; color: var(--accent-color); font-weight: bold; }
+    ${selector} ol { margin: 0.8em 0; padding-left: 20px; list-style-type: ${style.numberStyle === 'chinese' ? 'cjk-ideographic' : style.numberStyle === 'paren' ? 'none' : 'decimal'}; }
+    ${selector} ol li { margin-bottom: 0.3em; }
+    ${style.numberStyle === 'paren' ? `${selector} ol { counter-reset: item; } ${selector} ol li { counter-increment: item; } ${selector} ol li::before { content: '(' counter(item) ') '; color: var(--accent-color); font-weight: 700; }` : ''}
+    ${selector} table { width: 100%; border-collapse: collapse; margin: 1.2em 0; font-size: 0.9em; table-layout: auto; word-break: break-word; overflow-wrap: break-word; }
+    ${selector} th { background: var(--primary-color); color: #fff; padding: 8px 12px; text-align: left; font-weight: 600; }
+    ${selector} td { border: 1px solid #e2e8f0; padding: 8px 12px; }
+    ${selector} tr:nth-child(even) { background: ${style.tableStyle === 'striped' ? '#f8fafc' : 'transparent'}; }
+    ${selector} hr { border: none; border-top: 1px solid #cbd5e1; margin: 1.8em 0; }
+  `;
 }
 
 /**
@@ -330,14 +409,13 @@ function findDomListSplit(
   const items = token.items || [];
   if (items.length <= 1) return null;
 
-  const testList = document.createElement(token.ordered ? 'ol' : 'ul');
-  measurer.appendChild(testList);
+  const testContainer = document.createElement('div');
+  measurer.appendChild(testContainer);
 
   let fitCount = 0;
   for (let i = 0; i < items.length; i++) {
-    const li = document.createElement('li');
-    li.innerHTML = marked.parseInline(items[i].text || items[i].raw || '') as string;
-    testList.appendChild(li);
+    const testMarkdown = buildListMd(items.slice(0, i + 1), token.ordered, 1);
+    testContainer.innerHTML = marked.parse(testMarkdown) as string;
 
     if (measurer.scrollHeight <= maxHeight + 1) {
       fitCount = i + 1;
@@ -346,7 +424,7 @@ function findDomListSplit(
     }
   }
 
-  measurer.removeChild(testList);
+  measurer.removeChild(testContainer);
 
   if (fitCount < 1 || fitCount >= items.length) return null;
 
@@ -461,14 +539,14 @@ export function paginateContentByDom(
   const pages: string[] = [];
 
   const measurer = document.createElement('div');
-  measurer.className = 'markdown-rendered-body';
+  measurer.className = 'pagination-measurer';
   measurer.style.position = 'absolute';
   measurer.style.left = '-9999px';
   measurer.style.top = '-9999px';
   measurer.style.visibility = 'hidden';
   measurer.style.pointerEvents = 'none';
   measurer.style.boxSizing = 'border-box';
-  measurer.style.width = '170mm'; // A4 content area width: 210mm - 40mm padding
+  measurer.style.width = '170mm';
   measurer.style.fontFamily = options.fontFamily || 'sans-serif';
   measurer.style.fontSize = `${options.fontSize || 14}px`;
   measurer.style.lineHeight = `${options.lineHeight || 1.6}`;
@@ -476,6 +554,11 @@ export function paginateContentByDom(
   measurer.style.setProperty('--primary-color', options.primaryColor || '#1e293b');
   measurer.style.setProperty('--accent-color', options.accentColor || '#2563eb');
 
+  const measurerStyles = document.createElement('style');
+  if (options.style) {
+    measurerStyles.textContent = getMarkdownBodyCss('.pagination-measurer', options.style);
+  }
+  document.head.appendChild(measurerStyles);
   document.body.appendChild(measurer);
 
   // Height available inside A4 sheet body area:
@@ -483,7 +566,7 @@ export function paginateContentByDom(
   // Top padding (20mm = ~75.6px) + Bottom padding (20mm = ~75.6px) = 151.2px
   const headerHeight = options.headerShow ? 38 : 0;
   const footerHeight = options.footerShow ? 38 : 0;
-  const maxHeight = 1122.5 - 151.2 - headerHeight - footerHeight - 6; // 6px safety margin
+  const maxHeight = 1122.5 - 151.2 - headerHeight - footerHeight - 6;
 
   try {
     initialChunks.forEach((chunk) => {
@@ -610,6 +693,7 @@ export function paginateContentByDom(
     if (document.body.contains(measurer)) {
       document.body.removeChild(measurer);
     }
+    measurerStyles.remove();
   }
 
   return pages.length > 0 ? pages : [markdownText];
@@ -632,7 +716,8 @@ export function parseTableOfContents(
   maxDepth: number = 3, 
   meta?: Partial<DocumentMeta>, 
   tocShow: boolean = true,
-  h1PageBreak: boolean = false
+  h1PageBreak: boolean = false,
+  paginatedContent?: string[]
 ): TocItem[] {
   const parsed = parseFrontmatter(markdown);
   const contentToParse = parsed.body || markdown;
@@ -640,7 +725,7 @@ export function parseTableOfContents(
   const showCover = meta?.showCover !== false;
   const showToc = tocShow !== false;
 
-  const contentPages = splitContentByPages(contentToParse, h1PageBreak);
+  const contentPages = paginatedContent || splitContentByPages(contentToParse, h1PageBreak);
 
   // Compute total TOC pages if TOC is shown
   let tocPagesCount = 0;

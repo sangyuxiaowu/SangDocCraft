@@ -9,7 +9,7 @@ import {
   Check 
 } from 'lucide-react';
 import { DocumentTheme, TocItem, DocumentMeta, ViewMode } from '../types';
-import { parseTableOfContents, getEffectiveMeta, parseFrontmatter, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml } from '../utils/markdownParser';
+import { parseTableOfContents, getEffectiveMeta, parseFrontmatter, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss } from '../utils/markdownParser';
 import { resolveImageSrc, resolvePreviewImageSrc } from '../utils/tauriHelper';
 
 interface A4PreviewProps {
@@ -74,24 +74,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
     }
   };
 
-  // Font Family Stack
-  const chineseFontStack = style.fontFamily === 'serif' ? 'SimSun, "Songti SC", STSong, serif' :
-                    style.fontFamily === 'kaiti' ? 'KaiTi, "Kaiti SC", STKaiti, serif' :
-                    style.fontFamily === 'heiti' ? 'SimHei, "Heiti SC", STHeiti, sans-serif' :
-                    style.fontFamily === 'mono' ? 'Consolas, "Fira Code", Monaco, monospace' :
-                    '"PingFang SC", "Microsoft YaHei", sans-serif';
-  const fontStack = `${style.latinFontFamily || 'Times New Roman'}, ${chineseFontStack}`;
-
-  // Parse Table of Contents items
-  const tocItems: TocItem[] = toc.show ? parseTableOfContents(markdown, toc.maxDepth, meta, toc.show, style.h1PageBreak) : [];
-
-  useEffect(() => {
-    const headings = containerRef.current?.querySelectorAll<HTMLElement>('.markdown-rendered-body h1, .markdown-rendered-body h2, .markdown-rendered-body h3, .markdown-rendered-body h4');
-    headings?.forEach((heading, index) => {
-      const tocItem = tocItems[index];
-      if (tocItem) heading.id = tocItem.id;
-    });
-  }, [markdown, tocItems]);
+  const fontStack = getDocumentFontStack(style);
 
   // List bullet icon mapping
   const bulletChar = style.bulletStyle === 'square' ? '■' :
@@ -110,7 +93,21 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
     h1PageBreak: style.h1PageBreak,
     headerShow: header.show,
     footerShow: footer.show,
+    style,
   });
+
+  // Build TOC page numbers from the same pages rendered below.
+  const tocItems: TocItem[] = toc.show
+    ? parseTableOfContents(markdown, toc.maxDepth, meta, toc.show, style.h1PageBreak, rawContentPages)
+    : [];
+
+  useEffect(() => {
+    const headings = containerRef.current?.querySelectorAll<HTMLElement>('.markdown-rendered-body h1, .markdown-rendered-body h2, .markdown-rendered-body h3, .markdown-rendered-body h4');
+    headings?.forEach((heading, index) => {
+      const tocItem = tocItems[index];
+      if (tocItem) heading.id = tocItem.id;
+    });
+  }, [markdown, tocItems]);
 
   // Build Pages Array
   const pages: PageItem[] = [];
@@ -215,10 +212,11 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
 
             {/* Individual A4 White Paper Sheet */}
             <div 
-              className={`a4-sheet-page w-[210mm] h-[297mm] max-h-[297mm] bg-white text-slate-900 relative my-2 p-[20mm] flex flex-col justify-between shrink-0 rounded-sm overflow-hidden transition-all duration-300 ${
+              className={`a4-sheet-page w-[210mm] h-[297mm] max-h-[297mm] bg-white text-slate-900 relative my-2 flex flex-col justify-between shrink-0 rounded-sm overflow-hidden transition-all duration-300 ${
                 isDark ? 'shadow-[0_10px_35px_rgba(0,0,0,0.6)]' : 'shadow-[0_10px_30px_rgba(0,0,0,0.12)] border border-slate-200'
               }`}
               style={{
+                padding: '20mm 15mm',
                 fontFamily: fontStack,
                 fontSize: `${style.fontSize}px`,
                 lineHeight: style.lineHeight,
@@ -237,8 +235,10 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
               {/* Page Header Bar */}
               {header.show && (page.type !== 'cover' || !header.hideOnCover) && (
                 <div 
-                  className="w-full relative flex items-center justify-between text-[11px] text-slate-500 pb-2 mb-6 select-none shrink-0"
+                  className="w-full relative flex items-center justify-between text-[11px] text-slate-500 select-none shrink-0"
                   style={{
+                    paddingBottom: '6px',
+                    marginBottom: '16px',
                     borderBottom: header.lineStyle === 'none' ? 'none' :
                                   header.lineStyle === 'double' ? `3px double ${style.accentColor}` :
                                   header.lineStyle === 'accent' ? `2px solid ${style.accentColor}` :
@@ -614,7 +614,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
               {footer.show && (page.type !== 'cover' || !footer.hideOnCover) && (() => {
                 const slots = getFooterSlots(page.pageNum, totalPages, footer, meta);
                 return (
-                  <div className="w-full flex items-center justify-between text-[11px] text-slate-400 pt-3 mt-8 border-t border-slate-200 select-none shrink-0">
+                  <div className="w-full flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-200 select-none shrink-0" style={{ paddingTop: '6px', marginTop: '16px' }}>
                     <span className="text-left flex-1 min-w-0 truncate">{slots.left}</span>
                     <span className="text-center flex-1 min-w-0 truncate font-mono">{slots.center}</span>
                     <span className="text-right flex-1 min-w-0 truncate font-mono">{slots.right}</span>
@@ -631,6 +631,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
 
       {/* Embedded CSS for Markdown Elements Rendering */}
       <style>{`
+        ${getMarkdownBodyCss('.markdown-rendered-body', style)}
         .markdown-rendered-body h1 {
           font-family: ${style.headingFonts?.h1.fontFamily || 'inherit'};
           font-size: ${style.headingFonts?.h1.fontSize || 24}px;

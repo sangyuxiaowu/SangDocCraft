@@ -1,6 +1,6 @@
 import { marked } from 'marked';
 import { DocumentTheme, FooterConfig, DocumentMeta } from '../types';
-import { getEffectiveMeta, parseFrontmatter, parseTableOfContents, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml } from './markdownParser';
+import { getEffectiveMeta, parseFrontmatter, parseTableOfContents, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss } from './markdownParser';
 import { fetchImageBinary } from './tauriHelper';
 
 function renderFooterHtml(pageNum: number, totalPages: number, footer: FooterConfig, meta: DocumentMeta): string {
@@ -57,16 +57,10 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
   const parsedMarkdown = parseFrontmatter(markdownText);
   const bodyText = parsedMarkdown.body || markdownText;
 
-  // Calculate TOC items with page numbers
-  const tocItems = parseTableOfContents(markdownText, toc.maxDepth || 3, meta, toc.show, style.h1PageBreak);
-  const tocChunks = toc.show ? getTocChunks(tocItems) : [];
-
-  // Font Family Stack for exporter
-  const fontStack = style.fontFamily === 'serif' ? 'SimSun, "Songti SC", STSong, "Times New Roman", serif' :
-                    style.fontFamily === 'kaiti' ? 'KaiTi, "Kaiti SC", STKaiti, serif' :
-                    style.fontFamily === 'heiti' ? 'SimHei, "Heiti SC", STHeiti, sans-serif' :
-                    style.fontFamily === 'mono' ? 'Consolas, "Fira Code", Monaco, monospace' :
-                    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif';
+  const fontStack = getDocumentFontStack(style);
+  const bulletChar = style.bulletStyle === 'square' ? '■' :
+    style.bulletStyle === 'checkmark' ? '✓' :
+    style.bulletStyle === 'arrow' ? '▸' : '•';
 
   // Split markdown body using dynamic DOM measurement algorithm
   const rawContentPages = paginateContentByDom(bodyText, {
@@ -79,7 +73,19 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
     h1PageBreak: style.h1PageBreak,
     headerShow: header.show,
     footerShow: footer.show,
+    style,
   });
+
+  // Build TOC page numbers from the exact pages used by the export.
+  const tocItems = parseTableOfContents(
+    markdownText,
+    toc.maxDepth || 3,
+    meta,
+    toc.show,
+    style.h1PageBreak,
+    rawContentPages,
+  );
+  const tocChunks = toc.show ? getTocChunks(tocItems) : [];
 
   // Calculate total pages
   const coverCount = meta.showCover ? 1 : 0;
@@ -468,9 +474,31 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
       margin: 0.8em 0;
       padding-left: 20px;
     }
+    ul {
+      list-style: none;
+    }
     li {
       margin-bottom: 0.3em;
     }
+    ul li {
+      position: relative;
+      padding-left: 14px;
+    }
+    ul li::before {
+      content: '${bulletChar}';
+      position: absolute;
+      left: 0;
+      color: var(--accent-color);
+      font-weight: bold;
+    }
+    ol {
+      list-style-type: ${style.numberStyle === 'chinese' ? 'cjk-ideographic' : style.numberStyle === 'paren' ? 'none' : 'decimal'};
+    }
+    ${style.numberStyle === 'paren' ? `
+    ol { counter-reset: item; }
+    ol li { counter-increment: item; }
+    ol li::before { content: '(' counter(item) ') '; color: var(--accent-color); font-weight: 700; }
+    ` : ''}
     table {
       width: 100%;
       border-collapse: collapse;
@@ -581,6 +609,8 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
     .doc-img-border-rounded { border-radius: 12px; border: 1px solid #cbd5e1; }
     .doc-image-caption { margin-top: 6px; font-size: 0.85em; color: #64748b; font-weight: 600; line-height: 1.4; }
     .doc-table-caption { margin-top: 4px; margin-bottom: 6px; font-size: 0.88em; color: #475569; font-weight: 600; line-height: 1.4; }
+
+    ${getMarkdownBodyCss('.markdown-content', style)}
 
     /* Print Styles for PDF Export */
     @media print {
