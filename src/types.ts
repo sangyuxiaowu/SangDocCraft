@@ -66,7 +66,8 @@ export interface FooterConfig {
 export interface TocConfig {
   show: boolean;
   title: string;
-  maxDepth: 1 | 2 | 3;
+  maxDepth: 1 | 2 | 3 | 4;
+  headingNumbering?: 'none' | 'decimal' | 'chinese';
   leaderStyle: 'dots' | 'dashes' | 'line' | 'none';
   showPageNumbers: boolean;
   pageBreakAfter: boolean;

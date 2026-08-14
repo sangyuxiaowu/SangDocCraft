@@ -20,7 +20,7 @@ import {
 } from 'docx';
 import { marked } from 'marked';
 import { DocumentTheme } from '../types';
-import { getEffectiveMeta, parseFrontmatter } from './markdownParser';
+import { getEffectiveMeta, parseFrontmatter, getHeadingText } from './markdownParser';
 import { fetchImageBinary } from './tauriHelper';
 
 /**
@@ -317,6 +317,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
 
   // 3. Parse Markdown Tokens
   const tokens = marked.lexer(bodyText);
+  const headingCounters = [0, 0, 0, 0];
 
   for (const token of tokens) {
     switch (token.type) {
@@ -352,16 +353,26 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
         }
 
         const headingConfig = style.headingFonts?.[`h${Math.min(level, 4)}` as 'h1' | 'h2' | 'h3' | 'h4'];
+        const headingPrefix = getHeadingText('', level, headingCounters, toc.headingNumbering).trim();
 
         sectionsChildren.push(
           new Paragraph({
             heading: headingLevel,
             spacing: { before: 400, after: 200 },
-            children: await createInlineRuns(token.tokens || [{ type: 'text', text: token.text }], {
-              bold: headingConfig?.bold ?? true,
-              size: headingConfig?.fontSize ? headingConfig.fontSize * 2 : fontSize,
-              color,
-            }),
+            children: [
+              ...(headingPrefix ? [new TextRun({
+                text: `${headingPrefix} `,
+                bold: headingConfig?.bold ?? true,
+                size: headingConfig?.fontSize ? headingConfig.fontSize * 2 : fontSize,
+                color,
+                font: docxFont,
+              })] : []),
+              ...(await createInlineRuns(token.tokens || [{ type: 'text', text: token.text }], {
+                bold: headingConfig?.bold ?? true,
+                size: headingConfig?.fontSize ? headingConfig.fontSize * 2 : fontSize,
+                color,
+              })),
+            ],
           })
         );
         break;

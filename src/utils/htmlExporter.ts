@@ -1,6 +1,6 @@
 import { marked } from 'marked';
 import { DocumentTheme, FooterConfig, DocumentMeta } from '../types';
-import { getEffectiveMeta, parseFrontmatter, parseTableOfContents, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss } from './markdownParser';
+import { getEffectiveMeta, parseFrontmatter, parseTableOfContents, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss, getHeadingText } from './markdownParser';
 import { fetchImageBinary } from './tauriHelper';
 
 function renderFooterHtml(pageNum: number, totalPages: number, footer: FooterConfig, meta: DocumentMeta): string {
@@ -20,6 +20,13 @@ function addTocAnchors(html: string, maxDepth: number, anchorIndex: { value: num
     if (Number(level) > maxDepth) return match;
     anchorIndex.value += 1;
     return `<h${level}${attributes} id="heading-${anchorIndex.value}">`;
+  });
+}
+
+function addHeadingNumbers(html: string, headingNumbering: DocumentTheme['toc']['headingNumbering'], counters: number[]): string {
+  return html.replace(/<h([1-4])([^>]*)>([\s\S]*?)<\/h\1>/gi, (match, level: string, attributes: string, content: string) => {
+    const prefix = getHeadingText('', Number(level), counters, headingNumbering).trim();
+    return `<h${level}${attributes}>${prefix ? `${prefix} ` : ''}${content}</h${level}>`;
   });
 }
 
@@ -84,6 +91,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
     toc.show,
     style.h1PageBreak,
     rawContentPages,
+    toc.headingNumbering,
   );
   const tocChunks = toc.show ? getTocChunks(tocItems) : [];
 
@@ -825,12 +833,14 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
 
   ${(() => {
     const exportCounters = { imgCount: 0, tableCount: 0 };
+    const headingCounters = [0, 0, 0, 0];
     const tocAnchorIndex = { value: 0 };
     return rawContentPages.map((pageMd, idx) => {
       const pageNum = (meta.showCover ? 1 : 0) + (toc.show ? tocChunks.length : 0) + idx + 1;
       const preprocessed = preprocessMarkdownCaptions(pageMd || '');
       const rawHtml = marked.parse(preprocessed) as string;
-      const renderedHtml = postProcessRenderedHtml(rawHtml, style, exportCounters);
+      const numberedHtml = addHeadingNumbers(rawHtml, toc.headingNumbering, headingCounters);
+      const renderedHtml = postProcessRenderedHtml(numberedHtml, style, exportCounters);
       const pageHtml = toc.show ? addTocAnchors(renderedHtml, toc.maxDepth || 3, tocAnchorIndex) : renderedHtml;
 
       return `

@@ -9,7 +9,7 @@ import {
   Check 
 } from 'lucide-react';
 import { DocumentTheme, TocItem, DocumentMeta, ViewMode } from '../types';
-import { parseTableOfContents, getEffectiveMeta, parseFrontmatter, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss } from '../utils/markdownParser';
+import { parseTableOfContents, getEffectiveMeta, parseFrontmatter, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss, getHeadingText } from '../utils/markdownParser';
 import { resolveImageSrc, resolvePreviewImageSrc } from '../utils/tauriHelper';
 
 interface A4PreviewProps {
@@ -98,7 +98,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
 
   // Build TOC page numbers from the same pages rendered below.
   const tocItems: TocItem[] = toc.show
-    ? parseTableOfContents(markdown, toc.maxDepth, meta, toc.show, style.h1PageBreak, rawContentPages)
+    ? parseTableOfContents(markdown, toc.maxDepth, meta, toc.show, style.h1PageBreak, rawContentPages, toc.headingNumbering)
     : [];
 
   useEffect(() => {
@@ -137,12 +137,17 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
 
   // 3. Markdown Content Pages
   const docCounters = { imgCount: 0, tableCount: 0 };
+  const headingCounters = [0, 0, 0, 0];
   rawContentPages.forEach((pageMd) => {
     const trimmed = pageMd.trim();
     if (trimmed.length > 0 || rawContentPages.length === 1) {
       const preprocessedMd = preprocessMarkdownCaptions(trimmed || pageMd);
       const rawHtml = marked.parse(preprocessedMd) as string;
-      const html = postProcessRenderedHtml(rawHtml, style, docCounters);
+      const numberedHtml = rawHtml.replace(/<h([1-4])([^>]*)>([\s\S]*?)<\/h\1>/gi, (match, level: string, attributes: string, content: string) => {
+        const prefix = getHeadingText('', Number(level), headingCounters, toc.headingNumbering).trim();
+        return `<h${level}${attributes}>${prefix ? `${prefix} ` : ''}${content}</h${level}>`;
+      });
+      const html = postProcessRenderedHtml(numberedHtml, style, docCounters);
       pages.push({
         type: 'content',
         pageNum: pageCounter++,

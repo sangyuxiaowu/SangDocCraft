@@ -872,6 +872,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       <option value={1}>仅一级标题 H1</option>
                       <option value={2}>一、二级标题 H1-H2</option>
                       <option value={3}>一、二、三级标题 H1-H3</option>
+                      <option value={4}>一至四级标题 H1-H4</option>
                     </select>
                   </div>
 
@@ -888,6 +889,19 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       <option value="none">无引导线</option>
                     </select>
                   </div>
+                </div>
+
+                <div>
+                  <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>自动标题编号</label>
+                  <select
+                    value={theme.toc.headingNumbering ?? 'none'}
+                    onChange={(e) => updateToc('headingNumbering', e.target.value)}
+                    className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
+                  >
+                    <option value="none">无</option>
+                    <option value="decimal">数字：1.、1.1、1.1.1、1.1.1.1</option>
+                    <option value="chinese">中文：一、（一）、1.、（1）</option>
+                  </select>
                 </div>
 
                 <div className={`pt-2 border-t ${sectionBorderClass}`}>

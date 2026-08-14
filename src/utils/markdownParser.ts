@@ -1,6 +1,6 @@
 import * as jsYaml from 'js-yaml';
 import { marked } from 'marked';
-import { TocItem, DocumentMeta, CoverListItem, FooterConfig, StyleConfig, ImageStyleConfig, TableCaptionConfig } from '../types';
+import { TocItem, DocumentMeta, CoverListItem, FooterConfig, StyleConfig, ImageStyleConfig, TableCaptionConfig, TocConfig } from '../types';
 import { resolveImageSrc } from './tauriHelper';
 
 export interface ParsedMarkdown {
@@ -708,6 +708,27 @@ export function getTocChunks(items: TocItem[], perPage: number = TOC_ITEMS_PER_P
   return chunks;
 }
 
+export function getHeadingText(text: string, level: number, counters: number[], numbering: TocConfig['headingNumbering'] = 'none'): string {
+  if (numbering === 'none') return text;
+
+  counters[level - 1] += 1;
+  for (let index = level; index < counters.length; index += 1) counters[index] = 0;
+
+  if (numbering === 'decimal') {
+    return `${counters.slice(0, level).join('.')}. ${text}`;
+  }
+
+  const chineseNumerals = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+  const chineseNumber = (value: number) => value <= 10 ? chineseNumerals[value] : String(value);
+  const prefixes = [
+    `${chineseNumber(counters[0])}、`,
+    `（${chineseNumber(counters[1])}）`,
+    `${counters[2]}.`,
+    `（${counters[3]}）`,
+  ];
+  return `${prefixes[level - 1]} ${text}`;
+}
+
 /**
  * Extracts H1, H2, H3 headings from markdown to build Table of Contents items with calculated page numbers
  */
@@ -717,7 +738,8 @@ export function parseTableOfContents(
   meta?: Partial<DocumentMeta>, 
   tocShow: boolean = true,
   h1PageBreak: boolean = false,
-  paginatedContent?: string[]
+  paginatedContent?: string[],
+  headingNumbering: TocConfig['headingNumbering'] = 'none'
 ): TocItem[] {
   const parsed = parseFrontmatter(markdown);
   const contentToParse = parsed.body || markdown;
@@ -747,6 +769,7 @@ export function parseTableOfContents(
 
   const items: TocItem[] = [];
   let index = 1;
+  const counters = [0, 0, 0, 0];
 
   contentPages.forEach((pageMd, pageIdx) => {
     const pageNum = firstContentPageNum + pageIdx;
@@ -761,7 +784,7 @@ export function parseTableOfContents(
       if (token.type === 'heading' && token.depth <= maxDepth) {
         items.push({
           id: `heading-${index++}`,
-          text: token.text,
+          text: getHeadingText(token.text, token.depth, counters, headingNumbering),
           level: token.depth,
           pageNumber: pageNum,
         });
