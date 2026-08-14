@@ -7,11 +7,13 @@
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "release": "node scripts/release.cjs",
+    "dev:tauri": "tauri dev",
+    "prebuild:tauri": "node scripts/sync-tauri-version.cjs && npx tauri icon --output src-tauri/icons docs/assets/logo.png",
+    "build:tauri": "tauri build",
+    "tauri": "tauri"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

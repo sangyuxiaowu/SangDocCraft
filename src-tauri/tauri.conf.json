@@ -1,11 +1,11 @@
 {
-  "$schema": "https://schema.tauri.app/config/2.0.0",
+  "$schema": "https://schema.tauri.app/config/2",
   "productName": "SangDocCraft",
-  "version": "1.0.0",
-  "identifier": "com.sangdoccraft.app",
+  "version": "0.0.0",
+  "identifier": "com.sangyuxiaowu.sangdoccraft",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "npm run prebuild:tauri && npx vite build",
     "devUrl": "http://localhost:3000",
     "frontendDist": "../dist"
   },
@@ -17,14 +17,16 @@
         "height": 900,
         "resizable": true,
         "fullscreen": false,
-        "dragAndDropEnabled": true
+        "dragDropEnabled": true
       }
     ],
     "security": {
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["**"]
+        "scope": [
+          "**"
+        ]
       }
     }
   },

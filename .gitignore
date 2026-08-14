@@ -6,3 +6,9 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# rust compiled folders
+target/
+# Tauri generated
+src-tauri/icons/
+src-tauri/gen/
