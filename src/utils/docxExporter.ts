@@ -458,7 +458,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
       }
 
       case 'table': {
-        const headerCells = token.header.map((col) => {
+        const headerCells = await Promise.all(token.header.map(async (col: any) => {
           return new TableCell({
             shading: {
               fill: primaryHex,
@@ -468,19 +468,15 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
             children: [
               new Paragraph({
                 alignment: AlignmentType.LEFT,
-                children: [
-                  new TextRun({
-                    text: col.text,
-                    bold: true,
-                    color: 'FFFFFF',
-                    size: 20,
-                    font: fontName,
-                  }),
-                ],
+                children: await createInlineRuns(col.tokens || [{ type: 'text', text: col.text }], {
+                  bold: true,
+                  color: 'FFFFFF',
+                  size: 20,
+                }),
               }),
             ],
           });
-        });
+        }));
 
         const tableRows = [
           new TableRow({
@@ -489,8 +485,8 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
           }),
         ];
 
-        token.rows.forEach((row, rowIndex) => {
-          const rowCells = row.map((cell) => {
+        for (const [rowIndex, row] of token.rows.entries()) {
+          const rowCells = await Promise.all(row.map(async (cell: any) => {
             return new TableCell({
               shading: {
                 fill: rowIndex % 2 === 1 ? 'F8FAFC' : 'FFFFFF',
@@ -499,20 +495,16 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
               margins: { top: 100, bottom: 100, left: 160, right: 160 },
               children: [
                 new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: cell.text,
-                      color: textHex,
-                      size: 20,
-                      font: fontName,
-                    }),
-                  ],
+                  children: await createInlineRuns(cell.tokens || [{ type: 'text', text: cell.text }], {
+                    color: textHex,
+                    size: 20,
+                  }),
                 }),
               ],
             });
-          });
+          }));
           tableRows.push(new TableRow({ children: rowCells }));
-        });
+        }
 
         sectionsChildren.push(
           new Table({
@@ -605,8 +597,9 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
     footerChildren.push(
       new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
+        borders: noTableBorders,
         rows: [new TableRow({ children: footerCells.map((cell) => new TableCell({
-          borders: { top: { style: BorderStyle.NONE, size: 0, color: 'auto' }, bottom: { style: BorderStyle.NONE, size: 0, color: 'auto' }, left: { style: BorderStyle.NONE, size: 0, color: 'auto' }, right: { style: BorderStyle.NONE, size: 0, color: 'auto' } },
+          borders: noTableBorders,
           children: [new Paragraph({ alignment: cell.alignment, children: [
             new TextRun({ text: cell.text, size: 18, color: '64748B', font: docxFont }),
             ...(cell.includePage ? pageNumberRuns() : []),
