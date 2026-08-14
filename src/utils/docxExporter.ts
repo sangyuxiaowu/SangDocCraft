@@ -21,6 +21,7 @@ import {
 import { marked } from 'marked';
 import { DocumentTheme } from '../types';
 import { getEffectiveMeta, parseFrontmatter } from './markdownParser';
+import { fetchImageBinary } from './tauriHelper';
 
 /**
  * Converts Hex color string (#RRGGBB) to pure Hex string without '#'
@@ -67,10 +68,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
         runs.push(new TextRun({ text: inlineToken.text, ...inherited, font: 'Consolas', shading: { fill: 'F1F5F9', type: ShadingType.CLEAR } }));
       } else if (inlineToken.type === 'image') {
         try {
-          const response = await fetch(inlineToken.href);
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const data = await response.arrayBuffer();
-          const contentType = response.headers.get('content-type') || '';
+          const { data, contentType } = await fetchImageBinary(inlineToken.href);
           const imageType = contentType.includes('png') ? 'png' : contentType.includes('gif') ? 'gif' : contentType.includes('bmp') ? 'bmp' : 'jpg';
           runs.push(new ImageRun({ type: imageType, data, transformation: { width: 480, height: 270 }, altText: { title: inlineToken.text || '图片', description: inlineToken.text || '图片', name: inlineToken.text || '图片' } }));
         } catch (error) {

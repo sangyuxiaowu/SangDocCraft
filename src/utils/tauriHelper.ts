@@ -1,4 +1,4 @@
-import { convertFileSrc } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 
 /**
  * Helper to check if the app is currently running inside Tauri window
@@ -46,4 +46,38 @@ export function resolveImageSrc(src?: string): string {
 
   // Web fallback: return relative path directly
   return trimmed;
+}
+
+function inferImageContentType(source: string): string {
+  const extension = source.split('?')[0].split('.').pop()?.toLowerCase();
+  if (extension === 'png') return 'image/png';
+  if (extension === 'gif') return 'image/gif';
+  if (extension === 'bmp') return 'image/bmp';
+  if (extension === 'webp') return 'image/webp';
+  return 'image/jpeg';
+}
+
+interface NativeImageBinary {
+  bytes: number[];
+  contentType?: string;
+}
+
+/** Fetches image bytes and uses the native backend when browser CORS blocks a source. */
+export async function fetchImageBinary(source: string): Promise<{ data: ArrayBuffer; contentType: string }> {
+  try {
+    const response = await fetch(resolveImageSrc(source));
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return {
+      data: await response.arrayBuffer(),
+      contentType: response.headers.get('content-type') || inferImageContentType(source),
+    };
+  } catch (fetchError) {
+    if (!isTauriEnvironment()) throw fetchError;
+
+    const image = await invoke<NativeImageBinary>('read_image_binary', { source });
+    return {
+      data: Uint8Array.from(image.bytes).buffer,
+      contentType: image.contentType || inferImageContentType(source),
+    };
+  }
 }

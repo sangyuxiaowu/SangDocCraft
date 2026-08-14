@@ -1,6 +1,7 @@
 import { marked } from 'marked';
 import { DocumentTheme, FooterConfig, DocumentMeta } from '../types';
 import { getEffectiveMeta, parseFrontmatter, parseTableOfContents, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml } from './markdownParser';
+import { fetchImageBinary } from './tauriHelper';
 
 function renderFooterHtml(pageNum: number, totalPages: number, footer: FooterConfig, meta: DocumentMeta): string {
   if (!footer.show) return '';
@@ -12,6 +13,42 @@ function renderFooterHtml(pageNum: number, totalPages: number, footer: FooterCon
       <span class="footer-right">${slots.right}</span>
     </div>
   `;
+}
+
+function addTocAnchors(html: string, maxDepth: number, anchorIndex: { value: number }): string {
+  return html.replace(/<h([1-6])([^>]*)>/gi, (match, level: string, attributes: string) => {
+    if (Number(level) > maxDepth) return match;
+    anchorIndex.value += 1;
+    return `<h${level}${attributes} id="heading-${anchorIndex.value}">`;
+  });
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function inlineImagesAsDataUris(html: string): Promise<string> {
+  const imageSources = [...html.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["']/gi)].map((match) => match[1]);
+  const uniqueSources = [...new Set(imageSources.filter((src) => !src.startsWith('data:')))];
+  const replacements = new Map<string, string>();
+
+  await Promise.all(uniqueSources.map(async (source) => {
+    try {
+      const { data, contentType } = await fetchImageBinary(source);
+      replacements.set(source, await blobToDataUrl(new Blob([data], { type: contentType })));
+    } catch (error) {
+      console.warn('HTML image export failed:', source, error);
+    }
+  }));
+
+  return html.replace(/(<img\b[^>]*\bsrc=["'])([^"']+)(["'])/gi, (match, prefix: string, source: string, suffix: string) => {
+    return replacements.has(source) ? `${prefix}${replacements.get(source)}${suffix}` : match;
+  });
 }
 
 export function generateStandaloneHtml(markdownText: string, theme: DocumentTheme): string {
@@ -748,11 +785,13 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
 
   ${(() => {
     const exportCounters = { imgCount: 0, tableCount: 0 };
+    const tocAnchorIndex = { value: 0 };
     return rawContentPages.map((pageMd, idx) => {
       const pageNum = (meta.showCover ? 1 : 0) + (toc.show ? tocChunks.length : 0) + idx + 1;
       const preprocessed = preprocessMarkdownCaptions(pageMd || '');
       const rawHtml = marked.parse(preprocessed) as string;
-      const pageHtml = postProcessRenderedHtml(rawHtml, style, exportCounters);
+      const renderedHtml = postProcessRenderedHtml(rawHtml, style, exportCounters);
+      const pageHtml = toc.show ? addTocAnchors(renderedHtml, toc.maxDepth || 3, tocAnchorIndex) : renderedHtml;
 
       return `
   <div class="a4-page content-page-wrapper">
@@ -779,8 +818,8 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
 </html>`;
 }
 
-export function exportToHtmlFile(markdownText: string, theme: DocumentTheme, filename?: string): void {
-  const htmlContent = generateStandaloneHtml(markdownText, theme);
+export async function exportToHtmlFile(markdownText: string, theme: DocumentTheme, filename?: string): Promise<void> {
+  const htmlContent = await inlineImagesAsDataUris(generateStandaloneHtml(markdownText, theme));
   const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
   const outName = filename || `${theme.meta.title || '交付文档'}.html`;
 

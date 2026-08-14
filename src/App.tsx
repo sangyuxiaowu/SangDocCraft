@@ -178,9 +178,9 @@ export default function App() {
     }
   };
 
-  const handleExportHtml = () => {
+  const handleExportHtml = async () => {
     try {
-      exportToHtmlFile(markdown, theme);
+      await exportToHtmlFile(markdown, theme);
     } catch (err) {
       console.error('HTML export error:', err);
       alert('导出 HTML 文件遇到问题');
