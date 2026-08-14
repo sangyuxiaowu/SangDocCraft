@@ -321,8 +321,9 @@ export function getEffectiveCharLength(str: string): number {
 function buildListMd(items: any[], ordered: boolean, startIdx: number): string {
   return items.map((item: any, idx: number) => {
     const prefix = ordered ? `${startIdx + idx}. ` : '- ';
-    const text = item.text || item.raw || '';
-    return `${prefix}${text}`;
+    const text = String(item.text || '').trimEnd();
+    const indentedText = text.replace(/\n/g, '\n  ');
+    return `${prefix}${indentedText}`;
   }).join('\n');
 }
 
@@ -636,6 +637,15 @@ export function paginateContentByDom(
               currentPageTokens.push(splitRes.part1);
               flushPage();
               processToken({ ...token, type: 'paragraph', text: splitRes.part2, raw: splitRes.part2 });
+              return;
+            }
+          } else if (token.type === 'list') {
+            const splitRes = findDomListSplit(token, measurer, maxHeight);
+            if (splitRes) {
+              currentPageTokens.push(splitRes.part1Md);
+              flushPage();
+              const newToken = marked.lexer(splitRes.part2Md)[0] || { type: 'raw', raw: splitRes.part2Md };
+              processToken(newToken);
               return;
             }
           }

@@ -138,6 +138,37 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
   // Section children array
   const sectionsChildren: (Paragraph | Table | TableOfContents)[] = [];
 
+  const appendListParagraphs = async (listToken: any, level = 0): Promise<void> => {
+    const start = typeof listToken.start === 'number' ? listToken.start : 1;
+    for (const [index, item] of (listToken.items || []).entries()) {
+      const itemTokens = item.tokens || [];
+      const inlineTokens = itemTokens.filter((itemToken: any) => itemToken.type !== 'list');
+      const nestedLists = itemTokens.filter((itemToken: any) => itemToken.type === 'list');
+      const prefix = listToken.ordered ? `${start + index}. ` : '• ';
+
+      sectionsChildren.push(
+        new Paragraph({
+          indent: { left: 480 + level * 360 },
+          spacing: { before: 80, after: 80 },
+          children: [
+            new TextRun({
+              text: prefix,
+              bold: true,
+              color: accentHex,
+              size: 22,
+              font: docxFont,
+            }),
+            ...(await createInlineRuns(inlineTokens.length > 0 ? inlineTokens : [{ type: 'text', text: item.text }])),
+          ],
+        })
+      );
+
+      for (const nestedList of nestedLists) {
+        await appendListParagraphs(nestedList, level + 1);
+      }
+    }
+  };
+
   // 1. Cover Page
   if (meta.showCover) {
     const coverListItems = (meta.coverlist && meta.coverlist.length > 0)
@@ -498,25 +529,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
       }
 
       case 'list': {
-        for (const [index, item] of token.items.entries()) {
-          const prefix = token.ordered ? `${index + 1}. ` : '• ';
-          sectionsChildren.push(
-            new Paragraph({
-              indent: { left: 480 },
-              spacing: { before: 80, after: 80 },
-              children: [
-                new TextRun({
-                  text: prefix,
-                  bold: true,
-                  color: accentHex,
-                  size: 22,
-                  font: fontName,
-                }),
-                ...(await createInlineRuns(item.tokens || [{ type: 'text', text: item.text }])),
-              ],
-            })
-          );
-        }
+        await appendListParagraphs(token);
         break;
       }
 
