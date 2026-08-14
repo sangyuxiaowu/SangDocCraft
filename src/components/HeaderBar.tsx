@@ -16,7 +16,7 @@ import {
   Moon
 } from 'lucide-react';
 import { DocumentTheme, ViewMode } from '../types';
-import { PRESET_THEMES } from '../data/presetThemes';
+import { getRegisteredThemes } from '../themes/themeRegistry';
 import { SAMPLE_MARKDOWNS } from '../data/defaultMarkdown';
 
 interface HeaderBarProps {
@@ -180,7 +180,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   选择预设交付规范主题
                 </div>
                 <div className="space-y-1">
-                  {PRESET_THEMES.map((preset) => {
+                  {getRegisteredThemes().map((preset) => {
                     const isSelected = preset.id === currentTheme.id;
                     return (
                       <button

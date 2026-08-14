@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { DocumentTheme, CoverStyle, FontChoice, CoverListItem } from '../types';
 import { updateMarkdownFrontmatter } from '../utils/markdownParser';
+import { getCoverTemplates } from '../themes/themeRegistry';
 
 interface StyleConfigPanelProps {
   theme: DocumentTheme;
@@ -259,14 +260,8 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                    {[
-                      { id: 'enterprise', name: '🏢 企业经典', desc: '经典居中与元数据表' },
-                      { id: 'modern', name: '💻 科技现代', desc: '侧边深色条纹与卡片' },
-                      { id: 'spec', name: '📜 政企规范', desc: '双边框与文件编号' },
-                      { id: 'minimal', name: '🌿 极简黑白', desc: '高雅留白与纤细字号' },
-                      { id: 'creative', name: '🎨 现代渐变', desc: '渐变 Banner 与图示卡片' },
-                      { id: 'academic', name: '🎓 学术论文', desc: '论文题目与信息填写栏' },
-                    ].map((opt) => {
+                    {getCoverTemplates().map((template) => {
+                      const opt = { ...template, desc: template.description };
                       const isSelected = (theme.meta.coverStyle || 'enterprise') === opt.id;
                       return (
                         <button

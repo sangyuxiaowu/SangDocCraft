@@ -2,6 +2,7 @@ import { marked } from 'marked';
 import { DocumentTheme, FooterConfig, DocumentMeta } from '../types';
 import { getEffectiveMeta, parseFrontmatter, parseTableOfContents, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss, getHeadingText } from './markdownParser';
 import { fetchImageBinary } from './tauriHelper';
+import { getCoverTemplate } from '../themes/themeRegistry';
 
 function renderFooterHtml(pageNum: number, totalPages: number, footer: FooterConfig, meta: DocumentMeta): string {
   if (!footer.show) return '';
@@ -61,6 +62,7 @@ async function inlineImagesAsDataUris(html: string): Promise<string> {
 export function generateStandaloneHtml(markdownText: string, theme: DocumentTheme): string {
   const { header, footer, toc, style } = theme;
   const meta = getEffectiveMeta(theme.meta, markdownText);
+  const coverStyle = getCoverTemplate(meta.coverStyle).id;
   const parsedMarkdown = parseFrontmatter(markdownText);
   const bodyText = parsedMarkdown.body || markdownText;
 
@@ -774,8 +776,8 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
     </div>
     ` : ''}
 
-    <div class="cover-page cover-style-${meta.coverStyle || 'enterprise'}">
-      ${meta.coverStyle === 'academic' ? `
+    <div class="cover-page cover-style-${coverStyle}">
+      ${coverStyle === 'academic' ? `
         <div class="academic-cover">
           <div>
             ${(meta.logo || meta.logoUrl) ? `<img src="${meta.logo || meta.logoUrl}" class="academic-cover-logo" alt="Logo" />` : ''}
@@ -790,7 +792,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
           </div>
           <div class="academic-cover-date">${meta.date || '年    月    日'}</div>
         </div>
-      ` : meta.coverStyle === 'modern' ? `
+      ` : coverStyle === 'modern' ? `
         <div style="border-left: 4px solid var(--accent-color); padding-left: 20px; flex: 1; height: 100%; min-height: 0; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; text-align: left;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: 10px;">
@@ -808,7 +810,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
             ${renderModernMetaGrid()}
           </div>
         </div>
-      ` : meta.coverStyle === 'spec' ? `
+      ` : coverStyle === 'spec' ? `
         <div style="border: 2px double var(--primary-color); padding: 20px; height: 100%; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
           <div style="text-align: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 10px;">
             ${(meta.logo || meta.logoUrl) ? `<img src="${meta.logo || meta.logoUrl}" style="max-height: 28px; object-fit: contain; margin: 0 auto 6px auto; display: block;" alt="Logo" />` : ''}
@@ -823,7 +825,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
             ${renderSpecMetaGrid()}
           </div>
         </div>
-      ` : meta.coverStyle === 'minimal' ? `
+      ` : coverStyle === 'minimal' ? `
         <div style="text-align: left; flex: 1; height: 100%; min-height: 0; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div style="font-size: 11px; font-family: monospace; color: #94a3b8; letter-spacing: 2px; text-transform: uppercase;">${meta.organization || 'DOCUMENTATION'}</div>
@@ -839,7 +841,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
             ${coverListItems.map(item => `<div><span style="color: #94a3b8;">${item.label} /</span> ${item.value}</div>`).join('')}
           </div>
         </div>
-      ` : meta.coverStyle === 'creative' ? `
+      ` : coverStyle === 'creative' ? `
         <div style="flex: 1; height: 100%; min-height: 0; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
           <div style="background: linear-gradient(135deg, var(--primary-color), var(--accent-color)); color: #fff; padding: 28px 24px; border-radius: 16px; text-align: left;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">

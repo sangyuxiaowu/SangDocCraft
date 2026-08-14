@@ -6,7 +6,7 @@ import { StyleConfigPanel } from './components/StyleConfigPanel';
 import { A4Preview } from './components/A4Preview';
 import { JsonThemeModal } from './components/JsonThemeModal';
 import { DocumentTheme, ViewMode } from './types';
-import { PRESET_THEMES } from './data/presetThemes';
+import { getRegisteredThemes } from './themes/themeRegistry';
 import { SAMPLE_MARKDOWNS } from './data/defaultMarkdown';
 import { exportToDocx } from './utils/docxExporter';
 import { exportToHtmlFile } from './utils/htmlExporter';
@@ -21,7 +21,7 @@ export default function App() {
     } catch (e) {
       // ignore
     }
-    return PRESET_THEMES[0];
+    return getRegisteredThemes()[0];
   });
 
   // Load initial markdown from localStorage or fallback to sample

@@ -1,6 +1,7 @@
 import * as jsYaml from 'js-yaml';
 import { marked } from 'marked';
 import { TocItem, DocumentMeta, CoverListItem, FooterConfig, StyleConfig, ImageStyleConfig, TableCaptionConfig, TocConfig } from '../types';
+import { hasCoverTemplate } from '../themes/themeRegistry';
 import { resolveImageSrc } from './tauriHelper';
 
 export interface ParsedMarkdown {
@@ -75,7 +76,7 @@ function processFrontmatterData(data: Record<string, any>): Partial<DocumentMeta
   // coverStyle
   if (data.coverStyle || data.style) {
     const styleVal = String(data.coverStyle || data.style).toLowerCase();
-    if (['enterprise', 'modern', 'spec', 'minimal', 'creative', 'academic'].includes(styleVal)) {
+    if (hasCoverTemplate(styleVal)) {
       meta.coverStyle = styleVal as any;
     }
   }

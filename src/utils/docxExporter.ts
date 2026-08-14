@@ -22,6 +22,7 @@ import { marked } from 'marked';
 import { DocumentTheme } from '../types';
 import { getEffectiveMeta, parseFrontmatter, getHeadingText } from './markdownParser';
 import { fetchImageBinary } from './tauriHelper';
+import { getCoverTemplate } from '../themes/themeRegistry';
 
 /**
  * Converts Hex color string (#RRGGBB) to pure Hex string without '#'
@@ -37,6 +38,7 @@ function cleanHex(hex: string): string {
 export async function exportToDocx(markdownText: string, theme: DocumentTheme, filename?: string): Promise<void> {
   const { header, footer, toc, style } = theme;
   const meta = getEffectiveMeta(theme.meta, markdownText);
+  const coverStyle = getCoverTemplate(meta.coverStyle).id;
   const parsedMarkdown = parseFrontmatter(markdownText);
   const bodyText = parsedMarkdown.body || markdownText;
 
@@ -142,21 +144,21 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
       const logoRun = await createImageRun(
         logoSource,
         '文档标志',
-        meta.coverStyle === 'academic' ? 180 : 480,
-        meta.coverStyle === 'academic' ? 100 : 270,
+        coverStyle === 'academic' ? 180 : 480,
+        coverStyle === 'academic' ? 100 : 270,
       );
       if (logoRun) {
         sectionsChildren.push(
           new Paragraph({
             alignment: AlignmentType.CENTER,
-            spacing: { before: 400, after: meta.coverStyle === 'academic' ? 160 : 400 },
+            spacing: { before: 400, after: coverStyle === 'academic' ? 160 : 400 },
             children: [logoRun],
           })
         );
       }
     }
 
-    if (meta.coverStyle === 'academic') {
+    if (coverStyle === 'academic') {
       sectionsChildren.push(
         new Paragraph({
           alignment: AlignmentType.CENTER,
@@ -177,7 +179,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
     sectionsChildren.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: meta.coverStyle === 'academic' ? 1800 : 2400, after: 400 },
+        spacing: { before: coverStyle === 'academic' ? 1800 : 2400, after: 400 },
         children: [
           new TextRun({
             text: meta.title || '设计交付文档',
@@ -209,7 +211,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
     }
 
     // Divider line
-    if (meta.coverStyle !== 'academic') {
+    if (coverStyle !== 'academic') {
       sectionsChildren.push(
         new Paragraph({
           alignment: AlignmentType.CENTER,
@@ -239,7 +241,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
         return new TableRow({
           children: [
             new TableCell({
-              width: { size: meta.coverStyle === 'academic' ? 1800 : 2500, type: WidthType.DXA },
+              width: { size: coverStyle === 'academic' ? 1800 : 2500, type: WidthType.DXA },
               borders: {
                 top: { style: BorderStyle.NONE, size: 0, color: 'auto' },
                 bottom: { style: BorderStyle.NONE, size: 0, color: 'auto' },
@@ -248,7 +250,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
               },
               children: [
                 new Paragraph({
-                  alignment: meta.coverStyle === 'academic' ? AlignmentType.LEFT : AlignmentType.RIGHT,
+                  alignment: coverStyle === 'academic' ? AlignmentType.LEFT : AlignmentType.RIGHT,
                   children: [
                     new TextRun({
                       text: cleanLabel,
@@ -262,10 +264,10 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
               ],
             }),
             new TableCell({
-              width: { size: meta.coverStyle === 'academic' ? 4200 : 5500, type: WidthType.DXA },
+              width: { size: coverStyle === 'academic' ? 4200 : 5500, type: WidthType.DXA },
               borders: {
                 top: { style: BorderStyle.NONE, size: 0, color: 'auto' },
-                bottom: { style: meta.coverStyle === 'academic' ? BorderStyle.SINGLE : BorderStyle.NONE, size: meta.coverStyle === 'academic' ? 4 : 0, color: primaryHex },
+                bottom: { style: coverStyle === 'academic' ? BorderStyle.SINGLE : BorderStyle.NONE, size: coverStyle === 'academic' ? 4 : 0, color: primaryHex },
                 left: { style: BorderStyle.NONE, size: 0, color: 'auto' },
                 right: { style: BorderStyle.NONE, size: 0, color: 'auto' },
               },
@@ -289,7 +291,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
 
       sectionsChildren.push(
         new Table({
-          width: { size: meta.coverStyle === 'academic' ? 6000 : 8000, type: WidthType.DXA },
+          width: { size: coverStyle === 'academic' ? 6000 : 8000, type: WidthType.DXA },
           alignment: AlignmentType.CENTER,
           borders: noTableBorders,
           rows: tableRows,
@@ -297,7 +299,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
       );
     }
 
-    if (meta.coverStyle === 'academic') {
+    if (coverStyle === 'academic') {
       sectionsChildren.push(
         new Paragraph({
           alignment: AlignmentType.CENTER,

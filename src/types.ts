@@ -1,6 +1,6 @@
 export type ViewMode = 'split' | 'edit' | 'preview';
 
-export type CoverStyle = 'modern' | 'enterprise' | 'minimal' | 'spec' | 'creative' | 'academic';
+export type CoverStyle = string;
 
 export interface CoverListItem {
   label: string;
