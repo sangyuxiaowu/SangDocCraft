@@ -1,10 +1,32 @@
-import { DocumentTheme, CoverStyle } from '../types';
+import type { ReactNode } from 'react';
+import type { ImageRun, Paragraph, Table, TextRun } from 'docx';
+import { CoverListItem, DocumentMeta, DocumentTheme, CoverStyle, StyleConfig } from '../types';
 import { PRESET_THEMES } from '../data/presetThemes';
+import { academicCoverPlugin } from './academicCoverPlugin';
+import { builtinCoverPlugins } from './builtinCoverPlugins';
+
+export interface CoverRenderContext {
+  meta: DocumentMeta;
+  style: StyleConfig;
+  coverListItems: CoverListItem[];
+}
+
+export interface CoverDocxRenderContext extends CoverRenderContext {
+  primaryHex: string;
+  accentHex: string;
+  textHex: string;
+  fontName: string;
+  docxFont: { ascii: string; hAnsi: string; eastAsia: string };
+  createImageRun: (source: string, altText: string, width?: number, height?: number) => Promise<ImageRun | null>;
+}
 
 export interface CoverTemplatePlugin {
   id: CoverStyle;
   name: string;
   description: string;
+  renderPreview: (context: CoverRenderContext) => ReactNode;
+  renderHtml: (context: CoverRenderContext) => string;
+  renderDocx: (context: CoverDocxRenderContext) => Promise<(Paragraph | Table)[]>;
 }
 
 export interface ThemePlugin {
@@ -14,12 +36,8 @@ export interface ThemePlugin {
 }
 
 const coverTemplates = new Map<CoverStyle, CoverTemplatePlugin>([
-  ['enterprise', { id: 'enterprise', name: '🏢 企业经典', description: '经典居中与元数据表' }],
-  ['modern', { id: 'modern', name: '💻 科技现代', description: '侧边深色条纹与卡片' }],
-  ['spec', { id: 'spec', name: '📜 政企规范', description: '双边框与文件编号' }],
-  ['minimal', { id: 'minimal', name: '🌿 极简黑白', description: '高雅留白与纤细字号' }],
-  ['creative', { id: 'creative', name: '🎨 现代渐变', description: '渐变 Banner 与图示卡片' }],
-  ['academic', { id: 'academic', name: '🎓 学术论文', description: '论文题目与信息填写栏' }],
+  ...builtinCoverPlugins.map((plugin) => [plugin.id, plugin] as const),
+  ['academic', academicCoverPlugin],
 ]);
 
 const themePlugins = new Map<string, ThemePlugin>(

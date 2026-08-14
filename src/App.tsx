@@ -10,7 +10,7 @@ import { getRegisteredThemes } from './themes/themeRegistry';
 import { SAMPLE_MARKDOWNS } from './data/defaultMarkdown';
 import { exportToDocx } from './utils/docxExporter';
 import { exportToHtmlFile } from './utils/htmlExporter';
-import { parseFrontmatter } from './utils/markdownParser';
+import { getEffectiveMeta, parseFrontmatter, updateMarkdownFrontmatter } from './utils/markdownParser';
 
 export default function App() {
   // Load initial theme from localStorage or fallback to enterprise default
@@ -168,6 +168,18 @@ export default function App() {
     setUiMode(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 
+  const handlePresetThemeChange = (selectedTheme: DocumentTheme) => {
+    setMarkdown((currentMarkdown) => {
+      const currentMeta = getEffectiveMeta(selectedTheme.meta, currentMarkdown);
+      const updatedMeta = {
+        ...currentMeta,
+        coverStyle: selectedTheme.meta.coverStyle,
+      };
+      return updateMarkdownFrontmatter(currentMarkdown, updatedMeta);
+    });
+    setTheme(selectedTheme);
+  };
+
   // Export handlers
   const handleExportDocx = async () => {
     try {
@@ -197,7 +209,7 @@ export default function App() {
       {/* Top Header Controls Bar */}
       <HeaderBar
         currentTheme={theme}
-        onThemeChange={setTheme}
+        onThemeChange={handlePresetThemeChange}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onMarkdownChange={setMarkdown}

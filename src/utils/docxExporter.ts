@@ -38,7 +38,8 @@ function cleanHex(hex: string): string {
 export async function exportToDocx(markdownText: string, theme: DocumentTheme, filename?: string): Promise<void> {
   const { header, footer, toc, style } = theme;
   const meta = getEffectiveMeta(theme.meta, markdownText);
-  const coverStyle = getCoverTemplate(meta.coverStyle).id;
+  const coverTemplate = getCoverTemplate(meta.coverStyle);
+  const coverStyle = coverTemplate.id;
   const parsedMarkdown = parseFrontmatter(markdownText);
   const bodyText = parsedMarkdown.body || markdownText;
 
@@ -139,6 +140,26 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
 
   // 1. Cover Page
   if (meta.showCover) {
+    const coverListItems = (meta.coverlist && meta.coverlist.length > 0)
+      ? meta.coverlist
+      : [
+          { label: '撰写团队', value: meta.author },
+          { label: '所属部门', value: meta.department },
+        ].filter(item => !!item.value);
+
+    sectionsChildren.push(...await coverTemplate.renderDocx({
+      meta,
+      style,
+      coverListItems,
+      primaryHex,
+      accentHex,
+      textHex,
+      fontName,
+      docxFont,
+      createImageRun,
+    }));
+
+    if (false) {
     const logoSource = meta.logo || meta.logoUrl;
     if (logoSource) {
       const logoRun = await createImageRun(
@@ -228,13 +249,6 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
     }
 
     // Meta Info Table in Cover Page
-    const coverListItems = (meta.coverlist && meta.coverlist.length > 0)
-      ? meta.coverlist
-      : [
-          { label: '撰写团队', value: meta.author },
-          { label: '所属部门', value: meta.department },
-        ].filter(item => !!item.value);
-
     if (coverListItems.length > 0) {
       const tableRows = coverListItems.map((item) => {
         const cleanLabel = item.label.includes(':') || item.label.includes('：') ? item.label : `${item.label}：`;
@@ -307,6 +321,8 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
           children: [new TextRun({ text: meta.date || '年    月    日', size: 22, color: textHex, font: docxFont })],
         })
       );
+    }
+
     }
 
     // Cover Page Break

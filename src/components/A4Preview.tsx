@@ -11,6 +11,7 @@ import {
 import { DocumentTheme, TocItem, DocumentMeta, ViewMode } from '../types';
 import { parseTableOfContents, getEffectiveMeta, parseFrontmatter, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss, getHeadingText } from '../utils/markdownParser';
 import { resolveImageSrc, resolvePreviewImageSrc } from '../utils/tauriHelper';
+import { getCoverTemplate } from '../themes/themeRegistry';
 
 interface A4PreviewProps {
   markdown: string;
@@ -31,6 +32,7 @@ interface PageItem {
 export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 'dark', viewMode = 'split' }) => {
   const { header, footer, toc, style } = theme;
   const meta = getEffectiveMeta(theme.meta, markdown);
+  const coverTemplate = getCoverTemplate(meta.coverStyle);
   const parsedMarkdown = parseFrontmatter(markdown);
   const isDark = uiMode === 'dark';
 
@@ -266,7 +268,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                   <div className="flex-1 flex flex-col justify-between py-4 h-full">
                     
                     {/* STYLE A: Enterprise Blue (🏢 企业经典蓝) */}
-                    {(meta.coverStyle === 'enterprise' || !meta.coverStyle) && (
+                    {false && (
                       <div className="flex-1 flex flex-col justify-between py-6 text-center">
                         {/* Top Organization Badge & Optional Logo */}
                         <div className="pt-2 space-y-2">
@@ -335,7 +337,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                     )}
 
                     {/* STYLE B: Modern Tech (💻 科技现代感 - 侧边粗线条条纹 + 左对齐布局) */}
-                    {meta.coverStyle === 'modern' && (
+                    {false && (
                       <div className="flex-1 flex flex-col justify-between py-6 px-4 relative border-l-4" style={{ borderColor: style.accentColor }}>
                         {/* Top Header Badge Row */}
                         <div className="flex items-center justify-between pt-2">
@@ -389,7 +391,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                     )}
 
                     {/* STYLE C: Government Spec (📜 政企规范 - 双边框 + 庄重印章标语) */}
-                    {meta.coverStyle === 'spec' && (
+                    {false && (
                       <div className="flex-1 flex flex-col justify-between p-6 border-2 border-double rounded-sm my-1" style={{ borderColor: style.primaryColor }}>
                         {/* Top Formal Banner */}
                         <div className="text-center border-b pb-3 space-y-1" style={{ borderColor: `${style.primaryColor}30` }}>
@@ -436,7 +438,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                     )}
 
                     {/* STYLE D: Minimal Clean (🌿 极简黑白 - 高雅留白与纤细排版) */}
-                    {meta.coverStyle === 'minimal' && (
+                    {false && (
                       <div className="flex-1 flex flex-col justify-between py-8 px-4 text-left">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-mono tracking-widest text-slate-400 uppercase">
@@ -478,7 +480,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                     )}
 
                     {/* STYLE E: Creative Violet / Gradient (🎨 现代创意 - 渐变卡片横幅) */}
-                    {meta.coverStyle === 'creative' && (
+                    {false && (
                       <div className="flex-1 flex flex-col justify-between py-4">
                         {/* Banner Card */}
                         <div 
@@ -540,42 +542,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                       </div>
                     )}
 
-                    {meta.coverStyle === 'academic' && (
-                      <div className="flex-1 flex flex-col items-center px-8 py-4 text-center">
-                        <div className="w-full flex flex-col items-center gap-3 min-h-24">
-                          {(meta.logo || meta.logoUrl) && (
-                            <img src={meta.logo || meta.logoUrl} alt="Logo" className="h-16 max-w-[240px] w-auto object-contain" />
-                          )}
-                          <div className="text-xl font-bold tracking-[0.25em] leading-none" style={{ color: style.primaryColor }}>
-                            {meta.organization || '某某大学'}
-                          </div>
-                        </div>
-
-                        <div className="my-auto w-full space-y-4">
-                          <h1 className="text-3xl font-bold tracking-wide leading-relaxed" style={{ color: style.primaryColor }}>
-                            {meta.title || '论文题目'}
-                          </h1>
-                          {meta.subtitle && (
-                            <p className="text-lg text-slate-600 leading-relaxed">{meta.subtitle}</p>
-                          )}
-                        </div>
-
-                        <div className="w-[58%] space-y-3 text-sm text-left mb-14">
-                          {coverListItems.map((item, idx) => (
-                            <div key={idx} className="grid grid-cols-[6em_minmax(0,1fr)] items-end gap-2">
-                              <span className="font-medium tracking-wide whitespace-pre text-slate-700">{item.label}：</span>
-                              <span className="min-h-6 border-b border-slate-700 px-1 text-center font-medium text-slate-900">
-                                {item.value}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="text-sm tracking-[0.45em] text-slate-700 pr-[-0.45em]">
-                          {meta.date || '年    月    日'}
-                        </div>
-                      </div>
-                    )}
+                    {coverTemplate.renderPreview({ meta, style, coverListItems })}
 
                   </div>
                 )}

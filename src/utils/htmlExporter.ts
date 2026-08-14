@@ -62,7 +62,8 @@ async function inlineImagesAsDataUris(html: string): Promise<string> {
 export function generateStandaloneHtml(markdownText: string, theme: DocumentTheme): string {
   const { header, footer, toc, style } = theme;
   const meta = getEffectiveMeta(theme.meta, markdownText);
-  const coverStyle = getCoverTemplate(meta.coverStyle).id;
+  const coverTemplate = getCoverTemplate(meta.coverStyle);
+  const coverStyle = coverTemplate.id;
   const parsedMarkdown = parseFrontmatter(markdownText);
   const bodyText = parsedMarkdown.body || markdownText;
 
@@ -777,22 +778,8 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
     ` : ''}
 
     <div class="cover-page cover-style-${coverStyle}">
-      ${coverStyle === 'academic' ? `
-        <div class="academic-cover">
-          <div>
-            ${(meta.logo || meta.logoUrl) ? `<img src="${meta.logo || meta.logoUrl}" class="academic-cover-logo" alt="Logo" />` : ''}
-            <div class="academic-cover-organization">${meta.organization || '某某大学'}</div>
-          </div>
-          <div class="academic-cover-title-block">
-            <div class="academic-cover-title">${meta.title || '论文题目'}</div>
-            ${meta.subtitle ? `<div class="academic-cover-subtitle">${meta.subtitle}</div>` : ''}
-          </div>
-          <div class="academic-cover-meta">
-            ${coverListItems.map(item => `<div class="academic-cover-meta-row"><span class="academic-cover-meta-label">${item.label}：</span><span class="academic-cover-meta-value">${item.value}</span></div>`).join('')}
-          </div>
-          <div class="academic-cover-date">${meta.date || '年    月    日'}</div>
-        </div>
-      ` : coverStyle === 'modern' ? `
+      ${coverTemplate.renderHtml({ meta, style, coverListItems })}
+      ${false && (coverStyle === 'modern' ? `
         <div style="border-left: 4px solid var(--accent-color); padding-left: 20px; flex: 1; height: 100%; min-height: 0; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; text-align: left;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: 10px;">
@@ -877,7 +864,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
             ${renderMetaTableRows()}
           </table>
         </div>
-      `}
+      `)}
     </div>
 
     ${footer.show && !footer.hideOnCover ? renderFooterHtml(coverPageNum, totalPages, footer, meta) : ''}
