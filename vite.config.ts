@@ -17,7 +17,9 @@ export default defineConfig(() => {
     },
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      watch: process.env.DISABLE_HMR === 'true'
+        ? null
+        : { ignored: ['**/src-tauri/target/**'] },
     },
   };
 });
