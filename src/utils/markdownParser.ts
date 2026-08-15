@@ -280,6 +280,8 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
     ${selector} pre { background: ${style.codeTheme === 'light' ? '#f1f5f9' : '#0f172a'}; color: ${style.codeTheme === 'light' ? '#0f172a' : '#f8fafc'}; padding: 12px 16px; border-radius: 6px; overflow-x: auto; font-family: Consolas, monospace; font-size: 0.85em; margin: 1em 0; white-space: pre-wrap; word-break: break-all; overflow-wrap: break-word; }
     ${selector} code { background: #f1f5f9; color: #0f172a; padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 0.88em; }
     ${selector} pre code { background: transparent; color: inherit; padding: 0; }
+    ${selector} .mermaid { display: flex; align-items: center; justify-content: center; min-height: 180px; margin: 1.2em 0; overflow: hidden; text-indent: 0; }
+    ${selector} .mermaid svg { max-width: 100%; max-height: 100%; height: auto; }
     ${selector} ul { margin: 0.8em 0; padding-left: 20px; list-style: none; }
     ${selector} ul li { position: relative; padding-left: 14px; margin-bottom: 0.3em; }
     ${selector} ul li::before { content: "${bulletChar}"; position: absolute; left: 0; color: var(--accent-color); font-weight: bold; }
@@ -682,7 +684,7 @@ export function paginateContentByDom(
             processToken(newToken);
             return;
           }
-        } else if (token.type === 'code') {
+        } else if (token.type === 'code' && token.lang?.toLowerCase() !== 'mermaid') {
           const splitRes = findDomCodeSplit(token, measurer, maxHeight);
           if (splitRes) {
             currentPageTokens.push(splitRes.part1Md);
@@ -1204,6 +1206,11 @@ export function postProcessRenderedHtml(
 ): string {
   if (!html) return '';
 
+  const mermaidProcessed = html.replace(
+    /<pre><code class=["']language-mermaid["']>([\s\S]*?)<\/code><\/pre>/gi,
+    '<div class="mermaid">$1</div>'
+  );
+
   const imgConfig: ImageStyleConfig = {
     borderStyle: style?.imageConfig?.borderStyle || 'subtle',
     borderColor: style?.imageConfig?.borderColor || '#cbd5e1',
@@ -1222,7 +1229,7 @@ export function postProcessRenderedHtml(
   };
 
   // 1. Process <img> tags into <figure> with border styling and captions
-  let processed = html.replace(/<img\s+([^>]*?)src=["']([^"']+)["']([^>]*?)\/?>/gi, (match, p1, rawSrc, p2) => {
+  let processed = mermaidProcessed.replace(/<img\s+([^>]*?)src=["']([^"']+)["']([^>]*?)\/?>/gi, (match, p1, rawSrc, p2) => {
     const combinedAttrs = `${p1} ${p2}`;
 
     const altMatch = combinedAttrs.match(/alt=["']([^"']*)["']/i);

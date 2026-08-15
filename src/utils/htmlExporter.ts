@@ -3,6 +3,7 @@ import { DocumentTheme, FooterConfig, DocumentMeta } from '../types';
 import { getEffectiveMeta, parseFrontmatter, parseTableOfContents, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss, getHeadingText } from './markdownParser';
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
+import { renderMermaidInHtml } from './mermaidRenderer';
 
 function renderFooterHtml(pageNum: number, totalPages: number, footer: FooterConfig, meta: DocumentMeta): string {
   if (!footer.show) return '';
@@ -846,7 +847,8 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
 }
 
 export async function exportToHtmlFile(markdownText: string, theme: DocumentTheme, filename?: string): Promise<void> {
-  const htmlContent = await inlineImagesAsDataUris(generateStandaloneHtml(markdownText, theme));
+  const renderedHtml = await renderMermaidInHtml(generateStandaloneHtml(markdownText, theme));
+  const htmlContent = await inlineImagesAsDataUris(renderedHtml);
   const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
   const outName = filename || `${theme.meta.title || '交付文档'}.html`;
 

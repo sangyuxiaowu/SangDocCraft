@@ -12,6 +12,7 @@ import { DocumentTheme, TocItem, DocumentMeta, ViewMode } from '../types';
 import { parseTableOfContents, getEffectiveMeta, parseFrontmatter, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss, getHeadingText } from '../utils/markdownParser';
 import { resolveImageSrc, resolvePreviewImageSrc } from '../utils/tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
+import { renderMermaidElements } from '../utils/mermaidRenderer';
 
 interface A4PreviewProps {
   markdown: string;
@@ -110,6 +111,10 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
       if (tocItem) heading.id = tocItem.id;
     });
   }, [markdown, tocItems]);
+
+  useEffect(() => {
+    if (containerRef.current) void renderMermaidElements(containerRef.current);
+  }, [markdown, theme]);
 
   // Build Pages Array
   const pages: PageItem[] = [];
@@ -452,6 +457,14 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
           background-color: transparent;
           color: inherit;
           padding: 0;
+        }
+        .markdown-rendered-body .mermaid-error {
+          display: block;
+          padding: 12px 16px;
+          white-space: pre-wrap;
+          color: #b91c1c;
+          background: #fef2f2;
+          border: 1px solid #fecaca;
         }
         .markdown-rendered-body ul {
           margin: 0.8em 0;

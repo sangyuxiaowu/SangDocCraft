@@ -27,6 +27,7 @@
     "js-yaml": "^5.2.3",
     "lucide-react": "^0.546.0",
     "marked": "^18.0.9",
+    "mermaid": "^11.16.1",
     "motion": "^12.23.24",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",

@@ -23,6 +23,7 @@ import { DocumentTheme } from '../types';
 import { getEffectiveMeta, parseFrontmatter, getHeadingText } from './markdownParser';
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
+import { renderMermaidPng } from './mermaidRenderer';
 
 /**
  * Converts Hex color string (#RRGGBB) to pure Hex string without '#'
@@ -338,6 +339,25 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
       }
 
       case 'code': {
+        if (token.lang?.toLowerCase() === 'mermaid') {
+          try {
+            const diagram = await renderMermaidPng(token.text);
+            sectionsChildren.push(new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 160, after: 160 },
+              children: [new ImageRun({
+                type: 'png',
+                data: diagram.data,
+                transformation: { width: diagram.width, height: diagram.height },
+                altText: { title: 'Mermaid 图表', description: 'Mermaid 图表', name: 'Mermaid 图表' },
+              })],
+            }));
+            break;
+          } catch (error) {
+            console.warn('DOCX Mermaid rendering failed:', error);
+          }
+        }
+
         const lines = token.text.split('\n');
         lines.forEach((line) => {
           sectionsChildren.push(
