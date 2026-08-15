@@ -113,8 +113,26 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
   }, [markdown, tocItems]);
 
   useEffect(() => {
-    if (containerRef.current) void renderMermaidElements(containerRef.current);
-  }, [markdown, theme]);
+    const container = containerRef.current;
+    if (!container) return;
+
+    let animationFrame = 0;
+    const scheduleRender = () => {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = requestAnimationFrame(() => void renderMermaidElements(container));
+    };
+    const observer = new MutationObserver((mutations) => {
+      if (mutations.some((mutation) => mutation.addedNodes.length > 0)) scheduleRender();
+    });
+
+    observer.observe(container, { childList: true, subtree: true });
+    scheduleRender();
+
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(animationFrame);
+    };
+  }, [markdown, theme, viewMode]);
 
   // Build Pages Array
   const pages: PageItem[] = [];

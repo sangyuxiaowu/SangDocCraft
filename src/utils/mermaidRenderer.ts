@@ -25,6 +25,7 @@ export async function renderMermaidElements(root: ParentNode): Promise<void> {
   const elements = Array.from(root.querySelectorAll<HTMLElement>('.mermaid:not([data-mermaid-rendered])'));
   for (const element of elements) {
     const source = element.textContent || '';
+    element.dataset.mermaidRendered = 'pending';
     try {
       const svg = await renderMermaidSvg(source);
       if (!element.isConnected) continue;
