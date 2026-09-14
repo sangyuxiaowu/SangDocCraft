@@ -491,7 +491,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
       font-weight: 700;
       page-break-after: avoid;
     }
-    h1 {
+    .markdown-content h1 {
       font-size: 22px;
       border-bottom: 2px solid var(--accent-color);
       padding-bottom: 6px;

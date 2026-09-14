@@ -1,8 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { PRESET_THEMES } from '../data/presetThemes';
 import { generateStandaloneHtml } from './htmlExporter';
+import { JSDOM } from 'jsdom';
 
 describe('generateStandaloneHtml', () => {
+  it.each(['signature', 'briefing'])('keeps body heading borders off the %s cover title', (coverStyle) => {
+    const html = generateStandaloneHtml(`---\ncoverStyle: ${coverStyle}\n---\n# Body`, PRESET_THEMES[0]);
+    const dom = new JSDOM(html);
+    const document = dom.window.document as Document;
+    const coverTitle = document.querySelector('.cover-page h1')!;
+    const bodyTitle = document.querySelector('.markdown-content h1')!;
+    const headingRule = Array.from(document.styleSheets[0].cssRules).find((rule) =>
+      'selectorText' in rule && rule.cssText.includes('border-bottom: 2px solid var(--accent-color)') && rule.cssText.includes('padding-bottom: 6px'),
+    ) as CSSStyleRule;
+    expect(headingRule).toBeDefined();
+    expect(coverTitle.matches(headingRule.selectorText)).toBe(false);
+    expect(bodyTitle.matches(headingRule.selectorText)).toBe(true);
+    expect(dom.window.getComputedStyle(coverTitle).paddingBottom).not.toBe('6px');
+    dom.window.close();
+  });
+
   it.each(['enterprise', 'academic', 'signature', 'briefing'])('exports frontmatter metadata columns for %s', (coverStyle) => {
     const html = generateStandaloneHtml(
       `---\ncoverStyle: ${coverStyle}\ncoverListColumns: 2\ncoverlist:\n  - Author: Alice\n  - Date: ""\n  - Reviewer: Bob\n---\n# Body`,
