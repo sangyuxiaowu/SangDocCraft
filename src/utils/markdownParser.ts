@@ -76,6 +76,9 @@ function processFrontmatterData(data: Record<string, any>): Partial<DocumentMeta
   if (typeof data.logoHeight === 'number' && Number.isFinite(data.logoHeight)) {
     meta.logoHeight = Math.min(120, Math.max(20, data.logoHeight));
   }
+  if (data.coverListColumns === 1 || data.coverListColumns === 2) {
+    meta.coverListColumns = data.coverListColumns;
+  }
 
   // coverStyle
   if (data.coverStyle || data.style) {
@@ -154,6 +157,7 @@ export function getEffectiveMeta(baseMeta: DocumentMeta, markdown: string): Docu
     logoHeight: em.logoHeight ?? baseMeta.logoHeight,
     number: em.number ?? baseMeta.number,
     coverStyle: em.coverStyle ?? baseMeta.coverStyle,
+    coverListColumns: em.coverListColumns ?? baseMeta.coverListColumns,
     coverlist: em.coverlist ?? baseMeta.coverlist,
   };
 }
@@ -181,6 +185,7 @@ export function updateMarkdownFrontmatter(markdown: string, meta: DocumentMeta):
   if (meta.logoHeight !== undefined) yamlObj.logoHeight = meta.logoHeight; else delete yamlObj.logoHeight;
 
   if (meta.coverStyle) yamlObj.coverStyle = meta.coverStyle; else delete yamlObj.coverStyle;
+  if (meta.coverListColumns !== undefined) yamlObj.coverListColumns = meta.coverListColumns; else delete yamlObj.coverListColumns;
 
   if (meta.coverlist && meta.coverlist.length > 0) {
     yamlObj.coverlist = meta.coverlist.map(item => ({ [item.label]: item.value }));

@@ -268,7 +268,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                     <span className="text-[10px] text-blue-400 font-medium">点击效果卡片实时预览</span>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-4 gap-1.5">
                     {getCoverTemplates().map((template) => {
                       const opt = { ...template, desc: template.description };
                       const isSelected = (theme.meta.coverStyle || 'enterprise') === opt.id;
@@ -277,7 +277,8 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                           key={opt.id}
                           type="button"
                           onClick={() => updateMeta('coverStyle', opt.id as CoverStyle)}
-                          className={`group flex flex-col p-2 rounded-lg border text-left transition-all relative overflow-hidden ${
+                          title={`${opt.name}：${opt.desc}`}
+                          className={`group min-w-0 flex flex-col p-1 rounded-lg border-2 text-left transition-all relative overflow-hidden ${
                             isSelected
                               ? 'border-2 border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-500/10 shadow-md'
                               : isDark
@@ -292,21 +293,18 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                             </div>
                           )}
 
-                          <div className="w-full aspect-[3/4] bg-white rounded border border-slate-200 shadow-xs p-1.5 flex flex-col justify-between overflow-hidden relative mb-2 select-none group-hover:scale-[1.02] transition-transform">
+                          <div className="w-full aspect-[3/4] bg-white rounded border border-slate-200 shadow-xs p-0.5 flex flex-col justify-between overflow-hidden relative mb-1 select-none group-hover:scale-[1.02] transition-transform">
                             {template.renderThumbnail({ meta: theme.meta, style: theme.style, coverListItems: currentCoverList })}
                           </div>
 
                           {/* Option Details */}
                           <div className="w-full">
-                            <div className={`text-[11px] font-bold truncate ${
+                            <div className={`text-[10px] leading-4 min-h-8 text-center font-bold whitespace-normal break-words ${
                               isSelected 
                                 ? 'text-emerald-500 font-extrabold' 
                                 : textSubClass
                             }`}>
                               {opt.name}
-                            </div>
-                            <div className={`text-[9px] truncate ${textMutedClass}`}>
-                              {opt.desc}
                             </div>
                           </div>
                         </button>
@@ -489,6 +487,20 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                         重置默认
                       </button>
                     </div>
+
+                    {getCoverTemplate(theme.meta.coverStyle).defaultCoverListColumns !== undefined && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-[11px] ${textSubClass}`}>排列方式</span>
+                        <div role="group" aria-label="封面属性排列方式" className={`inline-flex rounded border p-0.5 ${sectionBorderClass}`}>
+                          {([1, 2] as const).map((columns) => {
+                            const selected = (theme.meta.coverListColumns ?? getCoverTemplate(theme.meta.coverStyle).defaultCoverListColumns) === columns;
+                            return <button key={columns} type="button" aria-pressed={selected} onClick={() => updateMeta('coverListColumns', columns)} className={`px-3 py-1 rounded text-[11px] transition ${selected ? 'bg-emerald-600 text-white' : textMutedClass}`}>
+                              {columns === 1 ? '单栏' : '双栏'}
+                            </button>;
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
                       {currentCoverList.length === 0 ? (

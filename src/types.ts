@@ -19,6 +19,7 @@ export interface DocumentMeta {
   logoHeight?: number;
   number?: string;
   coverlist?: CoverListItem[];
+  coverListColumns?: 1 | 2;
   showCover: boolean;
   coverStyle: CoverStyle;
 }

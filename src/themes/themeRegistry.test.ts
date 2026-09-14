@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PRESET_THEMES } from '../data/presetThemes';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { CoverMetadata, coverMetadataHtml, coverMetadataDocx } from './coverMetadata';
+import { Document, Packer } from 'docx';
 
 async function loadRegistry() {
   vi.resetModules();
@@ -9,6 +11,30 @@ async function loadRegistry() {
 
 describe('themeRegistry', () => {
   beforeEach(() => vi.resetModules());
+
+  it.each([1, 2] as const)('renders metadata in %i columns without losing odd or empty fields', async (coverListColumns) => {
+    const context = {
+      meta: { ...PRESET_THEMES[0].meta, coverListColumns },
+      style: PRESET_THEMES[0].style,
+      coverListItems: [{ label: 'Author', value: 'Alice' }, { label: 'Date:', value: '' }, { label: 'Reviewer', value: 'Bob' }],
+    };
+    for (const html of [renderToStaticMarkup(CoverMetadata({ context })), coverMetadataHtml(context)]) {
+      expect(html).toContain(`data-cover-columns="${coverListColumns}"`);
+      expect(html.indexOf('Alice')).toBeLessThan(html.indexOf('Date:'));
+      expect(html.indexOf('Date:')).toBeLessThan(html.indexOf('Bob'));
+      expect(html).not.toContain('Date:：');
+    }
+    const tables = coverMetadataDocx({ ...context, primaryHex: '000000', accentHex: '000000', textHex: '000000', fontName: 'Arial', docxFont: { ascii: 'Arial', hAnsi: 'Arial', eastAsia: 'SimSun' }, createImageRun: vi.fn() });
+    const document = new Document({ sections: [{ children: tables }] });
+    const xml = JSON.stringify(tables[0].prepForXml({ file: document, viewWrapper: document.Document, stack: [] }));
+    expect(xml.match(/"w:tr":/g)).toHaveLength(Math.ceil(3 / coverListColumns));
+    expect(xml.match(/"w:tc":/g)).toHaveLength(Math.ceil(3 / coverListColumns) * (coverListColumns === 2 ? 5 : 2));
+    expect(xml).toContain('Alice');
+    expect(xml).toContain('Bob');
+    expect(xml).toContain(`"w:w":${coverListColumns === 2 ? 7680 : 4400}`);
+    expect(xml).toContain('"w:val":"center"');
+    expect((await Packer.toBuffer(document)).length).toBeGreaterThan(0);
+  });
 
   it('registers every preset theme and its cover template', async () => {
     const registry = await loadRegistry();
@@ -22,6 +48,43 @@ describe('themeRegistry', () => {
   it('falls back to the enterprise cover for unknown IDs', async () => {
     const registry = await loadRegistry();
     expect(registry.getCoverTemplate('missing').id).toBe('enterprise');
+  });
+
+  it.each(['enterprise', 'academic', 'signature', 'briefing'])('supports metadata layout defaults and overrides in %s', async (id) => {
+    const registry = await loadRegistry();
+    expect(registry.getCoverTemplates()).toHaveLength(8);
+    const plugin = registry.getCoverTemplate(id);
+    const defaultColumns = ['signature', 'briefing'].includes(id) ? 2 : 1;
+    expect(plugin.defaultCoverListColumns).toBe(defaultColumns);
+    for (const columns of [undefined, 1, 2] as const) {
+      const context = { meta: { ...PRESET_THEMES[0].meta, coverStyle: id, coverListColumns: columns }, style: PRESET_THEMES[0].style, coverListItems: [{ label: 'Author', value: 'Alice' }, { label: 'Date', value: '' }, { label: 'Reviewer', value: 'Bob' }] };
+      expect(renderToStaticMarkup(plugin.renderPreview(context))).toContain(`data-cover-columns="${columns ?? defaultColumns}"`);
+      expect(plugin.renderHtml(context)).toContain(`data-cover-columns="${columns ?? defaultColumns}"`);
+      for (const html of [renderToStaticMarkup(plugin.renderPreview(context)), plugin.renderHtml(context)]) {
+        expect(html).toContain(`max-width:${(columns ?? defaultColumns) === 2 ? '80%' : '44%'}`);
+        expect(html).toContain('margin:0 auto');
+      }
+      const children = await plugin.renderDocx({ ...context, primaryHex: '000000', accentHex: '000000', textHex: '000000', fontName: 'Arial', docxFont: { ascii: 'Arial', hAnsi: 'Arial', eastAsia: 'SimSun' }, createImageRun: vi.fn().mockResolvedValue(null) });
+      const document = new Document({ sections: [{ children }] });
+      const xml = JSON.stringify(document.Document.View.prepForXml({ file: document, viewWrapper: document.Document, stack: [] }));
+      expect(xml.match(/"w:tr":/g)).toHaveLength(Math.ceil(3 / (columns ?? defaultColumns)));
+    }
+  });
+
+  it.each(['signature', 'briefing'])('orders and hides optional cover fields in %s', async (id) => {
+    const registry = await loadRegistry();
+    const plugin = registry.getCoverTemplate(id);
+    const context = { meta: { ...PRESET_THEMES[0].meta, logo: 'brand.png', number: 'DOC-001', title: 'Main title', subtitle: 'Subtitle', organization: 'Company name', date: '2026-09-14' }, style: PRESET_THEMES[0].style, coverListItems: [{ label: 'Author', value: 'Alice' }] };
+    for (const html of [renderToStaticMarkup(plugin.renderPreview(context)), plugin.renderHtml(context)]) {
+      const positions = ['<img', 'DOC-001', 'Main title', 'Subtitle', 'Alice', 'Company name', '2026-09-14'].map((text) => html.indexOf(text));
+      expect(positions.every((position) => position >= 0)).toBe(true);
+      expect(positions).toEqual([...positions].sort((left, right) => left - right));
+    }
+    const emptyContext = { ...context, meta: { ...context.meta, logo: '', logoUrl: '', number: '', subtitle: '', organization: '', date: '' }, coverListItems: [] };
+    for (const html of [renderToStaticMarkup(plugin.renderPreview(emptyContext)), plugin.renderHtml(emptyContext)]) {
+      expect(html).toContain('Main title');
+      expect(html).not.toMatch(/<img|文档编号|Subtitle|Company name|2026-09-14/);
+    }
   });
 
   it.each([20, 80, 120])('applies a %i px logo height to every cover preview and export', async (logoHeight) => {

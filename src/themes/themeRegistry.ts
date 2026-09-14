@@ -2,6 +2,7 @@ import { DocumentTheme, CoverStyle } from '../types';
 import { PRESET_THEMES } from '../data/presetThemes';
 import { academicCoverPlugin } from './academicCoverPlugin';
 import { builtinCoverPlugins } from './builtinCoverPlugins';
+import { businessCoverPlugins } from './businessCoverPlugins';
 import type { CoverTemplatePlugin, ThemePlugin } from './contracts';
 
 export type { CoverDocxRenderContext, CoverRenderContext, CoverTemplatePlugin, ThemePlugin } from './contracts';
@@ -9,6 +10,7 @@ export type { CoverDocxRenderContext, CoverRenderContext, CoverTemplatePlugin, T
 const coverTemplates = new Map<CoverStyle, CoverTemplatePlugin>([
   ...builtinCoverPlugins.map((plugin) => [plugin.id, plugin] as const),
   ['academic', academicCoverPlugin],
+  ...businessCoverPlugins.map((plugin) => [plugin.id, plugin] as const),
 ]);
 
 const themePlugins = new Map<string, ThemePlugin>(

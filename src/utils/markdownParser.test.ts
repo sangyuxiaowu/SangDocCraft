@@ -21,6 +21,18 @@ import {
 const theme = PRESET_THEMES[0];
 
 describe('Markdown frontmatter', () => {
+  it.each([1, 2] as const)('round-trips %i cover metadata columns and supports resetting', (coverListColumns) => {
+    const meta = { ...theme.meta, coverStyle: 'signature', coverListColumns };
+    const updated = updateMarkdownFrontmatter('Body', meta);
+    expect(getEffectiveMeta(theme.meta, updated)).toMatchObject({ coverStyle: 'signature', coverListColumns });
+    const reset = updateMarkdownFrontmatter(updated, { ...meta, coverListColumns: undefined });
+    expect(parseFrontmatter(reset).frontmatter).not.toHaveProperty('coverListColumns');
+  });
+
+  it.each(['0', '3', '"2"', 'null'])('ignores invalid cover metadata columns: %s', (value) => {
+    expect(parseFrontmatter(`---\ncoverListColumns: ${value}\n---\nBody`).extractedMeta?.coverListColumns).toBeUndefined();
+  });
+
   it.each([20, 80, 120])('round-trips a document logo height of %i px and resets to the cover default', (logoHeight) => {
     const meta = { ...theme.meta, logoHeight };
     const updated = updateMarkdownFrontmatter('Body', meta);

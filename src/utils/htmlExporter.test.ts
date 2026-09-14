@@ -3,6 +3,17 @@ import { PRESET_THEMES } from '../data/presetThemes';
 import { generateStandaloneHtml } from './htmlExporter';
 
 describe('generateStandaloneHtml', () => {
+  it.each(['enterprise', 'academic', 'signature', 'briefing'])('exports frontmatter metadata columns for %s', (coverStyle) => {
+    const html = generateStandaloneHtml(
+      `---\ncoverStyle: ${coverStyle}\ncoverListColumns: 2\ncoverlist:\n  - Author: Alice\n  - Date: ""\n  - Reviewer: Bob\n---\n# Body`,
+      PRESET_THEMES[0],
+    );
+    expect(html).toContain(`cover-style-${coverStyle}`);
+    expect(html).toContain('data-cover-columns="2"');
+    expect(html).toContain('Alice');
+    expect(html).toContain('Bob');
+  });
+
   it.each([
     ['underline', 'border-bottom: 2px solid'],
     ['accent-block', 'border-left: 5px solid'],
