@@ -288,6 +288,22 @@ describe('Rendered Markdown post-processing', () => {
     expect(css).toContain('max-height: 720px');
   });
 
+  it('applies custom heading typography and spacing', () => {
+    const css = getMarkdownBodyCss('.body', {
+      ...theme.style,
+      headingFonts: {
+        ...theme.style.headingFonts,
+        h1: { fontFamily: 'Arial', fontSize: 31, bold: false, marginBefore: 41, marginAfter: 9 },
+      },
+    });
+
+    expect(css).toContain('font-family: Arial');
+    expect(css).toContain('font-size: 31px');
+    expect(css).toContain('font-weight: 400');
+    expect(css).toContain('margin-top: 41px');
+    expect(css).toContain('margin-bottom: 9px');
+  });
+
   it('wraps and numbers image captions with shared counters', () => {
     const counters = { imgCount: 0, tableCount: 0 };
     const first = postProcessRenderedHtml('<p><img src="a.png" alt="架构图"></p>', theme.style, counters);

@@ -88,10 +88,10 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
     }
   };
 
-  const createInlineRuns = async (tokens: any[], options: { bold?: boolean; italics?: boolean; size?: number; color?: string } = {}): Promise<(TextRun | ImageRun)[]> => {
+  const createInlineRuns = async (tokens: any[], options: { bold?: boolean; italics?: boolean; size?: number; color?: string; font?: string } = {}): Promise<(TextRun | ImageRun)[]> => {
     const runs: (TextRun | ImageRun)[] = [];
     for (const inlineToken of tokens || []) {
-      const inherited = { bold: options.bold, italics: options.italics, size: options.size || 22, color: options.color || textHex, font: docxFont };
+      const inherited = { bold: options.bold, italics: options.italics, size: options.size || 22, color: options.color || textHex, font: options.font || docxFont };
       if (inlineToken.type === 'strong' || inlineToken.type === 'em' || inlineToken.type === 'del' || inlineToken.type === 'link') {
         runs.push(...await createInlineRuns(inlineToken.tokens, {
           ...options,
@@ -292,25 +292,27 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
           color = textHex;
         }
 
-        const headingConfig = style.headingFonts?.[`h${Math.min(level, 4)}` as 'h1' | 'h2' | 'h3' | 'h4'];
+        const headingConfig = style.headingFonts[`h${Math.min(level, 4)}` as 'h1' | 'h2' | 'h3' | 'h4'];
+        const headingFont = headingConfig.fontFamily === 'inherit' ? undefined : headingConfig.fontFamily;
         const headingPrefix = getHeadingText('', level, headingCounters, toc.headingNumbering).trim();
 
         sectionsChildren.push(
           new Paragraph({
             heading: headingLevel,
-            spacing: { before: 400, after: 200 },
+            spacing: { before: headingConfig.marginBefore * 15, after: headingConfig.marginAfter * 15 },
             children: [
               ...(headingPrefix ? [new TextRun({
                 text: `${headingPrefix} `,
-                bold: headingConfig?.bold ?? true,
-                size: headingConfig?.fontSize ? headingConfig.fontSize * 2 : fontSize,
+                bold: headingConfig.bold,
+                size: headingConfig.fontSize * 2,
                 color,
-                font: docxFont,
+                font: headingFont || docxFont,
               })] : []),
               ...(await createInlineRuns(token.tokens || [{ type: 'text', text: token.text }], {
-                bold: headingConfig?.bold ?? true,
-                size: headingConfig?.fontSize ? headingConfig.fontSize * 2 : fontSize,
+                bold: headingConfig.bold,
+                size: headingConfig.fontSize * 2,
                 color,
+                font: headingFont,
               })),
             ],
           })

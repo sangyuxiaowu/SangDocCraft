@@ -1,5 +1,12 @@
 import { DocumentTheme } from '../types';
 
+const defaultHeadingFonts = {
+  h1: { fontFamily: 'inherit', fontSize: 24, bold: true, marginBefore: 38, marginAfter: 14 },
+  h2: { fontFamily: 'inherit', fontSize: 20, bold: true, marginBefore: 28, marginAfter: 10 },
+  h3: { fontFamily: 'inherit', fontSize: 17, bold: true, marginBefore: 20, marginAfter: 7 },
+  h4: { fontFamily: 'inherit', fontSize: 15, bold: true, marginBefore: 15, marginAfter: 5 },
+};
+
 export const PRESET_THEMES: DocumentTheme[] = [
   {
     id: 'enterprise-standard',
@@ -52,6 +59,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
       h1Style: 'underline',
       h2Style: 'border-left',
       h3Style: 'bold',
+      headingFonts: defaultHeadingFonts,
       h1PageBreak: false,
       indentParagraph: false,
       bulletStyle: 'square',
@@ -125,6 +133,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
       h1Style: 'accent-block',
       h2Style: 'border-left',
       h3Style: 'bold',
+      headingFonts: defaultHeadingFonts,
       bulletStyle: 'arrow',
       numberStyle: 'decimal',
       codeTheme: 'dark',
@@ -182,6 +191,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
       h1Style: 'underline',
       h2Style: 'number-prefix',
       h3Style: 'bold',
+      headingFonts: defaultHeadingFonts,
       bulletStyle: 'dot',
       numberStyle: 'chinese',
       codeTheme: 'light',
@@ -239,6 +249,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
       h1Style: 'minimal',
       h2Style: 'underline-subtle',
       h3Style: 'plain',
+      headingFonts: defaultHeadingFonts,
       bulletStyle: 'dot',
       numberStyle: 'decimal',
       codeTheme: 'github',
@@ -296,6 +307,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
       h1Style: 'badge',
       h2Style: 'border-left',
       h3Style: 'bold',
+      headingFonts: defaultHeadingFonts,
       bulletStyle: 'checkmark',
       numberStyle: 'decimal',
       codeTheme: 'dark',
@@ -361,6 +373,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
       h1Style: 'minimal',
       h2Style: 'number-prefix',
       h3Style: 'bold',
+      headingFonts: defaultHeadingFonts,
       h1PageBreak: false,
       indentParagraph: true,
       bulletStyle: 'dot',

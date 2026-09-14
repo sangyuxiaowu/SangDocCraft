@@ -401,12 +401,12 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
         ${getTocTitleCss('.doc-toc-title', toc, style)}
         ${getMarkdownBodyCss('.markdown-rendered-body', style)}
         .markdown-rendered-body h1 {
-          font-family: ${style.headingFonts?.h1.fontFamily || 'inherit'};
-          font-size: ${style.headingFonts?.h1.fontSize || 24}px;
-          font-weight: ${style.headingFonts?.h1.bold ?? true ? 700 : 400};
+          font-family: ${style.headingFonts.h1.fontFamily};
+          font-size: ${style.headingFonts.h1.fontSize}px;
+          font-weight: ${style.headingFonts.h1.bold ? 700 : 400};
           color: var(--primary-color);
-          margin-top: 1.6em;
-          margin-bottom: 0.6em;
+          margin-top: ${style.headingFonts.h1.marginBefore}px;
+          margin-bottom: ${style.headingFonts.h1.marginAfter}px;
           padding: ${style.h1Style === 'badge' ? '0.25em 0.5em' : style.h1Style === 'accent-block' ? '0 0 0 0.45em' : '0 0 0.3em'};
           background: ${style.h1Style === 'badge' ? `${style.accentColor}18` : 'transparent'};
           border-bottom: ${style.h1Style === 'underline' ? '2px solid var(--accent-color)' : 'none'};
@@ -416,32 +416,32 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
           margin-top: 0;
         }
         .markdown-rendered-body h2 {
-          font-family: ${style.headingFonts?.h2.fontFamily || 'inherit'};
-          font-size: ${style.headingFonts?.h2.fontSize || 20}px;
-          font-weight: ${style.headingFonts?.h2.bold ?? true ? 700 : 400};
+          font-family: ${style.headingFonts.h2.fontFamily};
+          font-size: ${style.headingFonts.h2.fontSize}px;
+          font-weight: ${style.headingFonts.h2.bold ? 700 : 400};
           color: var(--primary-color);
-          margin-top: 1.4em;
-          margin-bottom: 0.5em;
+          margin-top: ${style.headingFonts.h2.marginBefore}px;
+          margin-bottom: ${style.headingFonts.h2.marginAfter}px;
           padding-left: ${style.h2Style === 'border-left' ? '8px' : '0'};
           border-left: ${style.h2Style === 'border-left' ? '4px solid var(--accent-color)' : 'none'};
           padding-bottom: ${style.h2Style === 'underline-subtle' ? '0.25em' : '0'};
           border-bottom: ${style.h2Style === 'underline-subtle' ? '1px solid var(--accent-color)' : 'none'};
         }
         .markdown-rendered-body h3 {
-          font-family: ${style.headingFonts?.h3.fontFamily || 'inherit'};
-          font-size: ${style.headingFonts?.h3.fontSize || 17}px;
-          font-weight: ${style.headingFonts?.h3.bold ?? true ? 700 : 400};
+          font-family: ${style.headingFonts.h3.fontFamily};
+          font-size: ${style.headingFonts.h3.fontSize}px;
+          font-weight: ${style.headingFonts.h3.bold ? 700 : 400};
           color: var(--primary-color);
-          margin-top: 1.2em;
-          margin-bottom: 0.4em;
+          margin-top: ${style.headingFonts.h3.marginBefore}px;
+          margin-bottom: ${style.headingFonts.h3.marginAfter}px;
         }
         .markdown-rendered-body h4 {
-          font-family: ${style.headingFonts?.h4.fontFamily || 'inherit'};
-          font-size: ${style.headingFonts?.h4.fontSize || 15}px;
-          font-weight: ${style.headingFonts?.h4.bold ?? true ? 700 : 400};
+          font-family: ${style.headingFonts.h4.fontFamily};
+          font-size: ${style.headingFonts.h4.fontSize}px;
+          font-weight: ${style.headingFonts.h4.bold ? 700 : 400};
           color: var(--primary-color);
-          margin-top: 1em;
-          margin-bottom: 0.35em;
+          margin-top: ${style.headingFonts.h4.marginBefore}px;
+          margin-bottom: ${style.headingFonts.h4.marginAfter}px;
         }
         .markdown-rendered-body p {
           margin-bottom: 0.9em;

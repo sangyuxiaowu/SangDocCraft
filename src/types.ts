@@ -79,9 +79,11 @@ export interface TocConfig {
 export type FontChoice = 'sans' | 'serif' | 'kaiti' | 'heiti' | 'mono';
 
 export interface HeadingFontStyle {
-  fontFamily?: string;
+  fontFamily: string;
   fontSize: number;
   bold: boolean;
+  marginBefore: number;
+  marginAfter: number;
 }
 
 export interface StyleConfig {
@@ -99,7 +101,7 @@ export interface StyleConfig {
   h1Style: 'underline' | 'accent-block' | 'badge' | 'minimal';
   h2Style: 'border-left' | 'number-prefix' | 'underline-subtle' | 'plain';
   h3Style: 'bullet' | 'bold' | 'plain';
-  headingFonts?: {
+  headingFonts: {
     h1: HeadingFontStyle;
     h2: HeadingFontStyle;
     h3: HeadingFontStyle;
