@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { DocumentTheme, CoverStyle, FontChoice, CoverListItem } from '../types';
 import { updateMarkdownFrontmatter } from '../utils/markdownParser';
-import { getCoverTemplates } from '../themes/themeRegistry';
+import { getCoverTemplate, getCoverTemplates } from '../themes/themeRegistry';
 
 interface StyleConfigPanelProps {
   theme: DocumentTheme;
@@ -40,7 +40,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
   markdown,
   onMarkdownChange
 }) => {
-  const [activeTab, setActiveTab] = useState<'cover' | 'headerFooter' | 'toc' | 'style' | 'headingList'>('cover');
+  const [activeTab, setActiveTab] = useState<'cover' | 'headerFooter' | 'toc' | 'style' | 'headingList' | 'other'>('cover');
   const isDark = uiMode === 'dark';
 
   // Dynamic theme class helpers for light/dark mode
@@ -173,7 +173,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
       <div className={`flex items-center border-b p-1.5 gap-1 shrink-0 ${
         isDark ? 'border-[#2A2A2A] bg-[#0A0A0A]' : 'border-slate-200 bg-slate-50'
       }`}>
-        <div className="flex items-center gap-1 overflow-x-auto flex-1">
+        <div className="flex items-center gap-1 overflow-x-auto flex-1 min-w-0">
           <button
             onClick={() => setActiveTab('cover')}
             className={`flex items-center gap-1.5 px-2 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider transition shrink-0 ${
@@ -191,7 +191,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
             }`}
           >
             <Sliders className="w-3.5 h-3.5" />
-            <span>页眉页脚</span>
+            <span>页眉</span>
           </button>
 
           <button
@@ -222,6 +222,15 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
           >
             <List className="w-3.5 h-3.5" />
             <span>列表</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('other')}
+            className={`flex items-center gap-1.5 px-2 py-1.5 rounded text-[11px] font-bold transition shrink-0 ${
+              activeTab === 'other' ? 'bg-blue-600 text-white shadow-xs' : tabInactiveClass
+            }`}
+          >
+            <Settings2 className="w-3.5 h-3.5" />
+            <span>其他</span>
           </button>
         </div>
       </div>
@@ -429,6 +438,36 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                         className={`w-full rounded px-2.5 py-1.5 text-[11px] ${inputClass}`}
                       />
                     </div>
+                    {(theme.meta.logo || theme.meta.logoUrl) && (
+                      <div className="space-y-2 pt-2">
+                        <div className={`flex items-center justify-between gap-2 text-[10px] ${labelClass}`}>
+                          <label htmlFor="document-logo-height">Logo 高度 (px)</label>
+                          <div className="flex items-center gap-2">
+                            <span>{theme.meta.logoHeight === undefined ? '封面预置' : `${theme.meta.logoHeight}px`}</span>
+                            <button
+                              type="button"
+                              title="恢复封面预置大小"
+                              aria-label="恢复封面预置大小"
+                              disabled={theme.meta.logoHeight === undefined}
+                              onClick={() => updateMeta('logoHeight', undefined)}
+                              className="p-1 hover:text-blue-500 disabled:opacity-30 disabled:cursor-default"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                        <input
+                          id="document-logo-height"
+                          type="range"
+                          min="20"
+                          max="120"
+                          step="1"
+                          value={theme.meta.logoHeight ?? getCoverTemplate(theme.meta.coverStyle).defaultLogoHeight ?? 40}
+                          onChange={(e) => updateMeta('logoHeight', Number(e.target.value))}
+                          className="w-full accent-blue-500"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Custom Cover List Editor */}
@@ -801,6 +840,21 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   />
                 </div>
 
+                <div>
+                  <label htmlFor="toc-title-style" className={`block text-[10px] font-bold mb-1 ${labelClass}`}>目录标题表达形式</label>
+                  <select
+                    id="toc-title-style"
+                    value={theme.toc.titleStyle ?? 'underline'}
+                    onChange={(e) => updateToc('titleStyle', e.target.value)}
+                    className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
+                  >
+                    <option value="underline">底部下划线</option>
+                    <option value="accent-block">左侧色块</option>
+                    <option value="badge">背景徽章</option>
+                    <option value="minimal">极简标题</option>
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>提取标题深度</label>
@@ -1068,14 +1122,15 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
         )}
 
         {/* TAB 5: HEADING & LIST STYLES */}
-        {activeTab === 'headingList' && (
+        {(activeTab === 'headingList' || activeTab === 'other') && (
           <div className="space-y-4">
             <div className={`pb-2 border-b text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 ${sectionBorderClass} ${labelClass}`}>
-              <List className="w-4 h-4 text-blue-500" />
-              标题与 List 列表外观定制
+              {activeTab === 'other' ? <Settings2 className="w-4 h-4 text-blue-500" /> : <List className="w-4 h-4 text-blue-500" />}
+              {activeTab === 'other' ? '分页、表格与题注' : '标题与列表外观'}
             </div>
 
             <div className="space-y-3">
+              {activeTab === 'headingList' && (
               <div>
                 <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>一级标题 (H1) 表达形式</label>
                 <select
@@ -1089,23 +1144,44 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   <option value="minimal">极简粗体 (Minimal Bold)</option>
                 </select>
               </div>
+              )}
 
               {/* H1 Page Break Setting Toggle */}
+              {activeTab === 'other' && <>
+              <div>
+                <span className={`block text-[10px] font-bold mb-1 ${labelClass}`}>分页模式</span>
+                <div role="group" aria-label="分页模式" className={`grid grid-cols-2 gap-1 p-1 rounded border ${sectionBorderClass}`}>
+                  {(['auto', 'manual'] as const).map(mode => (
+                    <button
+                      key={mode}
+                      type="button"
+                      aria-pressed={(theme.style.paginationMode || 'auto') === mode}
+                      onClick={() => updateStyle('paginationMode', mode)}
+                      title={mode === 'manual' ? '<!-- pagebreak -->' : '自动分页'}
+                      className={`rounded px-2 py-1.5 ${(theme.style.paginationMode || 'auto') === mode ? 'bg-blue-600 text-white' : tabInactiveClass}`}
+                    >
+                      {mode === 'auto' ? '自动分页' : '手动分页'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              </>}
+              {activeTab === 'headingList' && (
               <div className={`p-2.5 rounded-lg border ${subCardBgClass}`}>
                 <label className={`flex items-center gap-2 cursor-pointer font-bold text-[11px] ${textSubClass}`}>
                   <input
                     type="checkbox"
                     checked={theme.style.h1PageBreak === true}
+                    disabled={theme.style.paginationMode === 'manual'}
                     onChange={(e) => updateStyle('h1PageBreak', e.target.checked)}
                     className={`rounded text-blue-600 ${isDark ? 'bg-[#0A0A0A] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
                   />
                   <span>一级标题另起一页 (强制独占新页)</span>
                 </label>
-                <p className={`text-[10px] mt-1 pl-5.5 ${textMutedClass}`}>
-                  开启后，每个一级标题 (# Heading 1) 将自动独占一页开头（默认关闭，由手动 pagebreak 决定分页）
-                </p>
               </div>
+              )}
 
+              {activeTab === 'headingList' && <>
               <div>
                 <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>二级标题 (H2) 表达形式</label>
                 <select
@@ -1147,7 +1223,9 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   </select>
                 </div>
               </div>
+              </>}
 
+              {activeTab === 'other' && <>
               <div>
                 <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>表格排版样式</label>
                 <select
@@ -1268,6 +1346,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   </label>
                 </div>
               </div>
+              </>}
             </div>
           </div>
         )}

@@ -24,6 +24,7 @@ import { getEffectiveMeta, parseFrontmatter, getHeadingText } from './markdownPa
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidPng } from './mermaidRenderer';
+import { splitExplicitPages } from './pageBreaks';
 
 /**
  * Converts Hex color string (#RRGGBB) to pure Hex string without '#'
@@ -64,14 +65,21 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
     insideVertical: { style: BorderStyle.NONE, size: 0, color: 'auto' },
   };
 
-  const createImageRun = async (source: string, altText: string, width = 480, height = 270): Promise<ImageRun | null> => {
+  const createImageRun = async (source: string, altText: string, width?: number, height?: number): Promise<ImageRun | null> => {
     try {
       const { data, contentType } = await fetchImageBinary(source);
       const imageType = contentType.includes('png') ? 'png' : contentType.includes('gif') ? 'gif' : contentType.includes('bmp') ? 'bmp' : 'jpg';
+      let imageWidth = width ?? 480;
+      const imageHeight = height ?? 270;
+      if (width === undefined && height !== undefined) {
+        const bitmap = await createImageBitmap(new Blob([data], { type: contentType }));
+        imageWidth = imageHeight * bitmap.width / bitmap.height;
+        bitmap.close();
+      }
       return new ImageRun({
         type: imageType,
         data,
-        transformation: { width, height },
+        transformation: { width: imageWidth, height: imageHeight },
         altText: { title: altText, description: altText, name: altText },
       });
     } catch (error) {
@@ -201,10 +209,17 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
 
   // 2. Table of Contents Page
   if (toc.show) {
+    const titleStyle = toc.titleStyle ?? 'underline';
     sectionsChildren.push(
       new Paragraph({
         heading: HeadingLevel.HEADING_1,
         spacing: { before: 200, after: 400 },
+        border: titleStyle === 'underline'
+          ? { bottom: { color: accentHex, style: BorderStyle.SINGLE, size: 12, space: 6 } }
+          : titleStyle === 'accent-block'
+          ? { left: { color: accentHex, style: BorderStyle.SINGLE, size: 30, space: 8 } }
+          : undefined,
+        shading: titleStyle === 'badge' ? { type: ShadingType.PERCENT_10, color: accentHex, fill: 'FFFFFF' } : undefined,
         children: [
           new TextRun({
             text: toc.title || '目 录',
@@ -234,11 +249,18 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
   }
 
   // 3. Parse Markdown Tokens
-  const tokens = marked.lexer(bodyText);
+  const tokens = splitExplicitPages(bodyText).flatMap((page, index) => [
+    ...(index > 0 ? [{ type: 'pagebreak', raw: '' }] : []),
+    ...marked.lexer(page),
+  ]);
   const headingCounters = [0, 0, 0, 0];
 
   for (const token of tokens) {
     switch (token.type) {
+      case 'pagebreak': {
+        sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
+        break;
+      }
       case 'heading': {
         const level = token.depth;
         let headingLevel: (typeof HeadingLevel)[keyof typeof HeadingLevel] = HeadingLevel.HEADING_1;
@@ -246,7 +268,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
         let color = primaryHex;
 
         if (level === 1) {
-          if (style.h1PageBreak && sectionsChildren.length > 0) {
+          if (style.paginationMode !== 'manual' && style.h1PageBreak && sectionsChildren.length > 0) {
             sectionsChildren.push(
               new Paragraph({
                 children: [new PageBreak()],
@@ -297,16 +319,6 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
       }
 
       case 'paragraph': {
-        // Check for page break token <!-- pagebreak -->
-        if (token.raw.includes('<!-- pagebreak -->') || token.text.includes('<!-- pagebreak -->')) {
-          sectionsChildren.push(
-            new Paragraph({
-              children: [new PageBreak()],
-            })
-          );
-          break;
-        }
-
         const paragraphTokens = token.tokens || [{ type: 'text', text: token.text }];
         sectionsChildren.push(
           new Paragraph({
@@ -359,7 +371,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
         }
 
         const lines = token.text.split('\n');
-        lines.forEach((line) => {
+        lines.forEach((line: string) => {
           sectionsChildren.push(
             new Paragraph({
               spacing: { before: 40, after: 40 },
@@ -460,9 +472,6 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
       }
 
       case 'html': {
-        if (/<!--\s*pagebreak\s*-->/i.test(token.raw)) {
-          sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
-        }
         break;
       }
 

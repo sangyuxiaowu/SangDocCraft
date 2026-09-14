@@ -13,6 +13,7 @@ import { parseTableOfContents, getEffectiveMeta, parseFrontmatter, getFooterSlot
 import { resolveImageSrc, resolvePreviewImageSrc } from '../utils/tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidElements } from '../utils/mermaidRenderer';
+import { getTocTitleCss } from '../utils/markdownParser';
 
 interface A4PreviewProps {
   markdown: string;
@@ -40,6 +41,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
   const [zoom, setZoom] = useState<number>(85);
   const [showZoomPresets, setShowZoomPresets] = useState<boolean>(false);
   const [headerLogoSrc, setHeaderLogoSrc] = useState<string>('');
+  const [overflowPageCount, setOverflowPageCount] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -183,6 +185,16 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
 
   const totalPages = pages.length;
 
+  useEffect(() => {
+    const sheets = containerRef.current?.querySelectorAll<HTMLElement>('.a4-sheet-page');
+    if (!sheets) return;
+    const checkOverflow = () => setOverflowPageCount(Array.from<HTMLElement>(sheets).filter(sheet => sheet.offsetHeight > 1124).length);
+    const observer = new ResizeObserver(checkOverflow);
+    sheets.forEach((sheet: HTMLElement) => observer.observe(sheet));
+    checkOverflow();
+    return () => observer.disconnect();
+  }, [markdown, theme, totalPages]);
+
   // Dynamic cover list items
   const coverListItems = (meta.coverlist && meta.coverlist.length > 0)
     ? meta.coverlist
@@ -215,6 +227,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
             </span>
           </div>
           <div className="flex items-center gap-3">
+            {overflowPageCount > 0 && <span role="status" className="text-xs text-amber-600">{overflowPageCount} 页超出 A4 高度</span>}
             <span className="text-[10px] font-bold uppercase tracking-widest font-mono">
               共 {totalPages} 页 A4 文档
             </span>
@@ -247,6 +260,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
               }`}
               style={{
                 padding: '20mm 15mm',
+                ...(page.type === 'content' ? { height: 'auto', minHeight: '297mm', maxHeight: 'none', overflow: 'visible' } : {}),
                 fontFamily: fontStack,
                 fontSize: `${style.fontSize}px`,
                 lineHeight: style.lineHeight,
@@ -284,7 +298,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
               )}
 
               {/* Page Main Content Area */}
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col" style={page.type === 'content' ? { minHeight: 'auto', overflow: 'visible' } : undefined}>
                 
                 {/* 1. Cover Page Content */}
                 {page.type === 'cover' && (
@@ -299,11 +313,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                 {page.type === 'toc' && (
                   <div className="flex-1 flex flex-col py-4">
                     <h2 
-                      className="text-xl font-bold mb-6 pb-2 border-b-2 flex items-center justify-between"
-                      style={{
-                        color: style.primaryColor,
-                        borderColor: style.accentColor,
-                      }}
+                      className="doc-toc-title text-xl font-bold mb-6 flex items-center justify-between"
                     >
                       <span>
                         {toc.title || '目 录'}
@@ -355,7 +365,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                 {/* 3. Markdown Content Page */}
                 {page.type === 'content' && page.contentHtml && (
                   <div 
-                    className="markdown-rendered-body flex-1 min-h-0 overflow-hidden"
+                    className="markdown-rendered-body flex-1 flow-root"
                     style={{
                       '--primary-color': style.primaryColor,
                       '--accent-color': style.accentColor,
@@ -388,6 +398,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
 
       {/* Embedded CSS for Markdown Elements Rendering */}
       <style>{`
+        ${getTocTitleCss('.doc-toc-title', toc, style)}
         ${getMarkdownBodyCss('.markdown-rendered-body', style)}
         .markdown-rendered-body h1 {
           font-family: ${style.headingFonts?.h1.fontFamily || 'inherit'};

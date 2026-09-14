@@ -35,7 +35,7 @@ function renderPreview(context: CoverRenderContext): React.ReactNode {
     <div className="flex-1 flex flex-col items-center px-8 py-4 text-center">
       <div className="w-full flex flex-col items-center gap-3 min-h-24">
         {(meta.logo || meta.logoUrl) && (
-          <img src={meta.logo || meta.logoUrl} alt="Logo" className="h-16 max-w-[240px] w-auto object-contain" />
+          <img src={meta.logo || meta.logoUrl} alt="Logo" style={{ height: meta.logoHeight }} className="h-16 max-w-[240px] w-auto object-contain" />
         )}
         <div className="text-xl font-bold tracking-[0.25em] leading-none" style={{ color: style.primaryColor }}>
           {meta.organization || '某某大学'}
@@ -65,7 +65,7 @@ function renderHtml(context: CoverRenderContext): string {
   return `
     <div class="academic-cover">
       <div>
-        ${(meta.logo || meta.logoUrl) ? `<img src="${meta.logo || meta.logoUrl}" class="academic-cover-logo" alt="Logo" />` : ''}
+        ${(meta.logo || meta.logoUrl) ? `<img src="${meta.logo || meta.logoUrl}" class="academic-cover-logo"${meta.logoHeight === undefined ? '' : ` style="height:${meta.logoHeight}px;max-height:none;width:auto;"`} alt="Logo" />` : ''}
         <div class="academic-cover-organization">${meta.organization || '某某大学'}</div>
       </div>
       <div class="academic-cover-title-block">
@@ -84,7 +84,9 @@ async function renderDocx(context: CoverDocxRenderContext): Promise<(Paragraph |
   const children: (Paragraph | Table)[] = [];
   const logoSource = meta.logo || meta.logoUrl;
   if (logoSource) {
-    const logoRun = await createImageRun(logoSource, '文档标志', 180, 100);
+    const logoRun = meta.logoHeight === undefined
+      ? await createImageRun(logoSource, '文档标志', 180, 100)
+      : await createImageRun(logoSource, '文档标志', undefined, meta.logoHeight);
     if (logoRun) {
       children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 400, after: 160 }, children: [logoRun] }));
     }
@@ -131,6 +133,7 @@ export const academicCoverPlugin: CoverTemplatePlugin = {
   id: 'academic',
   name: '🎓 学术论文',
   description: '论文题目与信息填写栏',
+  defaultLogoHeight: 64,
   renderThumbnail,
   renderPreview,
   renderHtml,

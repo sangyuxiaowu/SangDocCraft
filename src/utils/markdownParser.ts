@@ -3,6 +3,7 @@ import { marked } from 'marked';
 import { TocItem, DocumentMeta, CoverListItem, FooterConfig, StyleConfig, ImageStyleConfig, TableCaptionConfig, TocConfig } from '../types';
 import { hasCoverTemplate } from '../themes/themeRegistry';
 import { resolveImageSrc } from './tauriHelper';
+import { splitExplicitPages } from './pageBreaks';
 
 export interface ParsedMarkdown {
   raw: string;
@@ -71,6 +72,9 @@ function processFrontmatterData(data: Record<string, any>): Partial<DocumentMeta
   if (logoVal && typeof logoVal === 'string') {
     meta.logo = logoVal;
     meta.logoUrl = logoVal;
+  }
+  if (typeof data.logoHeight === 'number' && Number.isFinite(data.logoHeight)) {
+    meta.logoHeight = Math.min(120, Math.max(20, data.logoHeight));
   }
 
   // coverStyle
@@ -147,6 +151,7 @@ export function getEffectiveMeta(baseMeta: DocumentMeta, markdown: string): Docu
     date: em.date ?? baseMeta.date,
     logo: em.logo ?? baseMeta.logo,
     logoUrl: em.logoUrl ?? baseMeta.logoUrl,
+    logoHeight: em.logoHeight ?? baseMeta.logoHeight,
     number: em.number ?? baseMeta.number,
     coverStyle: em.coverStyle ?? baseMeta.coverStyle,
     coverlist: em.coverlist ?? baseMeta.coverlist,
@@ -173,6 +178,7 @@ export function updateMarkdownFrontmatter(markdown: string, meta: DocumentMeta):
 
   const logoVal = meta.logo || meta.logoUrl;
   if (logoVal) yamlObj.logo = logoVal; else delete yamlObj.logo;
+  if (meta.logoHeight !== undefined) yamlObj.logoHeight = meta.logoHeight; else delete yamlObj.logoHeight;
 
   if (meta.coverStyle) yamlObj.coverStyle = meta.coverStyle; else delete yamlObj.coverStyle;
 
@@ -224,6 +230,17 @@ export function getDocumentFontStack(style: Pick<StyleConfig, 'fontFamily' | 'la
     '"PingFang SC", "Microsoft YaHei", sans-serif';
 
   return `${style.latinFontFamily || 'Times New Roman'}, ${chineseFontStack}`;
+}
+
+export function getTocTitleCss(selector: string, toc: TocConfig, style: StyleConfig): string {
+  const titleStyle = toc.titleStyle ?? 'underline';
+  return `${selector} {
+    color: ${style.primaryColor};
+    border-bottom: ${titleStyle === 'underline' ? `2px solid ${style.accentColor}` : 'none'};
+    border-left: ${titleStyle === 'accent-block' ? `5px solid ${style.accentColor}` : 'none'};
+    background: ${titleStyle === 'badge' ? `${style.accentColor}18` : 'transparent'};
+    padding: ${titleStyle === 'badge' ? '6px 12px' : titleStyle === 'accent-block' ? '0 0 0 10px' : titleStyle === 'underline' ? '0 0 8px' : '0'};
+  }`;
 }
 
 export function getMarkdownBodyCss(selector: string, style: StyleConfig): string {
@@ -323,22 +340,15 @@ export function getEffectiveCharLength(str: string): number {
 function buildListMd(items: any[], ordered: boolean, startIdx: number): string {
   return items.map((item: any, idx: number) => {
     const prefix = ordered ? `${startIdx + idx}. ` : '- ';
-    const text = String(item.text || '').trimEnd();
-    const indentedText = text.replace(/\n/g, '\n  ');
+    const text = `${item.task ? `[${item.checked ? 'x' : ' '}] ` : ''}${String(item.text || '').trimEnd()}`;
+    const indentedText = text.replace(/\n/g, `\n${' '.repeat(prefix.length)}`);
     return `${prefix}${indentedText}`;
   }).join('\n');
 }
 
-function buildTableMd(header: any[], rows: any[][]): string {
-  if (!header || header.length === 0) return '';
-  const headerCols = header.map((h: any) => h.text || h.raw || '');
-  const headerLine = `| ${headerCols.join(' | ')} |`;
-  const alignLine = `| ${headerCols.map(() => '---').join(' | ')} |`;
-  const rowLines = rows.map((row: any[]) => {
-    const rowCols = row.map((cell: any) => cell.text || cell.raw || '');
-    return `| ${rowCols.join(' | ')} |`;
-  });
-  return [headerLine, alignLine, ...rowLines].join('\n');
+function buildTableMd(token: any, start: number, end: number = token.rows.length): string {
+  const lines = token.raw.trimEnd().split('\n');
+  return [...lines.slice(0, 2), ...lines.slice(2 + start, 2 + end)].join('\n');
 }
 
 function buildCodeMd(lines: string[], lang: string = ''): string {
@@ -413,13 +423,15 @@ function findDomListSplit(
   const items = token.items || [];
   if (items.length <= 1) return null;
 
-  const testContainer = document.createElement('div');
-  measurer.appendChild(testContainer);
-
+  let testNodes: ChildNode[] = [];
   let fitCount = 0;
   for (let i = 0; i < items.length; i++) {
-    const testMarkdown = buildListMd(items.slice(0, i + 1), token.ordered, 1);
-    testContainer.innerHTML = marked.parse(testMarkdown) as string;
+    testNodes.forEach(node => node.remove());
+    const testMarkdown = buildListMd(items.slice(0, i + 1), token.ordered, Number(token.start) || 1);
+    const template = document.createElement('template');
+    template.innerHTML = marked.parse(testMarkdown) as string;
+    testNodes = Array.from(template.content.childNodes);
+    measurer.append(...testNodes);
 
     if (measurer.scrollHeight <= maxHeight + 1) {
       fitCount = i + 1;
@@ -428,7 +440,7 @@ function findDomListSplit(
     }
   }
 
-  measurer.removeChild(testContainer);
+  testNodes.forEach(node => node.remove());
 
   if (fitCount < 1 || fitCount >= items.length) return null;
 
@@ -436,8 +448,8 @@ function findDomListSplit(
   const part2Items = items.slice(fitCount);
 
   return {
-    part1Md: buildListMd(part1Items, token.ordered, 1),
-    part2Md: buildListMd(part2Items, token.ordered, fitCount + 1),
+    part1Md: buildListMd(part1Items, token.ordered, Number(token.start) || 1),
+    part2Md: buildListMd(part2Items, token.ordered, (Number(token.start) || 1) + fitCount),
   };
 }
 
@@ -522,8 +534,8 @@ function findDomTableSplit(
   if (fitCount < 1 || fitCount >= rows.length) return null;
 
   return {
-    part1Md: buildTableMd(header, rows.slice(0, fitCount)),
-    part2Md: buildTableMd(header, rows.slice(fitCount)),
+    part1Md: buildTableMd(token, 0, fitCount),
+    part2Md: buildTableMd(token, fitCount),
   };
 }
 
@@ -534,12 +546,13 @@ export function paginateContentByDom(
   markdownText: string,
   options: DomPaginationOptions = {}
 ): string[] {
+  const paginationMode = options.style?.paginationMode || 'auto';
+  if (paginationMode === 'manual') return splitExplicitPages(parseFrontmatter(markdownText).body);
   if (typeof document === 'undefined') {
     return splitContentByPages(markdownText, options.h1PageBreak);
   }
 
-  const PAGEBREAK_REGEX = /<!--\s*pagebreak\s*-->|<div[^>]*page-break-after[^>]*><\/div>|<div[^>]*class=["']page-break["'][^>]*><\/div>/i;
-  const initialChunks = markdownText.split(PAGEBREAK_REGEX);
+  const initialChunks = splitExplicitPages(markdownText);
   const pages: string[] = [];
 
   const measurer = document.createElement('div');
@@ -550,7 +563,8 @@ export function paginateContentByDom(
   measurer.style.visibility = 'hidden';
   measurer.style.pointerEvents = 'none';
   measurer.style.boxSizing = 'border-box';
-  measurer.style.width = '170mm';
+  measurer.style.display = 'flow-root';
+  measurer.style.width = '180mm';
   measurer.style.fontFamily = options.fontFamily || 'sans-serif';
   measurer.style.fontSize = `${options.fontSize || 14}px`;
   measurer.style.lineHeight = `${options.lineHeight || 1.6}`;
@@ -606,6 +620,7 @@ export function paginateContentByDom(
       };
 
       const processToken = (token: any) => {
+        if (token.type === 'space') return;
         const isH1 = token.type === 'heading' && token.depth === 1;
         const isHeading = token.type === 'heading';
 
@@ -620,47 +635,22 @@ export function paginateContentByDom(
           }
         }
 
-        const tempContainer = document.createElement('div');
+        const tempContainer = document.createElement('template');
         const rawTokenHtml = marked.parse(token.raw || '') as string;
-        tempContainer.innerHTML = postProcessRenderedHtml(rawTokenHtml);
+        tempContainer.innerHTML = postProcessRenderedHtml(rawTokenHtml, options.style);
         if (token.type === 'code' && token.lang?.toLowerCase() === 'mermaid') {
-          const mermaidElement = tempContainer.querySelector<HTMLElement>('.mermaid');
+          const mermaidElement = tempContainer.content.querySelector<HTMLElement>('.mermaid');
           if (mermaidElement) mermaidElement.style.height = '720px';
         }
-        measurer.appendChild(tempContainer);
+        const tokenNodes = Array.from(tempContainer.content.childNodes);
+        measurer.append(...tokenNodes);
 
         if (measurer.scrollHeight <= maxHeight) {
           currentPageTokens.push(token.raw);
           return;
         }
 
-        measurer.removeChild(tempContainer);
-
-        if (currentPageTokens.length === 0) {
-          if (token.type === 'paragraph') {
-            const splitRes = findDomParagraphSplit(token.text || token.raw || '', measurer, maxHeight);
-            if (splitRes) {
-              currentPageTokens.push(splitRes.part1);
-              flushPage();
-              processToken({ ...token, type: 'paragraph', text: splitRes.part2, raw: splitRes.part2 });
-              return;
-            }
-          } else if (token.type === 'list') {
-            const splitRes = findDomListSplit(token, measurer, maxHeight);
-            if (splitRes) {
-              currentPageTokens.push(splitRes.part1Md);
-              flushPage();
-              const newToken = marked.lexer(splitRes.part2Md)[0] || { type: 'raw', raw: splitRes.part2Md };
-              processToken(newToken);
-              return;
-            }
-          }
-          currentPageTokens.push(token.raw);
-          const tempC = document.createElement('div');
-          tempC.innerHTML = marked.parse(token.raw || '') as string;
-          measurer.appendChild(tempC);
-          return;
-        }
+        tokenNodes.forEach(node => node.remove());
 
         if (token.type === 'paragraph') {
           const splitRes = findDomParagraphSplit(token.text || token.raw || '', measurer, maxHeight);
@@ -697,6 +687,12 @@ export function paginateContentByDom(
             processToken(newToken);
             return;
           }
+        }
+
+        if (currentPageTokens.length === 0) {
+          currentPageTokens.push(token.raw);
+          measurer.append(...tokenNodes);
+          return;
         }
 
         flushPage();
@@ -815,13 +811,13 @@ export function parseTableOfContents(
 /**
  * Splits markdown content by explicit pagebreak tags, level 1 headings (if enabled), and automatically when content overflows A4 printable height
  */
-export function splitContentByPages(markdown: string, h1PageBreak: boolean = false): string[] {
+export function splitContentByPages(markdown: string, h1PageBreak: boolean = false, paginationMode: 'auto' | 'manual' = 'auto'): string[] {
   const parsed = parseFrontmatter(markdown);
   const contentToSplit = (parsed.body || markdown).trim();
   if (!contentToSplit) return [''];
 
-  const PAGEBREAK_REGEX = /<!--\s*pagebreak\s*-->|<div[^>]*page-break-after[^>]*><\/div>|<div[^>]*class=["']page-break["'][^>]*><\/div>/i;
-  const initialChunks = contentToSplit.split(PAGEBREAK_REGEX);
+  const initialChunks = splitExplicitPages(contentToSplit);
+  if (paginationMode === 'manual') return initialChunks;
 
   const pages: string[] = [];
   // Target printable capacity for A4 body area (~37.5 standard text line height units, perfectly matching A4 ~910px usable content height)
@@ -922,42 +918,26 @@ export function splitContentByPages(markdown: string, h1PageBreak: boolean = fal
 
     if (!firstText || !secondText) return null;
 
-    const secondEff = getEffectiveCharLength(secondText);
-    const secondLines = Math.max(1, Math.ceil(secondEff / 41));
-
     return {
       firstRaw: firstText,
-      secondRaw: `<p class="p-continuation">${secondText}</p>`,
-      secondUnits: secondLines * 1.0 + 0.2,
+      secondRaw: secondText,
     };
   };
 
   // Helper to split a long table token
   const splitTable = (token: any, availUnits: number) => {
-    const headers = token.header || [];
     const rows = token.rows || [];
     if (rows.length <= 1) return null;
 
-    const fitRowsCount = Math.floor((availUnits - 0.5) / 1.05);
+    const fitRowsCount = Math.floor((availUnits - 0.5) / 1.05) - 1;
     if (fitRowsCount < 1 || fitRowsCount >= rows.length) return null;
 
-    const part1Rows = rows.slice(0, fitRowsCount);
-    const part2Rows = rows.slice(fitRowsCount);
-
-    const buildMdTable = (tableHeaders: any[], tableRows: any[]) => {
-      const headerLine = '| ' + tableHeaders.map((h: any) => (typeof h === 'string' ? h : h.text || '')).join(' | ') + ' |';
-      const alignLine = '| ' + tableHeaders.map(() => '---').join(' | ') + ' |';
-      const rowLines = tableRows.map((r: any[]) => '| ' + r.map((c: any) => (typeof c === 'string' ? c : c.text || '')).join(' | ') + ' |');
-      return [headerLine, alignLine, ...rowLines].join('\n');
-    };
-
-    const firstTableRaw = buildMdTable(headers, part1Rows);
-    const secondTableRaw = buildMdTable(headers, part2Rows);
+    const firstTableRaw = buildTableMd(token, 0, fitRowsCount);
+    const secondTableRaw = buildTableMd(token, fitRowsCount);
 
     return {
       firstRaw: firstTableRaw,
       secondRaw: secondTableRaw,
-      secondUnits: (part2Rows.length + 1) * 1.05 + 0.5,
     };
   };
 
@@ -980,7 +960,6 @@ export function splitContentByPages(markdown: string, h1PageBreak: boolean = fal
     return {
       firstRaw,
       secondRaw,
-      secondUnits: secondLines.length * 0.77 + 0.8,
     };
   };
 
@@ -1008,24 +987,9 @@ export function splitContentByPages(markdown: string, h1PageBreak: boolean = fal
     const part1Items = items.slice(0, fitCount);
     const part2Items = items.slice(fitCount);
 
-    const ordered = token.ordered;
-    const buildMdList = (listItems: any[], startIdx: number) => {
-      return listItems.map((item: any, idx: number) => {
-        const prefix = ordered ? `${startIdx + idx}. ` : '- ';
-        const rawText = item.text || item.raw || '';
-        return `${prefix}${rawText}`;
-      }).join('\n');
-    };
-
-    const remainingLines = part2Items.reduce((acc: number, item: any) => {
-      const itemText = item.text || item.raw || '';
-      return acc + Math.max(1, Math.ceil(getEffectiveCharLength(itemText) / 38));
-    }, 0);
-
     return {
-      firstRaw: buildMdList(part1Items, 1),
-      secondRaw: buildMdList(part2Items, fitCount + 1),
-      secondUnits: remainingLines * 0.9 + 0.3,
+      firstRaw: buildListMd(part1Items, token.ordered, Number(token.start) || 1),
+      secondRaw: buildListMd(part2Items, token.ordered, (Number(token.start) || 1) + fitCount),
     };
   };
 
@@ -1059,7 +1023,7 @@ export function splitContentByPages(markdown: string, h1PageBreak: boolean = fal
       }
     };
 
-    tokens.forEach((token) => {
+    const processToken = (token: any) => {
       const isH1 = token.type === 'heading' && token.depth === 1;
       const isHeading = token.type === 'heading';
       const tokenUnits = estimateTokenUnits(token);
@@ -1090,8 +1054,7 @@ export function splitContentByPages(markdown: string, h1PageBreak: boolean = fal
         if (splitRes) {
           currentPageTokens.push(splitRes.firstRaw);
           flushPage();
-          currentPageTokens.push(splitRes.secondRaw);
-          currentUnits = splitRes.secondUnits;
+          marked.lexer(splitRes.secondRaw).forEach(processToken);
           return;
         }
       } else if (token.type === 'table') {
@@ -1099,8 +1062,7 @@ export function splitContentByPages(markdown: string, h1PageBreak: boolean = fal
         if (splitRes) {
           currentPageTokens.push(splitRes.firstRaw);
           flushPage();
-          currentPageTokens.push(splitRes.secondRaw);
-          currentUnits = splitRes.secondUnits;
+          marked.lexer(splitRes.secondRaw).forEach(processToken);
           return;
         }
       } else if (token.type === 'code') {
@@ -1108,8 +1070,7 @@ export function splitContentByPages(markdown: string, h1PageBreak: boolean = fal
         if (splitRes) {
           currentPageTokens.push(splitRes.firstRaw);
           flushPage();
-          currentPageTokens.push(splitRes.secondRaw);
-          currentUnits = splitRes.secondUnits;
+          marked.lexer(splitRes.secondRaw).forEach(processToken);
           return;
         }
       } else if (token.type === 'list') {
@@ -1117,8 +1078,7 @@ export function splitContentByPages(markdown: string, h1PageBreak: boolean = fal
         if (splitRes) {
           currentPageTokens.push(splitRes.firstRaw);
           flushPage();
-          currentPageTokens.push(splitRes.secondRaw);
-          currentUnits = splitRes.secondUnits;
+          marked.lexer(splitRes.secondRaw).forEach(processToken);
           return;
         }
       }
@@ -1127,10 +1087,14 @@ export function splitContentByPages(markdown: string, h1PageBreak: boolean = fal
       // Flush current page and start a new page with the full block
       if (currentPageTokens.length > 0) {
         flushPage();
+        processToken(token);
+        return;
       }
       currentPageTokens.push(token.raw);
       currentUnits = tokenUnits;
-    });
+    };
+
+    tokens.forEach(processToken);
 
     flushPage();
   });

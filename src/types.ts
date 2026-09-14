@@ -16,6 +16,7 @@ export interface DocumentMeta {
   date: string;
   logoUrl?: string;
   logo?: string;
+  logoHeight?: number;
   number?: string;
   coverlist?: CoverListItem[];
   showCover: boolean;
@@ -66,6 +67,7 @@ export interface FooterConfig {
 export interface TocConfig {
   show: boolean;
   title: string;
+  titleStyle?: 'underline' | 'accent-block' | 'badge' | 'minimal';
   maxDepth: 1 | 2 | 3 | 4;
   headingNumbering?: 'none' | 'decimal' | 'chinese';
   leaderStyle: 'dots' | 'dashes' | 'line' | 'none';
@@ -103,6 +105,7 @@ export interface StyleConfig {
     h4: HeadingFontStyle;
   };
   h1PageBreak?: boolean; // 一级标题另起一页 (默认 false)
+  paginationMode?: 'auto' | 'manual';
   indentParagraph?: boolean; // 正文首行缩进2字符 (默认 false)
   
   // List styles

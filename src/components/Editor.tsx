@@ -16,6 +16,7 @@ import {
   FileCode,
   Type
 } from 'lucide-react';
+import { getPageBreakInsertion } from '../utils/pageBreaks';
 
 interface EditorProps {
   value: string;
@@ -72,7 +73,11 @@ export const Editor: React.FC<EditorProps> = ({ value, onChange, uiMode = 'dark'
   };
 
   const insertPageBreak = () => {
-    insertText('\n\n<!-- pagebreak -->\n\n', '', '');
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const insertion = getPageBreakInsertion(value, textarea.selectionStart);
+    textarea.setSelectionRange(insertion.position, insertion.position);
+    insertText(insertion.text);
   };
 
   const lineCount = value.split('\n').length;

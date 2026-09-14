@@ -21,6 +21,7 @@ export interface CoverTemplatePlugin {
   id: CoverStyle;
   name: string;
   description: string;
+  defaultLogoHeight?: number;
   renderThumbnail: (context: CoverRenderContext) => ReactNode;
   renderPreview: (context: CoverRenderContext) => ReactNode;
   renderHtml: (context: CoverRenderContext) => string;

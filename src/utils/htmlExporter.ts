@@ -4,6 +4,7 @@ import { getEffectiveMeta, parseFrontmatter, parseTableOfContents, getFooterSlot
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidInHtml } from './mermaidRenderer';
+import { getTocTitleCss } from './markdownParser';
 
 function renderFooterHtml(pageNum: number, totalPages: number, footer: FooterConfig, meta: DocumentMeta): string {
   if (!footer.show) return '';
@@ -600,11 +601,9 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
     .toc-title {
       font-size: 22px;
       font-weight: 800;
-      color: var(--primary-color);
-      border-bottom: 2px solid var(--accent-color);
-      padding-bottom: 8px;
       margin-bottom: 24px;
     }
+    ${getTocTitleCss('.toc-title', toc, style)}
     .toc-list {
       display: flex;
       flex-direction: column;
@@ -749,6 +748,12 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
       .doc-header, .doc-footer {
         display: flex !important;
       }
+    }
+    .a4-page.content-page-wrapper {
+      height: auto !important;
+      min-height: 297mm;
+      max-height: none !important;
+      overflow: visible !important;
     }
   </style>
 </head>

@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest';
+// @vitest-environment jsdom
+import { describe, expect, it, vi } from 'vitest';
+import { marked } from 'marked';
+import { getPageBreakInsertion, splitExplicitPages } from './pageBreaks';
 import { PRESET_THEMES } from '../data/presetThemes';
 import {
   formatPageNumber,
@@ -8,6 +11,7 @@ import {
   getMarkdownBodyCss,
   getTocChunks,
   parseFrontmatter,
+  paginateContentByDom,
   parseTableOfContents,
   postProcessRenderedHtml,
   splitContentByPages,
@@ -17,6 +21,20 @@ import {
 const theme = PRESET_THEMES[0];
 
 describe('Markdown frontmatter', () => {
+  it.each([20, 80, 120])('round-trips a document logo height of %i px and resets to the cover default', (logoHeight) => {
+    const meta = { ...theme.meta, logoHeight };
+    const updated = updateMarkdownFrontmatter('Body', meta);
+    expect(getEffectiveMeta(theme.meta, updated).logoHeight).toBe(logoHeight);
+    const resetMeta = { ...meta, logoHeight: undefined };
+    const reset = updateMarkdownFrontmatter(updated, resetMeta);
+    expect(parseFrontmatter(reset).frontmatter).not.toHaveProperty('logoHeight');
+    expect(getEffectiveMeta(resetMeta, reset).logoHeight).toBeUndefined();
+  });
+
+  it.each([[10, 20], [150, 120], ['invalid', undefined], ['.nan', undefined]])('validates imported logo height %s', (value, expected) => {
+    expect(parseFrontmatter(`---\nlogoHeight: ${value}\n---\nBody`).extractedMeta?.logoHeight).toBe(expected);
+  });
+
   it('parses metadata and normalizes cover list values', () => {
     const markdown = `---
 title: API 设计
@@ -73,11 +91,137 @@ coverlist:
 });
 
 describe('Markdown pagination and numbering', () => {
+  it.each([4, 5])('measures %i list items with the same width and direct-child margins as the page', (itemCount) => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      expect(this.style.width).toBe('180mm');
+      expect(this.style.display).toBe('flow-root');
+      expect(this.querySelectorAll(':scope > div')).toHaveLength(0);
+      return this.querySelectorAll('h1').length * 100 + this.querySelectorAll('li').length * 180;
+    });
+    try {
+      const source = '# Conclusion\n\n' + Array.from({ length: itemCount }, (_, index) => `- Recommendation ${index + 1}`).join('\n');
+      const pages = paginateContentByDom(source, { style: theme.style, h1PageBreak: true, headerShow: true, footerShow: true });
+      expect(pages).toHaveLength(itemCount === 4 ? 1 : 2);
+      expect(pages[0]).toContain('Recommendation 4');
+      const items = pages.flatMap(page => marked.lexer(page).flatMap(token => token.type === 'list' ? token.items : []));
+      expect(items.map(item => item.text)).toEqual(Array.from({ length: itemCount }, (_, index) => `Recommendation ${index + 1}`));
+    } finally {
+      height.mockRestore();
+    }
+    expect(document.querySelector('.pagination-measurer')).toBeNull();
+  });
+
+  it.each([
+    ['| ID | Value |\n| --- | --- |\n| 1 | first |\n| 2 | second |', 'second'],
+    ['| ID | Value |\r\n| --- | --- |\r\n| 1 | first |\r\n| 2 | second |\r\n', 'second'],
+    ['ID | Value\n--- | ---\n1 | first\n2 | second', 'second'],
+    ['9. first\n10. second', 'second'],
+    ['- [x] first\n- [ ] second', 'second'],
+  ])('inserts a toolbar break without damaging the containing row or item', (source, target) => {
+    const insertion = getPageBreakInsertion(source, source.indexOf(target) + 2);
+    const updated = source.slice(0, insertion.position) + insertion.text + source.slice(insertion.position);
+    const pages = splitExplicitPages(updated);
+    expect(pages).toHaveLength(2);
+    expect(marked.parse(pages[0])).toContain('first');
+    expect(marked.parse(pages[1])).toContain('second');
+    expect(marked.lexer(pages[1])[0].type).toBe(source.includes('|') ? 'table' : 'list');
+  });
+
+  it('keeps empty tables and handles legacy HTML breaks adjacent to text', () => {
+    expect(splitExplicitPages('| Header |\n| --- |')[0]).toContain('| Header |');
+    expect(splitExplicitPages('First\n\n<div class="page-break"></div>\nSecond')).toEqual(['First', 'Second']);
+    expect(splitExplicitPages('<pre>\n<!-- pagebreak -->\n</pre>')).toHaveLength(1);
+  });
+
+  it('moves a header-cell break before the entire table', () => {
+    const pages = splitExplicitPages('Before\n\n| <!-- pagebreak --> ID | Value |\n| --- | --- |\n| 1 | kept |');
+    expect(pages).toHaveLength(2);
+    expect((marked.lexer(pages[1])[0] as import('marked').Tokens.Table).rows[0][1].text).toBe('kept');
+    expect(pages.join('\n')).not.toContain('pagebreak');
+  });
+
+  it('uses only explicit boundaries in manual mode even with H1 breaks enabled', () => {
+    const source = '# First\n\n' + 'Long paragraph. '.repeat(600) + '\n\n# Second\n\n<!-- pagebreak -->\n\n# Third';
+    const options = { h1PageBreak: true, style: { ...theme.style, paginationMode: 'manual' as const } };
+    expect(paginateContentByDom(source, options)).toHaveLength(2);
+    expect(splitContentByPages(source, true, 'manual')).toHaveLength(2);
+  });
+
+  it('preserves table headers, alignment and escaped pipes across explicit row breaks', () => {
+    const pages = splitExplicitPages('| ID | Value |\n| :--- | ---: |\n| 1 | a\\|b |\n<!-- pagebreak -->\n| 2 | second |\n| <!-- pagebreak --> 3 | third |');
+    expect(pages).toHaveLength(3);
+    const tables = pages.map(page => marked.lexer(page)[0] as import('marked').Tokens.Table);
+    expect(tables.map(table => table.rows[0][0].text.trim())).toEqual(['1', '2', '3']);
+    expect(tables[0].rows[0][1].text).toBe('a|b');
+    expect(tables.every(table => table.align[1] === 'right')).toBe(true);
+  });
+
+  it('preserves nested task lists and ordered numbering around explicit breaks', () => {
+    const pages = splitExplicitPages('9. first\n10. second\n    <!-- pagebreak -->\n    continuation\n    - [x] nested\n11. last');
+    expect(pages).toHaveLength(2);
+    expect(marked.parse(pages[1])).toContain('start="10"');
+    expect(marked.parse(pages[1])).toContain('checked');
+    expect(pages.join('\n')).toContain('continuation');
+    expect(pages.join('\n')).toContain('last');
+  });
+
+  it('ignores break examples in code and avoids empty boundary pages', () => {
+    const source = '<!-- pagebreak -->\n\n`<!-- pagebreak -->`\n\n```html\n<!-- pagebreak -->\n```\n\n    <!-- pagebreak -->\n\n<!-- pagebreak -->\n<!-- pagebreak -->';
+    const pages = splitExplicitPages(source);
+    expect(pages).toHaveLength(1);
+    expect(marked.parse(pages[0])).toContain('&lt;!-- pagebreak --&gt;');
+    expect(pages[0].match(/pagebreak/g)).toHaveLength(3);
+  });
+
+  it('repeatedly splits a table on empty continuation pages without losing rows', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.querySelectorAll('tr').length * 200 + this.querySelectorAll('h1').length * 100;
+    });
+    try {
+      const markdown = '# Audit\n\n| ID | Value |\n| --- | --- |\n' +
+        Array.from({ length: 17 }, (_, index) => `| ${index + 1} | Row ${index + 1} |`).join('\n');
+      const pages = paginateContentByDom(markdown);
+      expect(pages.length).toBeGreaterThan(2);
+      const rows = pages.flatMap(page => marked.lexer(page).flatMap(token => token.type === 'table' ? token.rows : []));
+      expect(rows.map(row => row[0].text)).toEqual(Array.from({ length: 17 }, (_, index) => String(index + 1)));
+      pages.forEach(page => {
+        const container = document.createElement('div');
+        container.innerHTML = marked.parse(page) as string;
+        expect(container.scrollHeight).toBeLessThanOrEqual(965.3);
+      });
+    } finally {
+      height.mockRestore();
+    }
+  });
+
+  it('retains ordered list numbers through more than two automatic pages', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.querySelectorAll('li').length * 200;
+    });
+    try {
+      const source = Array.from({ length: 17 }, (_, index) => `${index + 9}. item ${index}`).join('\n');
+      const pages = paginateContentByDom(source);
+      expect(pages).toHaveLength(5);
+      expect(pages.map(page => (marked.lexer(page)[0] as import('marked').Tokens.List).start)).toEqual([9, 13, 17, 21, 25]);
+    } finally {
+      height.mockRestore();
+    }
+  });
+
   it('splits explicit page breaks without losing content', () => {
     const pages = splitContentByPages('First\n\n<!-- pagebreak -->\n\nSecond');
     expect(pages).toHaveLength(2);
     expect(pages.join('\n')).toContain('First');
     expect(pages.join('\n')).toContain('Second');
+  });
+
+  it('repeatedly splits long tables in the non-DOM fallback', () => {
+    const source = '| ID | Value |\n| :--- | ---: |\n' + Array.from({ length: 100 }, (_, index) => `| ${index} | value\\|${index} |`).join('\n');
+    const pages = splitContentByPages(source);
+    expect(pages.length).toBeGreaterThan(2);
+    const tables = pages.map(page => marked.lexer(page)[0] as import('marked').Tokens.Table);
+    expect(tables.every(table => table.rows.length <= 34 && table.align[1] === 'right')).toBe(true);
+    expect(tables.flatMap(table => table.rows).map(row => row[1].text)).toEqual(Array.from({ length: 100 }, (_, index) => `value|${index}`));
   });
 
   it('numbers headings and resets deeper counters', () => {
