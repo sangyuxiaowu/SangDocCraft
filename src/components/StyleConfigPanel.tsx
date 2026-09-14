@@ -299,7 +299,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
 
                           {/* Option Details */}
                           <div className="w-full">
-                            <div className={`text-[10px] leading-4 min-h-8 text-center font-bold whitespace-normal break-words ${
+                            <div className={`text-[10px] leading-4 min-h-4 text-center font-bold whitespace-normal break-words ${
                               isSelected 
                                 ? 'text-emerald-500 font-extrabold' 
                                 : textSubClass
