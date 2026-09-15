@@ -1,10 +1,10 @@
 import { DocumentTheme } from '../types';
 
 const defaultHeadingFonts = {
-  h1: { fontFamily: 'inherit', fontSize: 24, bold: true, marginBefore: 38, marginAfter: 14 },
-  h2: { fontFamily: 'inherit', fontSize: 20, bold: true, marginBefore: 28, marginAfter: 10 },
-  h3: { fontFamily: 'inherit', fontSize: 17, bold: true, marginBefore: 20, marginAfter: 7 },
-  h4: { fontFamily: 'inherit', fontSize: 15, bold: true, marginBefore: 15, marginAfter: 5 },
+  h1: { fontFamily: 'inherit', fontSize: 24, bold: true, italic: false, underline: false, marginBefore: 38, marginAfter: 14 },
+  h2: { fontFamily: 'inherit', fontSize: 20, bold: true, italic: false, underline: false, marginBefore: 28, marginAfter: 10 },
+  h3: { fontFamily: 'inherit', fontSize: 17, bold: true, italic: false, underline: false, marginBefore: 20, marginAfter: 7 },
+  h4: { fontFamily: 'inherit', fontSize: 15, bold: true, italic: false, underline: false, marginBefore: 15, marginAfter: 5 },
 };
 
 export const PRESET_THEMES: DocumentTheme[] = [
@@ -54,6 +54,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
       backgroundColor: '#ffffff',
       coverBgColor: '#0f172a',
       fontFamily: 'sans',
+      bodyFontFamily: 'inherit',
       fontSize: 14,
       lineHeight: 1.65,
       h1Style: 'underline',
@@ -128,6 +129,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
       backgroundColor: '#ffffff',
       coverBgColor: '#0369a1',
       fontFamily: 'mono',
+      bodyFontFamily: 'inherit',
       fontSize: 14,
       lineHeight: 1.6,
       h1Style: 'accent-block',
@@ -186,6 +188,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
       backgroundColor: '#ffffff',
       coverBgColor: '#991b1b',
       fontFamily: 'serif',
+      bodyFontFamily: 'inherit',
       fontSize: 15,
       lineHeight: 1.7,
       h1Style: 'underline',
@@ -244,6 +247,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
       backgroundColor: '#ffffff',
       coverBgColor: '#18181b',
       fontFamily: 'sans',
+      bodyFontFamily: 'inherit',
       fontSize: 14,
       lineHeight: 1.6,
       h1Style: 'minimal',
@@ -302,6 +306,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
       backgroundColor: '#ffffff',
       coverBgColor: '#4c1d95',
       fontFamily: 'sans',
+      bodyFontFamily: 'inherit',
       fontSize: 14,
       lineHeight: 1.65,
       h1Style: 'badge',
@@ -368,6 +373,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
       backgroundColor: '#ffffff',
       coverBgColor: '#f8fafc',
       fontFamily: 'serif',
+      bodyFontFamily: 'inherit',
       fontSize: 15,
       lineHeight: 1.8,
       h1Style: 'minimal',

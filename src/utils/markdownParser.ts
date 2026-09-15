@@ -254,12 +254,15 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
     style.bulletStyle === 'arrow' ? '▸' : '•';
 
   return `
+    ${selector} { font-family: ${style.bodyFontFamily || 'inherit'}; }
     ${selector} > :first-child { margin-top: 0 !important; }
     ${selector} > :last-child { margin-bottom: 0 !important; }
     ${selector} h1 {
       font-family: ${style.headingFonts.h1.fontFamily};
       font-size: ${style.headingFonts.h1.fontSize}px;
       font-weight: ${style.headingFonts.h1.bold ? 700 : 400};
+      font-style: ${style.headingFonts.h1.italic ? 'italic' : 'normal'};
+      text-decoration: ${style.headingFonts.h1.underline ? 'underline' : 'none'};
       color: var(--primary-color);
       margin-top: ${style.headingFonts.h1.marginBefore}px;
       margin-bottom: ${style.headingFonts.h1.marginAfter}px;
@@ -272,6 +275,8 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
       font-family: ${style.headingFonts.h2.fontFamily};
       font-size: ${style.headingFonts.h2.fontSize}px;
       font-weight: ${style.headingFonts.h2.bold ? 700 : 400};
+      font-style: ${style.headingFonts.h2.italic ? 'italic' : 'normal'};
+      text-decoration: ${style.headingFonts.h2.underline ? 'underline' : 'none'};
       color: var(--primary-color);
       margin-top: ${style.headingFonts.h2.marginBefore}px;
       margin-bottom: ${style.headingFonts.h2.marginAfter}px;
@@ -284,6 +289,8 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
       font-family: ${style.headingFonts.h3.fontFamily};
       font-size: ${style.headingFonts.h3.fontSize}px;
       font-weight: ${style.headingFonts.h3.bold ? 700 : 400};
+      font-style: ${style.headingFonts.h3.italic ? 'italic' : 'normal'};
+      text-decoration: ${style.headingFonts.h3.underline ? 'underline' : 'none'};
       color: var(--primary-color);
       margin-top: ${style.headingFonts.h3.marginBefore}px;
       margin-bottom: ${style.headingFonts.h3.marginAfter}px;
@@ -292,6 +299,8 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
       font-family: ${style.headingFonts.h4.fontFamily};
       font-size: ${style.headingFonts.h4.fontSize}px;
       font-weight: ${style.headingFonts.h4.bold ? 700 : 400};
+      font-style: ${style.headingFonts.h4.italic ? 'italic' : 'normal'};
+      text-decoration: ${style.headingFonts.h4.underline ? 'underline' : 'none'};
       color: var(--primary-color);
       margin-top: ${style.headingFonts.h4.marginBefore}px;
       margin-bottom: ${style.headingFonts.h4.marginAfter}px;

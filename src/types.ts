@@ -82,6 +82,8 @@ export interface HeadingFontStyle {
   fontFamily: string;
   fontSize: number;
   bold: boolean;
+  italic: boolean;
+  underline: boolean;
   marginBefore: number;
   marginAfter: number;
 }
@@ -94,6 +96,7 @@ export interface StyleConfig {
   coverBgColor: string;
   fontFamily: FontChoice;
   latinFontFamily?: string;
+  bodyFontFamily: string;
   fontSize: number; // base font size in px (e.g., 14)
   lineHeight: number; // e.g. 1.6
   

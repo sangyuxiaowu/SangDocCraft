@@ -56,6 +56,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
                    style.fontFamily === 'mono' ? 'Consolas' : 'Microsoft YaHei';
   const latinFontName = style.latinFontFamily || 'Times New Roman';
   const docxFont = { ascii: latinFontName, hAnsi: latinFontName, eastAsia: fontName };
+  const bodyFont = !style.bodyFontFamily || style.bodyFontFamily === 'inherit' ? undefined : style.bodyFontFamily;
   const noTableBorders = {
     top: { style: BorderStyle.NONE, size: 0, color: 'auto' },
     bottom: { style: BorderStyle.NONE, size: 0, color: 'auto' },
@@ -88,10 +89,10 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
     }
   };
 
-  const createInlineRuns = async (tokens: any[], options: { bold?: boolean; italics?: boolean; size?: number; color?: string; font?: string } = {}): Promise<(TextRun | ImageRun)[]> => {
+  const createInlineRuns = async (tokens: any[], options: { bold?: boolean; italics?: boolean; underline?: boolean; size?: number; color?: string; font?: string } = {}): Promise<(TextRun | ImageRun)[]> => {
     const runs: (TextRun | ImageRun)[] = [];
     for (const inlineToken of tokens || []) {
-      const inherited = { bold: options.bold, italics: options.italics, size: options.size || 22, color: options.color || textHex, font: options.font || docxFont };
+      const inherited = { bold: options.bold, italics: options.italics, underline: options.underline ? {} : undefined, size: options.size || 22, color: options.color || textHex, font: options.font || docxFont };
       if (inlineToken.type === 'strong' || inlineToken.type === 'em' || inlineToken.type === 'del' || inlineToken.type === 'link') {
         runs.push(...await createInlineRuns(inlineToken.tokens, {
           ...options,
@@ -165,9 +166,9 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
               bold: true,
               color: accentHex,
               size: 22,
-              font: docxFont,
+              font: bodyFont || docxFont,
             }),
-            ...(await createInlineRuns(inlineTokens.length > 0 ? inlineTokens : [{ type: 'text', text: item.text }])),
+            ...(await createInlineRuns(inlineTokens.length > 0 ? inlineTokens : [{ type: 'text', text: item.text }], { font: bodyFont })),
           ],
         })
       );
@@ -304,12 +305,16 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
               ...(headingPrefix ? [new TextRun({
                 text: `${headingPrefix} `,
                 bold: headingConfig.bold,
+                italics: headingConfig.italic,
+                underline: headingConfig.underline ? {} : undefined,
                 size: headingConfig.fontSize * 2,
                 color,
                 font: headingFont || docxFont,
               })] : []),
               ...(await createInlineRuns(token.tokens || [{ type: 'text', text: token.text }], {
                 bold: headingConfig.bold,
+                italics: headingConfig.italic,
+                underline: headingConfig.underline,
                 size: headingConfig.fontSize * 2,
                 color,
                 font: headingFont,
@@ -326,7 +331,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
           new Paragraph({
             spacing: { before: 120, after: 120, line: 320 },
             indent: style.indentParagraph ? { firstLine: 480 } : undefined,
-            children: await createInlineRuns(paragraphTokens),
+            children: await createInlineRuns(paragraphTokens, { font: bodyFont }),
           })
         );
         sectionsChildren.push(...createImageCaptions(paragraphTokens));
@@ -346,7 +351,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
                 size: 24, // 3pt
               },
             },
-            children: await createInlineRuns(token.tokens || [{ type: 'text', text: token.text }], { italics: true, color: '475569' }),
+            children: await createInlineRuns(token.tokens || [{ type: 'text', text: token.text }], { italics: true, color: '475569', font: bodyFont }),
           })
         );
         break;
@@ -416,6 +421,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
                   bold: true,
                   color: 'FFFFFF',
                   size: 20,
+                  font: bodyFont,
                 }),
               }),
             ],
@@ -442,6 +448,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
                   children: await createInlineRuns(cell.tokens || [{ type: 'text', text: cell.text }], {
                     color: textHex,
                     size: 20,
+                    font: bodyFont,
                   }),
                 }),
               ],

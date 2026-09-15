@@ -404,6 +404,8 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
           font-family: ${style.headingFonts.h1.fontFamily};
           font-size: ${style.headingFonts.h1.fontSize}px;
           font-weight: ${style.headingFonts.h1.bold ? 700 : 400};
+          font-style: ${style.headingFonts.h1.italic ? 'italic' : 'normal'};
+          text-decoration: ${style.headingFonts.h1.underline ? 'underline' : 'none'};
           color: var(--primary-color);
           margin-top: ${style.headingFonts.h1.marginBefore}px;
           margin-bottom: ${style.headingFonts.h1.marginAfter}px;
@@ -419,6 +421,8 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
           font-family: ${style.headingFonts.h2.fontFamily};
           font-size: ${style.headingFonts.h2.fontSize}px;
           font-weight: ${style.headingFonts.h2.bold ? 700 : 400};
+          font-style: ${style.headingFonts.h2.italic ? 'italic' : 'normal'};
+          text-decoration: ${style.headingFonts.h2.underline ? 'underline' : 'none'};
           color: var(--primary-color);
           margin-top: ${style.headingFonts.h2.marginBefore}px;
           margin-bottom: ${style.headingFonts.h2.marginAfter}px;
@@ -431,6 +435,8 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
           font-family: ${style.headingFonts.h3.fontFamily};
           font-size: ${style.headingFonts.h3.fontSize}px;
           font-weight: ${style.headingFonts.h3.bold ? 700 : 400};
+          font-style: ${style.headingFonts.h3.italic ? 'italic' : 'normal'};
+          text-decoration: ${style.headingFonts.h3.underline ? 'underline' : 'none'};
           color: var(--primary-color);
           margin-top: ${style.headingFonts.h3.marginBefore}px;
           margin-bottom: ${style.headingFonts.h3.marginAfter}px;
@@ -439,6 +445,8 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
           font-family: ${style.headingFonts.h4.fontFamily};
           font-size: ${style.headingFonts.h4.fontSize}px;
           font-weight: ${style.headingFonts.h4.bold ? 700 : 400};
+          font-style: ${style.headingFonts.h4.italic ? 'italic' : 'normal'};
+          text-decoration: ${style.headingFonts.h4.underline ? 'underline' : 'none'};
           color: var(--primary-color);
           margin-top: ${style.headingFonts.h4.marginBefore}px;
           margin-bottom: ${style.headingFonts.h4.marginAfter}px;

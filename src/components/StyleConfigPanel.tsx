@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { 
   FileText, 
-  Heading, 
   Type, 
   Palette, 
   List, 
@@ -10,7 +9,6 @@ import {
   Settings2, 
   Sliders, 
   Check, 
-  ChevronDown, 
   ChevronRight,
   BookOpen,
   Info,
@@ -18,6 +16,9 @@ import {
   Trash2,
   Plus,
   RotateCcw,
+  Bold,
+  Italic,
+  Underline,
   Image as ImageIcon,
   X
 } from 'lucide-react';
@@ -55,10 +56,6 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
 
   const inputClass = isDark
     ? 'bg-[#0A0A0A] border-[#2A2A2A] text-white placeholder-zinc-600 focus:border-blue-500 focus:outline-hidden'
-    : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-hidden';
-
-  const inputSubClass = isDark
-    ? 'bg-[#181818] border-[#2A2A2A] text-white placeholder-zinc-600 focus:border-blue-500 focus:outline-hidden'
     : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-hidden';
 
   const buttonDashedClass = isDark
@@ -183,24 +180,52 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
   ) => {
     const config = theme.style.headingFonts[level];
     return (
-      <details className={`rounded-lg border ${subCardBgClass}`}>
-        <summary className={`cursor-pointer px-3 py-2 text-[11px] font-bold ${textSubClass}`}>
-          {label}详细设置
+      <details className={`group rounded-lg border ${subCardBgClass}`}>
+        <summary className={`flex cursor-pointer list-none items-center justify-between px-3 py-2 text-[11px] font-bold [&::-webkit-details-marker]:hidden ${textSubClass}`}>
+          <span>{label}详细设置</span>
+          <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
         </summary>
         <div className={`border-t p-3 space-y-3 ${sectionBorderClass}`}>
-          <div>
-            <label className={`block text-[10px] font-bold mb-1 ${labelClass}`}>字体</label>
-            <input
-              type="text"
-              value={config.fontFamily}
-              onChange={(e) => updateHeadingFont(level, 'fontFamily', e.target.value)}
-              placeholder="inherit"
-              className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
-            />
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+            <div className="min-w-0">
+              <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>字体</label>
+              <input
+                type="text"
+                value={config.fontFamily}
+                onChange={(e) => updateHeadingFont(level, 'fontFamily', e.target.value)}
+                placeholder="inherit"
+                className={`w-full min-w-0 rounded px-2.5 py-1.5 ${inputClass}`}
+              />
+            </div>
+            <div>
+              <span className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>字形</span>
+              <div role="group" aria-label={`${label}字形`} className="flex gap-1">
+                {([
+                  ['bold', '加粗', Bold],
+                  ['italic', '倾斜', Italic],
+                  ['underline', '下划线', Underline],
+                ] as const).map(([field, text, Icon]) => {
+                  const selected = Boolean(config[field]);
+                  return (
+                    <button
+                      key={field}
+                      type="button"
+                      aria-pressed={selected}
+                      aria-label={text}
+                      title={text}
+                      onClick={() => updateHeadingFont(level, field, !selected)}
+                      className={`flex h-8 w-8 items-center justify-center rounded border transition ${selected ? 'border-blue-500 bg-blue-600 text-white' : `${subCardBgClass} ${tabInactiveClass}`}`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className={`block text-[10px] font-bold mb-1 ${labelClass}`}>字号 (px)</label>
+              <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>字号 (px)</label>
               <input
                 type="number"
                 min={10}
@@ -211,7 +236,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
               />
             </div>
             <div>
-              <label className={`block text-[10px] font-bold mb-1 ${labelClass}`}>段前 (px)</label>
+              <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>段前 (px)</label>
               <input
                 type="number"
                 min={0}
@@ -222,7 +247,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
               />
             </div>
             <div>
-              <label className={`block text-[10px] font-bold mb-1 ${labelClass}`}>段后 (px)</label>
+              <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>段后 (px)</label>
               <input
                 type="number"
                 min={0}
@@ -233,15 +258,6 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
               />
             </div>
           </div>
-          <label className={`flex items-center gap-2 cursor-pointer font-bold text-[11px] ${textSubClass}`}>
-            <input
-              type="checkbox"
-              checked={config.bold}
-              onChange={(e) => updateHeadingFont(level, 'bold', e.target.checked)}
-              className={`rounded text-blue-600 ${isDark ? 'bg-[#0A0A0A] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
-            />
-            <span>加粗</span>
-          </label>
         </div>
       </details>
     );
@@ -307,7 +323,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
               activeTab === 'headingList' ? 'bg-blue-600 text-white shadow-xs' : tabInactiveClass
             }`}
           >
-            <List className="w-3.5 h-3.5" />
+            <Type className="w-3.5 h-3.5" />
             <span>样式</span>
           </button>
           <button
@@ -350,7 +366,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>
-                      封面视觉模版 (Cover Style)
+                      封面视觉模版
                     </label>
                     <span className="text-[10px] text-blue-400 font-medium">点击效果卡片实时预览</span>
                   </div>
@@ -403,7 +419,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                 <div className={`grid grid-cols-1 gap-3 pt-3 border-t ${sectionBorderClass}`}>
                   {/* Title & Subtitle */}
                   <div>
-                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>文档标题 (Title)</label>
+                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>文档标题</label>
                     <input
                       type="text"
                       value={theme.meta.title || ''}
@@ -414,7 +430,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   </div>
 
                   <div>
-                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>副标题 (Subtitle)</label>
+                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>副标题</label>
                     <input
                       type="text"
                       value={theme.meta.subtitle || ''}
@@ -427,7 +443,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   {/* Document Number & Date */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>文档编号 (Doc No.)</label>
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>文档编号</label>
                       <input
                         type="text"
                         value={theme.meta.number || ''}
@@ -437,7 +453,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       />
                     </div>
                     <div>
-                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>日期 (Date)</label>
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>日期</label>
                       <input
                         type="text"
                         value={theme.meta.date || ''}
@@ -473,12 +489,12 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   </div>
 
                   {/* Document Logo Management */}
-                  <div className={`p-3 rounded-lg border space-y-2 ${cardBgClass}`}>
-                    <div className="flex items-center justify-between">
-                      <label className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 ${labelClass}`}>
-                        <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
+                  <section className="space-y-3 pt-1">
+                    <div className={`flex items-center justify-between pb-2 border-b ${sectionBorderClass}`}>
+                      <div className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 ${labelClass}`}>
+                        <ImageIcon className="w-4 h-4 text-blue-500" />
                         文档标志 Logo
-                      </label>
+                      </div>
                       {(theme.meta.logo || theme.meta.logoUrl) && (
                         <button
                           type="button"
@@ -553,15 +569,15 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                         />
                       </div>
                     )}
-                  </div>
+                    </section>
 
                   {/* Custom Cover List Editor */}
-                  <div className={`p-3 rounded-lg border space-y-3 ${cardBgClass}`}>
+                    <section className="space-y-3 pt-1">
                     <div className={`flex items-center justify-between pb-2 border-b ${sectionBorderClass}`}>
                       <div className="flex items-center gap-1.5">
-                        <List className="w-3.5 h-3.5 text-blue-500" />
-                        <span className={`text-[10px] font-bold uppercase tracking-widest ${textSubClass}`}>
-                          封面属性字段列表 (Cover Metadata List)
+                          <List className="w-4 h-4 text-blue-500" />
+                          <span className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>
+                          封面属性字段列表
                         </span>
                       </div>
                       <button
@@ -633,7 +649,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       <Plus className="w-3.5 h-3.5" />
                       添加自定义属性行
                     </button>
-                  </div>
+                  </section>
                 </div>
               </div>
             )}
@@ -644,9 +660,12 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
         {activeTab === 'headerFooter' && (
           <div className="space-y-5">
             {/* Header Settings */}
-            <div className={`space-y-3 p-3 rounded-lg border ${cardBgClass}`}>
-              <div className={`flex items-center justify-between pb-1 border-b ${sectionBorderClass}`}>
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${textMainClass}`}>页眉信息设置</span>
+            <section className="space-y-3">
+              <div className={`flex items-center justify-between pb-2 border-b ${sectionBorderClass}`}>
+                <span className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 ${labelClass}`}>
+                  <AlignLeft className="w-4 h-4 text-blue-500" />
+                  页眉内容与分隔线
+                </span>
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input
                     type="checkbox"
@@ -660,40 +679,42 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
 
               {theme.header.show && (
                 <div className="space-y-2.5 pt-1">
-                  <div>
-                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>左侧文本 (如项目名)</label>
-                    <input
-                      type="text"
-                      value={theme.header.leftText}
-                      onChange={(e) => updateHeader('leftText', e.target.value)}
-                      className={`w-full rounded px-2 py-1 ${inputSubClass}`}
-                    />
-                  </div>
-                  <div>
-                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>中间文本</label>
-                    <input
-                      type="text"
-                      value={theme.header.centerText}
-                      onChange={(e) => updateHeader('centerText', e.target.value)}
-                      className={`w-full rounded px-2 py-1 ${inputSubClass}`}
-                    />
-                  </div>
-                  <div>
-                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>右侧文本 (如文档名/保密标记)</label>
-                    <input
-                      type="text"
-                      value={theme.header.rightText}
-                      onChange={(e) => updateHeader('rightText', e.target.value)}
-                      className={`w-full rounded px-2 py-1 ${inputSubClass}`}
-                    />
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="min-w-0">
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>左侧</label>
+                      <input
+                        type="text"
+                        value={theme.header.leftText}
+                        onChange={(e) => updateHeader('leftText', e.target.value)}
+                        className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>中间</label>
+                      <input
+                        type="text"
+                        value={theme.header.centerText}
+                        onChange={(e) => updateHeader('centerText', e.target.value)}
+                        className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>右侧</label>
+                      <input
+                        type="text"
+                        value={theme.header.rightText}
+                        onChange={(e) => updateHeader('rightText', e.target.value)}
+                        className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}
+                      />
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>分隔分割线</label>
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>页眉分隔线</label>
                       <select
                         value={theme.header.lineStyle}
                         onChange={(e) => updateHeader('lineStyle', e.target.value)}
-                        className={`w-full rounded px-2 py-1 ${inputSubClass}`}
+                        className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
                       >
                         <option value="solid">单实线 (Solid)</option>
                         <option value="accent">主题高亮线 (Accent)</option>
@@ -714,12 +735,12 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                     </div>
                   </div>
 
-                  <div className={`pt-2 border-t ${sectionBorderClass} space-y-2`}>
-                    <div className="flex items-center justify-between">
-                      <label className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 ${labelClass}`}>
-                        <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
-                        页眉 Logo
-                      </label>
+                  <section className="space-y-3 pt-1">
+                    <div className={`flex items-center justify-between pb-2 border-b ${sectionBorderClass}`}>
+                      <div className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 ${labelClass}`}>
+                        <ImageIcon className="w-4 h-4 text-blue-500" />
+                        页眉标志 Logo
+                      </div>
                       {theme.header.logoUrl && (
                         <button
                           type="button"
@@ -747,11 +768,11 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                         value={theme.header.logoUrl || ''}
                         onChange={(e) => updateHeader('logoUrl', e.target.value)}
                         placeholder="输入图片 URL 或本地相对路径 (如: ./assets/logo.png)"
-                        className={`w-full rounded px-2 py-1 ${inputSubClass}`}
+                        className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
                       />
                     </div>
                     {theme.header.logoUrl && (
-                      <div className="space-y-3 pt-1">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-3 pt-1">
                         <div>
                           <div className={`flex justify-between text-[10px] font-bold mb-1 ${labelClass}`}>
                             <span>Logo 高度 (px)</span>
@@ -810,15 +831,18 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                         </div>
                       </div>
                     )}
-                  </div>
+                  </section>
                 </div>
               )}
-            </div>
+            </section>
 
             {/* Footer & Page Number Settings */}
-            <div className={`space-y-3 p-3 rounded-lg border ${cardBgClass}`}>
-              <div className={`flex items-center justify-between pb-1 border-b ${sectionBorderClass}`}>
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${textMainClass}`}>页脚与页码设置</span>
+            <section className="space-y-3">
+              <div className={`flex items-center justify-between pb-2 border-b ${sectionBorderClass}`}>
+                <span className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 ${labelClass}`}>
+                  <Layout className="w-4 h-4 text-blue-500" />
+                  页脚内容与页码
+                </span>
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input
                     type="checkbox"
@@ -832,43 +856,43 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
 
               {theme.footer.show && (
                 <div className="space-y-2.5 pt-1">
-                  <div>
-                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>左侧页脚声明 (如版权/保密)</label>
-                    <input
-                      type="text"
-                      value={theme.footer.leftText}
-                      onChange={(e) => updateFooter('leftText', e.target.value)}
-                      className={`w-full rounded px-2 py-1 ${inputSubClass}`}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>中间文本</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="min-w-0">
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>左侧</label>
+                      <input
+                        type="text"
+                        value={theme.footer.leftText}
+                        onChange={(e) => updateFooter('leftText', e.target.value)}
+                        className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>中间</label>
                       <input
                         type="text"
                         value={theme.footer.centerText}
                         onChange={(e) => updateFooter('centerText', e.target.value)}
-                        className={`w-full rounded px-2 py-1 ${inputSubClass}`}
+                        className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}
                       />
                     </div>
-                    <div>
-                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>右侧文本</label>
+                    <div className="min-w-0">
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>右侧</label>
                       <input
                         type="text"
                         value={theme.footer.rightText}
                         onChange={(e) => updateFooter('rightText', e.target.value)}
-                        className={`w-full rounded px-2 py-1 ${inputSubClass}`}
+                        className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}
                       />
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>页码样式格式</label>
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>页码格式</label>
                       <select
                         value={theme.footer.pageNumberFormat}
                         onChange={(e) => updateFooter('pageNumberFormat', e.target.value)}
-                        className={`w-full rounded px-2 py-1 ${inputSubClass}`}
+                        className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
                       >
                         <option value="pageOfTotal">第 X 页 / 共 Y 页</option>
                         <option value="page">第 X 页</option>
@@ -878,11 +902,11 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       </select>
                     </div>
                     <div>
-                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>页码对齐位置</label>
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>页码位置</label>
                       <select
                         value={theme.footer.pageNumberPosition}
                         onChange={(e) => updateFooter('pageNumberPosition', e.target.value)}
-                        className={`w-full rounded px-2 py-1 ${inputSubClass}`}
+                        className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
                       >
                         <option value="right">右对齐</option>
                         <option value="center">居中对齐</option>
@@ -904,7 +928,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   </div>
                 </div>
               )}
-            </div>
+            </section>
           </div>
         )}
 
@@ -914,7 +938,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
             <div className={`flex items-center justify-between pb-2 border-b ${sectionBorderClass}`}>
               <span className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 ${labelClass}`}>
                 <BookOpen className="w-4 h-4 text-blue-500" />
-                自动生成目录页 (Table of Contents)
+                自动生成目录页
               </span>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -1021,7 +1045,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className={`block text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>
-                  配色方案 (Color Schemes)
+                  配色方案
                 </label>
                 <span className={`text-[10px] ${textMutedClass}`}>选择预设主题色彩</span>
               </div>
@@ -1100,7 +1124,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>主色调 (Primary Color)</label>
+                <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>主色调</label>
                 <div className="flex gap-2 items-center">
                   <input
                     type="color"
@@ -1118,7 +1142,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
               </div>
 
               <div>
-                <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>辅色调 (Accent Color)</label>
+                <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>辅色调</label>
                 <div className="flex gap-2 items-center">
                   <input
                     type="color"
@@ -1139,20 +1163,18 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
           </div>
         )}
 
-        {/* TAB 5: HEADING & LIST STYLES */}
+        {/* TAB 5: DOCUMENT STYLES */}
         {(activeTab === 'headingList' || activeTab === 'other') && (
           <div className="space-y-4">
-            <div className={`pb-2 border-b text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 ${sectionBorderClass} ${labelClass}`}>
-              {activeTab === 'other' ? <Settings2 className="w-4 h-4 text-blue-500" /> : <List className="w-4 h-4 text-blue-500" />}
-              {activeTab === 'other' ? '分页、列表、代码、表格与题注' : '标题与列表外观'}
-            </div>
-
             <div className="space-y-3">
               {activeTab === 'headingList' && (
-                <div className={`p-3 rounded-lg border space-y-3 ${cardBgClass}`}>
-                  <div className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>全局配置</div>
+                <section className="space-y-3">
+                  <div className={`flex items-center gap-1.5 pb-2 border-b ${sectionBorderClass}`}>
+                    <Type className="w-4 h-4 text-blue-500" />
+                    <span className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>全局排版</span>
+                  </div>
                   <div>
-                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>字体簇选择 (Font Family)</label>
+                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>文档字体簇</label>
                     <select
                       value={theme.style.fontFamily}
                       onChange={(e) => updateStyle('fontFamily', e.target.value as FontChoice)}
@@ -1165,124 +1187,102 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       <option value="mono">等宽技术体 (Monospace - 极客/研发)</option>
                     </select>
                   </div>
-                  <div>
-                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>段落英文字体</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="min-w-0">
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>英文字体</label>
+                      <input
+                        type="text"
+                        value={theme.style.latinFontFamily || 'Times New Roman'}
+                        onChange={(e) => updateStyle('latinFontFamily', e.target.value)}
+                        placeholder="Times New Roman"
+                        className={`w-full min-w-0 rounded px-2.5 py-1.5 ${inputClass}`}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>标题编号</label>
+                      <select
+                        value={theme.toc.headingNumbering ?? 'none'}
+                        onChange={(e) => updateToc('headingNumbering', e.target.value)}
+                        className={`w-full min-w-0 rounded px-2.5 py-1.5 ${inputClass}`}
+                      >
+                        <option value="none">无</option>
+                        <option value="decimal">数字编号</option>
+                        <option value="chinese">中文编号</option>
+                      </select>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {activeTab === 'headingList' && (
+                <section className="space-y-3 pt-1">
+                  <div className={`flex items-center gap-1.5 pb-2 border-b ${sectionBorderClass}`}>
+                    <AlignLeft className="w-4 h-4 text-blue-500" />
+                    <span className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>标题样式</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="min-w-0">
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>一级标题形式</label>
+                      <select
+                        value={theme.style.h1Style}
+                        onChange={(e) => updateStyle('h1Style', e.target.value)}
+                        className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}
+                      >
+                        <option value="underline">底部粗线条</option>
+                        <option value="accent-block">左侧色块</option>
+                        <option value="badge">背景徽章</option>
+                        <option value="minimal">极简粗体</option>
+                      </select>
+                    </div>
+                    <div className="min-w-0">
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>二级标题形式</label>
+                      <select
+                        value={theme.style.h2Style}
+                        onChange={(e) => updateStyle('h2Style', e.target.value)}
+                        className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}
+                      >
+                        <option value="border-left">左侧竖线</option>
+                        <option value="underline-subtle">细下划线</option>
+                        <option value="plain">普通文字</option>
+                      </select>
+                    </div>
+                  </div>
+                  <label className={`flex items-center gap-2 cursor-pointer font-bold text-[11px] ${textSubClass}`}>
                     <input
-                      type="text"
-                      value={theme.style.latinFontFamily || 'Times New Roman'}
-                      onChange={(e) => updateStyle('latinFontFamily', e.target.value)}
-                      placeholder="Times New Roman"
-                      className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
+                      type="checkbox"
+                      checked={theme.style.h1PageBreak === true}
+                      disabled={theme.style.paginationMode === 'manual'}
+                      onChange={(e) => updateStyle('h1PageBreak', e.target.checked)}
+                      className={`rounded text-blue-600 ${isDark ? 'bg-[#0A0A0A] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
                     />
-                  </div>
-                </div>
-              )}
+                    <span>一级标题另起一页</span>
+                  </label>
 
-              {activeTab === 'headingList' && (
-                <div>
-                  <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>自动标题编号</label>
-                  <select
-                    value={theme.toc.headingNumbering ?? 'none'}
-                    onChange={(e) => updateToc('headingNumbering', e.target.value)}
-                    className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
-                  >
-                    <option value="none">无</option>
-                    <option value="decimal">数字：1.、1.1、1.1.1、1.1.1.1</option>
-                    <option value="chinese">中文：一、（一）、1.、（1）</option>
-                  </select>
-                </div>
-              )}
-
-              {activeTab === 'headingList' && (
-                <div className="space-y-2">
-                  <div>
-                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>一级标题 (H1) 表达形式</label>
-                    <select
-                      value={theme.style.h1Style}
-                      onChange={(e) => updateStyle('h1Style', e.target.value)}
-                      className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
-                    >
-                      <option value="underline">底部粗线条 (Bottom Underline)</option>
-                      <option value="accent-block">左侧色块标志 (Left Accent Block)</option>
-                      <option value="badge">背景色徽章块 (Background Badge)</option>
-                      <option value="minimal">极简粗体 (Minimal Bold)</option>
-                    </select>
-                  </div>
+                  <div className={`text-[10px] font-bold uppercase tracking-widest pt-1 ${labelClass}`}>详细参数</div>
                   {renderHeadingDetails('h1', '一级标题')}
-                </div>
-              )}
-
-              {/* H1 Page Break Setting Toggle */}
-              {activeTab === 'other' && <>
-              <div>
-                <span className={`block text-[10px] font-bold mb-1 ${labelClass}`}>分页模式</span>
-                <div role="group" aria-label="分页模式" className={`grid grid-cols-2 gap-1 p-1 rounded border ${sectionBorderClass}`}>
-                  {(['auto', 'manual'] as const).map(mode => (
-                    <button
-                      key={mode}
-                      type="button"
-                      aria-pressed={(theme.style.paginationMode || 'auto') === mode}
-                      onClick={() => updateStyle('paginationMode', mode)}
-                      title={mode === 'manual' ? '<!-- pagebreak -->' : '自动分页'}
-                      className={`rounded px-2 py-1.5 ${(theme.style.paginationMode || 'auto') === mode ? 'bg-blue-600 text-white' : tabInactiveClass}`}
-                    >
-                      {mode === 'auto' ? '自动分页' : '手动分页'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              </>}
-              {activeTab === 'headingList' && (
-              <div className={`p-2.5 rounded-lg border ${subCardBgClass}`}>
-                <label className={`flex items-center gap-2 cursor-pointer font-bold text-[11px] ${textSubClass}`}>
-                  <input
-                    type="checkbox"
-                    checked={theme.style.h1PageBreak === true}
-                    disabled={theme.style.paginationMode === 'manual'}
-                    onChange={(e) => updateStyle('h1PageBreak', e.target.checked)}
-                    className={`rounded text-blue-600 ${isDark ? 'bg-[#0A0A0A] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
-                  />
-                  <span>一级标题另起一页 (强制独占新页)</span>
-                </label>
-              </div>
-              )}
-
-              {activeTab === 'headingList' && (
-                <div className="space-y-2">
-                  <div>
-                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>二级标题 (H2) 表达形式</label>
-                    <select
-                      value={theme.style.h2Style}
-                      onChange={(e) => updateStyle('h2Style', e.target.value)}
-                      className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
-                    >
-                      <option value="border-left">左边框竖条 (Left Border Bar)</option>
-                      <option value="underline-subtle">细下划线 (Subtle Underline)</option>
-                      <option value="plain">普通纯文字 (Plain)</option>
-                    </select>
-                  </div>
                   {renderHeadingDetails('h2', '二级标题')}
-                </div>
-              )}
-
-              {activeTab === 'headingList' && (
-                <div className="space-y-2">
-                  <div className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>三级标题 (H3)</div>
                   {renderHeadingDetails('h3', '三级标题')}
-                </div>
-              )}
-
-              {activeTab === 'headingList' && (
-                <div className="space-y-2">
-                  <div className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>四级标题 (H4)</div>
                   {renderHeadingDetails('h4', '四级标题')}
-                </div>
+                </section>
               )}
 
               {activeTab === 'headingList' && (
-                <details className={`rounded-lg border ${cardBgClass}`}>
-                  <summary className={`cursor-pointer px-3 py-2 text-[11px] font-bold ${textSubClass}`}>正文设置</summary>
-                  <div className={`border-t p-3 space-y-3 ${sectionBorderClass}`}>
+                <section className="space-y-3 pt-1">
+                  <div className={`flex items-center gap-1.5 pb-2 border-b ${sectionBorderClass}`}>
+                    <FileText className="w-4 h-4 text-blue-500" />
+                    <span className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>正文排版</span>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <label className={`block text-[10px] font-bold mb-1 ${labelClass}`}>正文字体</label>
+                      <input
+                        type="text"
+                        value={theme.style.bodyFontFamily || 'inherit'}
+                        onChange={(e) => updateStyle('bodyFontFamily', e.target.value)}
+                        placeholder="inherit"
+                        className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
+                      />
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className={`block text-[10px] font-bold mb-1 ${labelClass}`}>正文字号 (px)</label>
@@ -1318,57 +1318,70 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       <span>正文段落首行缩进 2 字符</span>
                     </label>
                   </div>
-                </details>
+                </section>
               )}
 
+              {/* H1 Page Break Setting Toggle */}
               {activeTab === 'other' && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>无序列表项目图标</label>
-                  <select
-                    value={theme.style.bulletStyle}
-                    onChange={(e) => updateStyle('bulletStyle', e.target.value)}
-                    className={`w-full rounded px-2 py-1 ${inputClass}`}
-                  >
-                    <option value="square">实心方块 ■</option>
-                    <option value="dot">经典圆点 •</option>
-                    <option value="checkmark">对勾符号 ✓</option>
-                    <option value="arrow">箭头符号 ▸</option>
-                  </select>
+              <section className="space-y-3">
+                <div className={`flex items-center gap-1.5 pb-2 border-b ${sectionBorderClass}`}>
+                  <Settings2 className="w-4 h-4 text-blue-500" />
+                  <span className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>内容与分页</span>
                 </div>
-
-                <div>
-                  <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>代码块排版主题</label>
-                  <select
-                    value={theme.style.codeTheme}
-                    onChange={(e) => updateStyle('codeTheme', e.target.value)}
-                    className={`w-full rounded px-2 py-1 ${inputClass}`}
-                  >
-                    <option value="dark">Dark 极客黑深色</option>
-                    <option value="light">Light 浅色纸质</option>
-                    <option value="github">GitHub 极简灰</option>
-                  </select>
+                <div className="flex items-center justify-between gap-3">
+                  <span className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>分页方式</span>
+                  <div role="group" aria-label="分页模式" className={`grid w-52 grid-cols-2 gap-1 rounded border p-1 ${sectionBorderClass}`}>
+                    {(['auto', 'manual'] as const).map(mode => (
+                      <button
+                        key={mode}
+                        type="button"
+                        aria-pressed={(theme.style.paginationMode || 'auto') === mode}
+                        onClick={() => updateStyle('paginationMode', mode)}
+                        title={mode === 'manual' ? '<!-- pagebreak -->' : '自动分页'}
+                        className={`rounded px-2 py-1.5 ${(theme.style.paginationMode || 'auto') === mode ? 'bg-blue-600 text-white' : tabInactiveClass}`}
+                      >
+                        {mode === 'auto' ? '自动分页' : '手动分页'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="min-w-0">
+                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>列表图标</label>
+                    <select value={theme.style.bulletStyle} onChange={(e) => updateStyle('bulletStyle', e.target.value)} className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}>
+                      <option value="square">方块 ■</option>
+                      <option value="dot">圆点 •</option>
+                      <option value="checkmark">对勾 ✓</option>
+                      <option value="arrow">箭头 ▸</option>
+                    </select>
+                  </div>
+                  <div className="min-w-0">
+                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>代码主题</label>
+                    <select value={theme.style.codeTheme} onChange={(e) => updateStyle('codeTheme', e.target.value)} className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}>
+                      <option value="dark">深色</option>
+                      <option value="light">浅色</option>
+                      <option value="github">GitHub</option>
+                    </select>
+                  </div>
+                  <div className="min-w-0">
+                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>表格样式</label>
+                    <select value={theme.style.tableStyle} onChange={(e) => updateStyle('tableStyle', e.target.value)} className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}>
+                      <option value="striped">斑马纹</option>
+                      <option value="bordered">全边框</option>
+                      <option value="minimal">极简</option>
+                    </select>
+                  </div>
+                </div>
+              </section>
               )}
 
               {activeTab === 'other' && <>
-              <div>
-                <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>表格排版样式</label>
-                <select
-                  value={theme.style.tableStyle}
-                  onChange={(e) => updateStyle('tableStyle', e.target.value)}
-                  className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
-                >
-                  <option value="striped">斑马纹交替 (Striped)</option>
-                  <option value="bordered">全网格边框 (Bordered Grid)</option>
-                  <option value="minimal">无垂直边框极简 (Minimal)</option>
-                </select>
-              </div>
-
               {/* 图片边框与题注配置 */}
-              <div className={`p-3 rounded-lg border space-y-3 ${cardBgClass}`}>
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${textMainClass}`}>🖼️ 图片边框与题注设置 (Image Captions)</span>
+              <section className="space-y-3 pt-1">
+                <div className={`flex items-center gap-1.5 pb-2 border-b ${sectionBorderClass}`}>
+                  <ImageIcon className="w-4 h-4 text-blue-500" />
+                  <span className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>图片与题注</span>
+                </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -1376,7 +1389,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                     <select
                       value={theme.style.imageConfig?.borderStyle || 'subtle'}
                       onChange={(e) => updateStyle('imageConfig', { ...(theme.style.imageConfig || {}), borderStyle: e.target.value })}
-                      className={`w-full rounded px-2 py-1 ${inputSubClass}`}
+                      className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
                     >
                       <option value="none">无边框 (None)</option>
                       <option value="subtle">精致微阴影 (Subtle)</option>
@@ -1393,7 +1406,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       type="text"
                       value={theme.style.imageConfig?.numberPrefix ?? '图 '}
                       onChange={(e) => updateStyle('imageConfig', { ...(theme.style.imageConfig || {}), numberPrefix: e.target.value })}
-                      className={`w-full rounded px-2 py-1 ${inputSubClass}`}
+                      className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
                       placeholder="如: 图 "
                     />
                   </div>
@@ -1407,7 +1420,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       onChange={(e) => updateStyle('imageConfig', { ...(theme.style.imageConfig || {}), showCaption: e.target.checked })}
                       className={`rounded text-blue-600 ${isDark ? 'bg-[#181818] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
                     />
-                    <span>显示图片题注</span>
+                    <span>显示题注</span>
                   </label>
 
                   <label className={`flex items-center gap-1.5 cursor-pointer text-[11px] font-bold ${labelClass}`}>
@@ -1417,14 +1430,17 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       onChange={(e) => updateStyle('imageConfig', { ...(theme.style.imageConfig || {}), autoNumber: e.target.checked })}
                       className={`rounded text-blue-600 ${isDark ? 'bg-[#181818] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
                     />
-                    <span>自动递增编号 (图 1, 图 2...)</span>
+                    <span>自动编号</span>
                   </label>
                 </div>
-              </div>
+              </section>
 
               {/* 表格题注配置 */}
-              <div className={`p-3 rounded-lg border space-y-3 ${cardBgClass}`}>
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${textMainClass}`}>📊 表格题注设置 (Table Captions)</span>
+              <section className="space-y-3 pt-1">
+                <div className={`flex items-center gap-1.5 pb-2 border-b ${sectionBorderClass}`}>
+                  <Layout className="w-4 h-4 text-blue-500" />
+                  <span className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>表格题注</span>
+                </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -1432,7 +1448,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                     <select
                       value={theme.style.tableCaptionConfig?.captionPosition || 'top'}
                       onChange={(e) => updateStyle('tableCaptionConfig', { ...(theme.style.tableCaptionConfig || {}), captionPosition: e.target.value })}
-                      className={`w-full rounded px-2 py-1 ${inputSubClass}`}
+                      className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
                     >
                       <option value="top">表格上方 (Top)</option>
                       <option value="bottom">表格下方 (Bottom)</option>
@@ -1445,7 +1461,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       type="text"
                       value={theme.style.tableCaptionConfig?.numberPrefix ?? '表 '}
                       onChange={(e) => updateStyle('tableCaptionConfig', { ...(theme.style.tableCaptionConfig || {}), numberPrefix: e.target.value })}
-                      className={`w-full rounded px-2 py-1 ${inputSubClass}`}
+                      className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
                       placeholder="如: 表 "
                     />
                   </div>
@@ -1459,7 +1475,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       onChange={(e) => updateStyle('tableCaptionConfig', { ...(theme.style.tableCaptionConfig || {}), showCaption: e.target.checked })}
                       className={`rounded text-blue-600 ${isDark ? 'bg-[#181818] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
                     />
-                    <span>显示表格题注</span>
+                    <span>显示题注</span>
                   </label>
 
                   <label className={`flex items-center gap-1.5 cursor-pointer text-[11px] font-bold ${labelClass}`}>
@@ -1469,10 +1485,10 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       onChange={(e) => updateStyle('tableCaptionConfig', { ...(theme.style.tableCaptionConfig || {}), autoNumber: e.target.checked })}
                       className={`rounded text-blue-600 ${isDark ? 'bg-[#181818] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
                     />
-                    <span>自动递增编号 (表 1, 表 2...)</span>
+                    <span>自动编号</span>
                   </label>
                 </div>
-              </div>
+              </section>
               </>}
             </div>
           </div>

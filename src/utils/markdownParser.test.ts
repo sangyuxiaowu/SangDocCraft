@@ -293,15 +293,26 @@ describe('Rendered Markdown post-processing', () => {
       ...theme.style,
       headingFonts: {
         ...theme.style.headingFonts,
-        h1: { fontFamily: 'Arial', fontSize: 31, bold: false, marginBefore: 41, marginAfter: 9 },
+        h1: { fontFamily: 'Arial', fontSize: 31, bold: false, italic: true, underline: true, marginBefore: 41, marginAfter: 9 },
       },
     });
 
     expect(css).toContain('font-family: Arial');
     expect(css).toContain('font-size: 31px');
     expect(css).toContain('font-weight: 400');
+    expect(css).toContain('font-style: italic');
+    expect(css).toContain('text-decoration: underline');
     expect(css).toContain('margin-top: 41px');
     expect(css).toContain('margin-bottom: 9px');
+  });
+
+  it('applies custom body typography', () => {
+    const css = getMarkdownBodyCss('.body', {
+      ...theme.style,
+      bodyFontFamily: 'Microsoft YaHei',
+    });
+
+    expect(css).toContain('.body { font-family: Microsoft YaHei; }');
   });
 
   it('wraps and numbers image captions with shared counters', () => {
