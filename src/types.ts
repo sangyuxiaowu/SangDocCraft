@@ -1,4 +1,5 @@
 export type ViewMode = 'split' | 'edit' | 'preview';
+export type ThemeMode = 'system' | 'light' | 'dark';
 
 export type CoverStyle = string;
 

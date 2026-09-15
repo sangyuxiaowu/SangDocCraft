@@ -582,9 +582,21 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                         <div role="group" aria-label="封面属性排列方式" className={`inline-flex rounded border p-0.5 ${sectionBorderClass}`}>
                           {([1, 2] as const).map((columns) => {
                             const selected = (theme.meta.coverListColumns ?? getCoverTemplate(theme.meta.coverStyle).defaultCoverListColumns) === columns;
-                            return <button key={columns} type="button" aria-pressed={selected} onClick={() => updateMeta('coverListColumns', columns)} className={`px-3 py-1 rounded text-[11px] transition ${selected ? 'bg-emerald-600 text-white' : textMutedClass}`}>
-                              {columns === 1 ? '单栏' : '双栏'}
-                            </button>;
+                            return (
+                              <button 
+                                key={columns} 
+                                type="button" 
+                                aria-pressed={selected} 
+                                onClick={() => updateMeta('coverListColumns', columns)} 
+                                className={`px-3 py-1 rounded text-[11px] transition ${
+                                  selected 
+                                    ? 'bg-blue-600 text-white shadow-xs font-semibold' 
+                                    : tabInactiveClass
+                                }`}
+                              >
+                                {columns === 1 ? '单栏' : '双栏'}
+                              </button>
+                            );
                           })}
                         </div>
                       </div>

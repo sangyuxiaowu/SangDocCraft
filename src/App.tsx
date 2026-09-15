@@ -7,7 +7,8 @@ import { DocumentHistoryModal } from './components/DocumentHistoryModal';
 import { StyleConfigPanel } from './components/StyleConfigPanel';
 import { A4Preview } from './components/A4Preview';
 import { JsonThemeModal } from './components/JsonThemeModal';
-import { DocumentAsset, DocumentHistoryEntry, DocumentTheme, ViewMode } from './types';
+import { AboutModal } from './components/AboutModal';
+import { DocumentAsset, DocumentHistoryEntry, DocumentTheme, ThemeMode, ViewMode } from './types';
 import { getRegisteredThemes } from './themes/themeRegistry';
 import { loadCustomThemes, saveCustomThemes } from './themes/customThemeStore';
 import { SAMPLE_MARKDOWNS } from './data/defaultMarkdown';
@@ -55,21 +56,37 @@ export default function App() {
     return SAMPLE_MARKDOWNS.architectureDoc;
   });
 
-  // UI Theme Mode (Dark / Light)
-  const [uiMode, setUiMode] = useState<'dark' | 'light'>(() => {
+  // UI Theme Mode: 'system' | 'light' | 'dark' (Default is 'system')
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     try {
-      const saved = localStorage.getItem('sangdoccraft_ui_mode') || localStorage.getItem('docucraft_ui_mode');
-      if (saved === 'light' || saved === 'dark') return saved;
+      const saved = localStorage.getItem('sangdoccraft_theme_mode');
+      if (saved === 'system' || saved === 'light' || saved === 'dark') return saved;
+      const legacy = localStorage.getItem('sangdoccraft_ui_mode') || localStorage.getItem('docucraft_ui_mode');
+      if (legacy === 'light' || legacy === 'dark') return legacy;
     } catch (e) {
       // ignore
     }
-    return 'dark';
+    return 'system';
   });
+
+  const [systemPrefersDark, setSystemPrefersDark] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => setSystemPrefersDark(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
 
   const [viewMode, setViewMode] = useState<ViewMode>('split');
   const [showJsonModal, setShowJsonModal] = useState<boolean>(false);
   const [showImageManager, setShowImageManager] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
   const [assets, setAssets] = useState<DocumentAsset[]>([]);
 
   // Split View ratio state (%)
@@ -186,9 +203,9 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('sangdoccraft_ui_mode', uiMode);
+      localStorage.setItem('sangdoccraft_theme_mode', themeMode);
     } catch (e) {}
-  }, [uiMode]);
+  }, [themeMode]);
 
   useEffect(() => {
     try {
@@ -243,10 +260,6 @@ export default function App() {
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDragging, isConfigPanelOpen, viewMode]);
-
-  const toggleUiMode = () => {
-    setUiMode(prev => (prev === 'dark' ? 'light' : 'dark'));
-  };
 
   const handlePresetThemeChange = (selectedTheme: DocumentTheme) => {
     setTheme(selectedTheme);
@@ -442,7 +455,11 @@ export default function App() {
     }
   };
 
-  const isDark = uiMode === 'dark';
+  const effectiveUiMode: 'dark' | 'light' = themeMode === 'system'
+    ? (systemPrefersDark ? 'dark' : 'light')
+    : themeMode;
+  const uiMode = effectiveUiMode;
+  const isDark = effectiveUiMode === 'dark';
   const previewTheme = structuredClone(theme);
   if (previewTheme.meta.logo) previewTheme.meta.logo = resolveImageSrc(previewTheme.meta.logo);
   if (previewTheme.meta.logoUrl) previewTheme.meta.logoUrl = resolveImageSrc(previewTheme.meta.logoUrl);
@@ -467,14 +484,15 @@ export default function App() {
         onExportSdc={() => downloadSangDocument(buildCurrentDocument())}
         onOpenJsonModal={() => setShowJsonModal(true)}
         onOpenImageManager={() => setShowImageManager(true)}
-        uiMode={uiMode}
-        onToggleUiMode={toggleUiMode}
-        documentTitle={theme.meta.title || '未命名文档'}
+        themeMode={themeMode}
+        onThemeModeChange={setThemeMode}
+        effectiveUiMode={effectiveUiMode}
         isDocumentDirty={isDocumentDirty}
         onNewDocument={() => void handleNewDocument()}
         onOpenDocument={() => void handleOpenDocument()}
         onSaveDocument={() => void handleSaveDocument()}
         onOpenHistory={() => setShowHistory(true)}
+        onOpenAbout={() => setShowAboutModal(true)}
       />
 
       {/* Main Workspace Layout */}
@@ -615,6 +633,13 @@ export default function App() {
         onApplyTheme={handlePresetThemeChange}
         onSaveTheme={handleSaveCustomTheme}
         onDeleteTheme={handleDeleteCustomTheme}
+        isDark={isDark}
+      />
+
+      {/* About Modal */}
+      <AboutModal
+        isOpen={showAboutModal}
+        onClose={() => setShowAboutModal(false)}
         isDark={isDark}
       />
 

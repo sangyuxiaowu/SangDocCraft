@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Download, 
   Sparkles, 
@@ -12,12 +12,16 @@ import {
   Check,
   Sun,
   Moon,
+  Monitor,
   FilePlus2,
   FolderOpen,
   Save,
   History,
+  FileText,
+  Layers,
+  Info,
 } from 'lucide-react';
-import { DocumentTheme, ViewMode } from '../types';
+import { DocumentTheme, ThemeMode, ViewMode } from '../types';
 import { SAMPLE_MARKDOWNS } from '../data/defaultMarkdown';
 
 interface HeaderBarProps {
@@ -33,14 +37,15 @@ interface HeaderBarProps {
   onExportSdc: () => void;
   onOpenJsonModal: () => void;
   onOpenImageManager: () => void;
-  uiMode: 'dark' | 'light';
-  onToggleUiMode: () => void;
-  documentTitle: string;
+  themeMode: ThemeMode;
+  onThemeModeChange: (mode: ThemeMode) => void;
+  effectiveUiMode: 'dark' | 'light';
   isDocumentDirty: boolean;
   onNewDocument: () => void;
   onOpenDocument: () => void;
   onSaveDocument: () => void;
   onOpenHistory: () => void;
+  onOpenAbout: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -56,177 +61,344 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onExportSdc,
   onOpenJsonModal,
   onOpenImageManager,
-  uiMode,
-  onToggleUiMode,
-  documentTitle,
+  themeMode,
+  onThemeModeChange,
+  effectiveUiMode,
   isDocumentDirty,
   onNewDocument,
   onOpenDocument,
   onSaveDocument,
   onOpenHistory,
+  onOpenAbout,
 }) => {
-  const [showPresetDropdown, setShowPresetDropdown] = useState(false);
-  const [showSampleDropdown, setShowSampleDropdown] = useState(false);
-  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState<'preset' | 'sample' | 'export' | null>(null);
 
-  const isDark = uiMode === 'dark';
+  const isDark = effectiveUiMode === 'dark';
+  const headerRef = useRef<HTMLElement>(null);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (headerRef.current && !headerRef.current.contains(event.target as Node)) {
+        setActiveDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggleDropdown = (key: 'preset' | 'sample' | 'export') => {
+    setActiveDropdown((prev) => (prev === key ? null : key));
+  };
 
   return (
-    <header className={`${isDark ? 'bg-[#181818] border-[#2A2A2A] text-white' : 'bg-white border-slate-200 text-slate-900 shadow-xs'} border-b px-6 md:px-8 py-3 sticky top-0 z-40 w-full transition-colors duration-200`}>
-      <div className="w-full flex flex-col md:flex-row items-center justify-between gap-4">
+    <header 
+      ref={headerRef}
+      className={`relative z-40 w-full transition-colors duration-200 border-b select-none ${
+        isDark 
+          ? 'bg-[#141414] border-[#242424] text-zinc-100' 
+          : 'bg-white border-slate-200/90 text-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.03)]'
+      }`}
+    >
+      <div className="h-14 px-4 md:px-6 flex items-center justify-between gap-3 max-w-full">
         
-        {/* LEFT PART: Brand Title & View Mode Switcher */}
-        <div className="flex items-center gap-4 flex-wrap justify-start">
-          {/* Brand & Title */}
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center font-mono font-black text-white text-xs shadow-md shrink-0">
+        {/* ================= LEFT SECTION: Brand & View Switcher ================= */}
+        <div className="flex items-center gap-3 md:gap-4 shrink-0">
+          {/* Logo & Product Brand (Click to open About) */}
+          <div 
+            onClick={onOpenAbout} 
+            className="flex items-center gap-2.5 cursor-pointer group select-none"
+            title="关于 SangDocCraft (点击查看开源信息)"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onOpenAbout();
+              }
+            }}
+          >
+            <div className="w-8 h-8 rounded-lg bg-blue-600 group-hover:bg-blue-500 transition-colors flex items-center justify-center font-mono font-black text-white text-xs shadow-sm ring-1 ring-blue-500/30 shrink-0">
               SDC
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-black tracking-tighter">
-                  SANG<span className="text-blue-500">DOCCRAFT</span>
-                </h1>
-                <span className="text-[9px] uppercase font-bold tracking-widest px-2 py-0.5 rounded bg-blue-500/20 text-blue-500 border border-blue-500/30 shrink-0">
+            <div className="leading-tight">
+              <div className="flex items-center gap-1.5">
+                <span className="font-extrabold tracking-tight text-sm group-hover:text-blue-500 transition-colors">
+                  SANG<span className="text-blue-500 font-black">DOCCRAFT</span>
+                </span>
+                <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20 shrink-0">
                   V{__APP_VERSION__}
                 </span>
               </div>
-              <p className={`text-[10px] uppercase tracking-[0.2em] font-bold ${isDark ? 'text-zinc-500' : 'text-slate-500'}`}>
+              <p className={`text-[10px] tracking-wider font-medium ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>
                 智能 Markdown 排版工具
               </p>
             </div>
           </div>
 
-          <div className={`hidden sm:block w-px h-6 ${isDark ? 'bg-[#2A2A2A]' : 'bg-slate-200'}`} />
+          <div className={`hidden sm:block w-px h-5 ${isDark ? 'bg-zinc-800' : 'bg-slate-200'}`} />
 
-          {/* View Mode Switcher */}
-          <div className={`flex items-center p-1 rounded-lg border ${isDark ? 'bg-[#0A0A0A] border-[#2A2A2A]' : 'bg-slate-100 border-slate-200'}`}>
+          {/* View Mode Segmented Control */}
+          <div 
+            className={`hidden md:flex items-center p-0.5 rounded-lg border ${
+              isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-slate-100/90 border-slate-200'
+            }`}
+          >
             <button
               onClick={() => onViewModeChange('split')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
                 viewMode === 'split'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : isDark ? 'text-zinc-400 hover:text-white hover:bg-[#2A2A2A]/50' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : isDark ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800' : 'text-slate-600 hover:text-slate-900 hover:bg-white'
               }`}
               title="左右双栏：编辑与 A4 预览"
             >
               <Layout className="w-3.5 h-3.5" />
-              <span>双栏预览</span>
+              <span>双栏</span>
             </button>
             
             <button
               onClick={() => onViewModeChange('edit')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
                 viewMode === 'edit'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : isDark ? 'text-zinc-400 hover:text-white hover:bg-[#2A2A2A]/50' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : isDark ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800' : 'text-slate-600 hover:text-slate-900 hover:bg-white'
               }`}
-              title="纯编辑模式"
+              title="专注 Markdown 编辑"
             >
               <Edit3 className="w-3.5 h-3.5" />
-              <span>专注编辑</span>
+              <span>编辑</span>
             </button>
 
             <button
               onClick={() => onViewModeChange('preview')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
                 viewMode === 'preview'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : isDark ? 'text-zinc-400 hover:text-white hover:bg-[#2A2A2A]/50' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : isDark ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800' : 'text-slate-600 hover:text-slate-900 hover:bg-white'
               }`}
-              title="A4 规范全屏预览"
+              title="A4 交付文档全屏预览"
             >
               <Eye className="w-3.5 h-3.5" />
-              <span>A4 全屏</span>
+              <span>全屏</span>
             </button>
           </div>
         </div>
 
-        {/* RIGHT PART: Action Controls & Dropdowns */}
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          <div className="flex items-center gap-0.5 mr-1">
-            <button onClick={onNewDocument} className={`p-2 rounded ${isDark ? 'hover:bg-[#2A2A2A]' : 'hover:bg-slate-100'}`} title="新建文档"><FilePlus2 className="w-4 h-4" /></button>
-            <button onClick={onOpenDocument} className={`p-2 rounded ${isDark ? 'hover:bg-[#2A2A2A]' : 'hover:bg-slate-100'}`} title="打开 .sdc 文档"><FolderOpen className="w-4 h-4" /></button>
-            <button onClick={onSaveDocument} className={`p-2 rounded ${isDark ? 'hover:bg-[#2A2A2A]' : 'hover:bg-slate-100'}`} title="保存文档 (Ctrl+S)"><Save className="w-4 h-4" /></button>
-            <button onClick={onOpenHistory} className={`p-2 rounded ${isDark ? 'hover:bg-[#2A2A2A]' : 'hover:bg-slate-100'}`} title="文档设置与编辑历史"><History className="w-4 h-4" /></button>
-          </div>
-          <div className={`max-w-32 truncate text-[10px] font-bold ${isDark ? 'text-zinc-400' : 'text-slate-500'}`} title={documentTitle}>
-            {documentTitle}{isDocumentDirty ? ' *' : ''}
-          </div>
+        {/* ================= RIGHT SECTION: Structured Toolbars ================= */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           
-          {/* Light / Dark Mode Toggle */}
-          <button
-            onClick={onToggleUiMode}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-bold uppercase tracking-wider transition-all ${
-              isDark 
-                ? 'bg-[#0A0A0A] hover:bg-[#2A2A2A] border-[#2A2A2A] text-amber-400' 
-                : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-amber-600 shadow-xs'
+          {/* Group 1: Document File Actions */}
+          <div 
+            className={`flex items-center p-0.5 rounded-lg border shrink-0 ${
+              isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-slate-100/90 border-slate-200'
             }`}
-            title={isDark ? '切换至浅色模式' : '切换至深色模式'}
           >
-            {isDark ? (
-              <>
-                <Sun className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-zinc-200">浅色界面</span>
-              </>
-            ) : (
-              <>
-                <Moon className="w-3.5 h-3.5 text-indigo-600" />
-                <span className="text-slate-700">深色界面</span>
-              </>
-            )}
-          </button>
-
-          {/* Preset Theme Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                setShowPresetDropdown(!showPresetDropdown);
-                setShowSampleDropdown(false);
-                setShowExportDropdown(false);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-bold uppercase tracking-wider transition ${
-                isDark 
-                  ? 'bg-[#0A0A0A] hover:bg-[#2A2A2A] border-[#2A2A2A] text-zinc-200' 
-                  : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800 font-bold'
-              }`}
+            <button 
+              onClick={onNewDocument} 
+              className={`p-1.5 rounded-md text-xs transition ${
+                isDark ? 'text-zinc-300 hover:text-white hover:bg-zinc-800' : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+              }`} 
+              title="新建文档"
             >
-              <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-              <span>{currentTheme.name}</span>
-              <ChevronDown className={`w-3 h-3 ${isDark ? 'text-zinc-400' : 'text-slate-600'}`} />
+              <FilePlus2 className="w-3.5 h-3.5" />
+            </button>
+            <button 
+              onClick={onOpenDocument} 
+              className={`p-1.5 rounded-md text-xs transition ${
+                isDark ? 'text-zinc-300 hover:text-white hover:bg-zinc-800' : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+              }`} 
+              title="打开 .sdc 文档"
+            >
+              <FolderOpen className="w-3.5 h-3.5" />
+            </button>
+            <button 
+              onClick={onSaveDocument} 
+              className={`relative p-1.5 rounded-md text-xs transition ${
+                isDark ? 'text-zinc-300 hover:text-white hover:bg-zinc-800' : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+              }`} 
+              title={isDocumentDirty ? "文档有未保存变更 (Ctrl+S 保存)" : "保存文档 (Ctrl+S)"}
+            >
+              <Save className="w-3.5 h-3.5" />
+              {isDocumentDirty && (
+                <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500 ring-2 ring-transparent animate-pulse" />
+              )}
+            </button>
+            <button 
+              onClick={onOpenHistory} 
+              className={`p-1.5 rounded-md text-xs transition ${
+                isDark ? 'text-zinc-300 hover:text-white hover:bg-zinc-800' : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+              }`} 
+              title="历史快照与自动备份"
+            >
+              <History className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className={`hidden lg:block w-px h-5 ${isDark ? 'bg-zinc-800' : 'bg-slate-200'}`} />
+
+          {/* Group 2: Content & Asset Management */}
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Sample Templates Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => toggleDropdown('sample')}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition ${
+                  activeDropdown === 'sample'
+                    ? isDark ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-slate-200 border-slate-300 text-slate-900'
+                    : isDark ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-300' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                }`}
+                title="载入官方排版范本"
+              >
+                <BookOpen className="w-3.5 h-3.5 text-blue-500" />
+                <span className="hidden sm:inline">范本</span>
+                <ChevronDown className="w-3 h-3 text-zinc-400" />
+              </button>
+
+              {activeDropdown === 'sample' && (
+                <div 
+                  className={`absolute right-0 top-full mt-1.5 w-64 border rounded-xl shadow-2xl z-50 p-1.5 animate-in fade-in slide-in-from-top-1 duration-150 ${
+                    isDark ? 'bg-[#181818] border-zinc-800 text-zinc-200' : 'bg-white border-slate-200 text-slate-800'
+                  }`}
+                >
+                  <div className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>
+                    选择演示范本
+                  </div>
+                  <button
+                    onClick={() => {
+                      onMarkdownChange(SAMPLE_MARKDOWNS.systemTemplate);
+                      setActiveDropdown(null);
+                    }}
+                    className={`w-full text-left px-2.5 py-2 rounded-lg text-xs font-medium flex items-center gap-2 transition ${
+                      isDark ? 'hover:bg-zinc-800 text-zinc-200' : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <FileText className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                    <div className="truncate">
+                      <div className="font-semibold">本系统 Markdown 范本</div>
+                      <div className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>完整特性、语法与排版指南</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      onMarkdownChange(SAMPLE_MARKDOWNS.architectureDoc);
+                      setActiveDropdown(null);
+                    }}
+                    className={`w-full text-left px-2.5 py-2 rounded-lg text-xs font-medium flex items-center gap-2 transition ${
+                      isDark ? 'hover:bg-zinc-800 text-zinc-200' : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    <div className="truncate">
+                      <div className="font-semibold">架构设计说明书</div>
+                      <div className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>技术方案、架构图与参数规范</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      onMarkdownChange(SAMPLE_MARKDOWNS.uiDesignDoc);
+                      setActiveDropdown(null);
+                    }}
+                    className={`w-full text-left px-2.5 py-2 rounded-lg text-xs font-medium flex items-center gap-2 transition ${
+                      isDark ? 'hover:bg-zinc-800 text-zinc-200' : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <div className="truncate">
+                      <div className="font-semibold">UI/UX 体验设计交付规范</div>
+                      <div className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>视觉组件、交互模式与设计系统</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Images Manager Button */}
+            <button
+              onClick={onOpenImageManager}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition ${
+                isDark 
+                  ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-300' 
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+              }`}
+              title="收集、压缩和管理文档图片素材"
+            >
+              <Images className="w-3.5 h-3.5 text-blue-500" />
+              <span className="hidden sm:inline">图片</span>
             </button>
 
-            {showPresetDropdown && (
-              <div className={`absolute right-0 mt-2 w-72 border rounded-lg shadow-2xl z-50 p-1.5 ${
-                isDark ? 'bg-[#181818] border-[#2A2A2A]' : 'bg-white border-slate-200 shadow-xl'
-              }`}>
-                <div className={`px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest ${
-                  isDark ? 'text-zinc-400' : 'text-slate-500'
-                }`}>
-                  选择预设交付规范主题
+            {/* Theme JSON Config Manager */}
+            <button
+              onClick={onOpenJsonModal}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition ${
+                isDark 
+                  ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-300' 
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+              }`}
+              title="导入、导出和管理自定义主题样式方案"
+            >
+              <Palette className="w-3.5 h-3.5 text-blue-500" />
+              <span className="hidden sm:inline">主题库</span>
+            </button>
+          </div>
+
+          <div className={`w-px h-5 ${isDark ? 'bg-zinc-800' : 'bg-slate-200'}`} />
+
+          {/* Group 3: Active Document Delivery Theme Selector */}
+          <div className="relative shrink-0">
+            <button
+              onClick={() => toggleDropdown('preset')}
+              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition max-w-[170px] ${
+                activeDropdown === 'preset'
+                  ? isDark ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-slate-200 border-slate-300 text-slate-900'
+                  : isDark ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-200' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-800'
+              }`}
+              title={`当前交付规范主题：${currentTheme.name}`}
+            >
+              <div 
+                className="w-2.5 h-2.5 rounded-full ring-1 ring-black/20 shrink-0" 
+                style={{ backgroundColor: currentTheme.style.primaryColor }} 
+              />
+              <span className="truncate">{currentTheme.name}</span>
+              <ChevronDown className="w-3 h-3 text-zinc-400 shrink-0" />
+            </button>
+
+            {activeDropdown === 'preset' && (
+              <div 
+                className={`absolute right-0 top-full mt-1.5 w-72 border rounded-xl shadow-2xl z-50 p-1.5 animate-in fade-in slide-in-from-top-1 duration-150 ${
+                  isDark ? 'bg-[#181818] border-zinc-800 text-zinc-200' : 'bg-white border-slate-200 text-slate-800'
+                }`}
+              >
+                <div className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>
+                  选择交付规范主题
                 </div>
-                <div className="space-y-1">
+                <div className="max-h-72 overflow-y-auto space-y-0.5">
                   {themes.map((preset, index) => {
                     const isSelected = preset.id === currentTheme.id;
                     const isCustom = customThemeIds.includes(preset.id);
                     return (
                       <React.Fragment key={preset.id}>
                         {isCustom && (index === 0 || !customThemeIds.includes(themes[index - 1].id)) && (
-                          <div className={`px-2 pt-2 pb-1 text-[9px] font-bold uppercase tracking-widest border-t ${isDark ? 'text-zinc-500 border-[#2A2A2A]' : 'text-slate-400 border-slate-200'}`}>自定义主题</div>
+                          <div className={`px-2.5 pt-2 pb-1 text-[9px] font-bold uppercase tracking-wider border-t mt-1 ${isDark ? 'text-zinc-500 border-zinc-800' : 'text-slate-400 border-slate-200'}`}>
+                            自定义主题方案
+                          </div>
                         )}
                         <button
                           onClick={() => {
                             onThemeChange(preset);
-                            setShowPresetDropdown(false);
+                            setActiveDropdown(null);
                           }}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded text-xs transition ${
+                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition ${
                             isSelected
-                              ? 'bg-blue-600 text-white font-bold'
-                              : isDark ? 'text-zinc-200 hover:bg-[#2A2A2A]' : 'text-slate-700 hover:bg-slate-100'
+                              ? 'bg-blue-600 text-white font-semibold'
+                              : isDark ? 'hover:bg-zinc-800 text-zinc-200' : 'hover:bg-slate-100 text-slate-700'
                           }`}
                         >
                           <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-3 h-3 rounded-full border border-white/20 shrink-0" style={{ backgroundColor: preset.style.primaryColor }} />
+                            <div 
+                              className="w-3 h-3 rounded-full border border-white/20 shrink-0" 
+                              style={{ backgroundColor: preset.style.primaryColor }} 
+                            />
                             <span className="truncate">{preset.name}</span>
                           </div>
                           {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
@@ -239,173 +411,149 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             )}
           </div>
 
-          {/* Sample Templates Dropdown */}
-          <div className="relative">
+          {/* Group 4: Export CTA */}
+          <div className="relative shrink-0">
             <button
-              onClick={() => {
-                setShowSampleDropdown(!showSampleDropdown);
-                setShowPresetDropdown(false);
-                setShowExportDropdown(false);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-bold uppercase tracking-wider transition ${
+              onClick={() => toggleDropdown('export')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition shadow-sm ${
                 isDark 
-                  ? 'bg-[#0A0A0A] hover:bg-[#2A2A2A] border-[#2A2A2A] text-zinc-200' 
-                  : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800 font-bold'
-              }`}
-            >
-              <BookOpen className="w-3.5 h-3.5 text-blue-500" />
-              <span>载入范本</span>
-              <ChevronDown className={`w-3 h-3 ${isDark ? 'text-zinc-400' : 'text-slate-600'}`} />
-            </button>
-
-            {showSampleDropdown && (
-              <div className={`absolute right-0 mt-2 w-60 border rounded-lg shadow-2xl z-50 p-1.5 ${
-                isDark ? 'bg-[#181818] border-[#2A2A2A]' : 'bg-white border-slate-200 shadow-xl'
-              }`}>
-                <button
-                  onClick={() => {
-                    onMarkdownChange(SAMPLE_MARKDOWNS.systemTemplate);
-                    setShowSampleDropdown(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded text-xs font-medium transition ${
-                    isDark ? 'text-zinc-200 hover:bg-[#2A2A2A]' : 'text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  本系统 Markdown 范本
-                </button>
-                <button
-                  onClick={() => {
-                    onMarkdownChange(SAMPLE_MARKDOWNS.architectureDoc);
-                    setShowSampleDropdown(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded text-xs font-medium transition ${
-                    isDark ? 'text-zinc-200 hover:bg-[#2A2A2A]' : 'text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  分布式系统架构设计说明书
-                </button>
-                <button
-                  onClick={() => {
-                    onMarkdownChange(SAMPLE_MARKDOWNS.uiDesignDoc);
-                    setShowSampleDropdown(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded text-xs font-medium transition ${
-                    isDark ? 'text-zinc-200 hover:bg-[#2A2A2A]' : 'text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  UI/UX 体验设计交付规范
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Theme Manager */}
-          <button
-            onClick={onOpenImageManager}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-bold uppercase tracking-wider transition ${
-              isDark
-                ? 'bg-[#0A0A0A] hover:bg-[#2A2A2A] border-[#2A2A2A] text-zinc-200'
-                : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800'
-            }`}
-            title="收集、压缩和管理文档图片"
-          >
-            <Images className="w-3.5 h-3.5 text-blue-500" />
-            <span>图片</span>
-          </button>
-
-          {/* Theme Manager */}
-          <button
-            onClick={onOpenJsonModal}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-bold uppercase tracking-wider transition ${
-              isDark 
-                ? 'bg-[#0A0A0A] hover:bg-[#2A2A2A] border-[#2A2A2A] text-zinc-200' 
-                : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800 font-bold'
-            }`}
-            title="创建、导入和管理自定义主题"
-          >
-            <Palette className="w-3.5 h-3.5 text-blue-500" />
-            <span>主题管理</span>
-          </button>
-
-          {/* Export Button & Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                setShowExportDropdown(!showExportDropdown);
-                setShowPresetDropdown(false);
-                setShowSampleDropdown(false);
-              }}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded font-black text-xs uppercase tracking-tighter transition shadow-md ${
-                isDark 
-                  ? 'bg-white hover:bg-zinc-200 text-black' 
+                  ? 'bg-blue-600 hover:bg-blue-500 text-white' 
                   : 'bg-blue-600 hover:bg-blue-700 text-white'
               }`}
             >
               <Download className="w-3.5 h-3.5" />
-              <span>导出文档</span>
-              <ChevronDown className="w-3 h-3" />
+              <span>导出</span>
+              <ChevronDown className="w-3 h-3 opacity-80" />
             </button>
 
-            {showExportDropdown && (
-              <div className={`absolute right-0 mt-2 w-64 border rounded-lg shadow-2xl z-50 p-2 space-y-1 ${
-                isDark ? 'bg-[#181818] border-[#2A2A2A]' : 'bg-white border-slate-200 shadow-xl'
-              }`}>
+            {activeDropdown === 'export' && (
+              <div 
+                className={`absolute right-0 top-full mt-1.5 w-64 border rounded-xl shadow-2xl z-50 p-1.5 space-y-1 animate-in fade-in slide-in-from-top-1 duration-150 ${
+                  isDark ? 'bg-[#181818] border-zinc-800 text-zinc-200' : 'bg-white border-slate-200 text-slate-800'
+                }`}
+              >
                 <button
                   onClick={() => {
                     onExportDocx();
-                    setShowExportDropdown(false);
+                    setActiveDropdown(null);
                   }}
-                  className={`w-full text-left px-3 py-2.5 rounded text-xs flex items-center gap-2.5 transition ${
-                    isDark ? 'text-white hover:bg-[#2A2A2A]' : 'text-slate-800 hover:bg-slate-100'
+                  className={`w-full text-left p-2 rounded-lg text-xs flex items-center gap-2.5 transition ${
+                    isDark ? 'hover:bg-zinc-800 text-zinc-200' : 'hover:bg-slate-100 text-slate-800'
                   }`}
                 >
-                  <div className="w-7 h-7 rounded bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                  <div className="w-7 h-7 rounded-md bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
                     W
                   </div>
-                  <div>
-                    <div className="font-bold uppercase tracking-wider">导出 Word (.docx)</div>
-                    <div className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-slate-500'}`}>带完整页眉页脚与封面样式</div>
+                  <div className="min-w-0">
+                    <div className="font-semibold">导出 Word (.docx)</div>
+                    <div className={`text-[10px] truncate ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>含封面、页眉页脚与目录</div>
                   </div>
                 </button>
 
                 <button
                   onClick={() => {
                     onExportHtml();
-                    setShowExportDropdown(false);
+                    setActiveDropdown(null);
                   }}
-                  className={`w-full text-left px-3 py-2.5 rounded text-xs flex items-center gap-2.5 transition ${
-                    isDark ? 'text-white hover:bg-[#2A2A2A]' : 'text-slate-800 hover:bg-slate-100'
+                  className={`w-full text-left p-2 rounded-lg text-xs flex items-center gap-2.5 transition ${
+                    isDark ? 'hover:bg-zinc-800 text-zinc-200' : 'hover:bg-slate-100 text-slate-800'
                   }`}
                 >
-                  <div className="w-7 h-7 rounded bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                  <div className="w-7 h-7 rounded-md bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
                     H
                   </div>
-                  <div>
-                    <div className="font-bold uppercase tracking-wider">导出 HTML 网页 (.html)</div>
-                    <div className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-slate-500'}`}>单文件自包含格式，随时网页查阅</div>
+                  <div className="min-w-0">
+                    <div className="font-semibold">导出 HTML 网页 (.html)</div>
+                    <div className={`text-[10px] truncate ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>自包含单文件，随处预览</div>
                   </div>
                 </button>
 
                 <button
                   onClick={() => {
                     onExportSdc();
-                    setShowExportDropdown(false);
+                    setActiveDropdown(null);
                   }}
-                  className={`w-full text-left px-3 py-2.5 rounded text-xs flex items-center gap-2.5 transition ${
-                    isDark ? 'text-white hover:bg-[#2A2A2A]' : 'text-slate-800 hover:bg-slate-100'
+                  className={`w-full text-left p-2 rounded-lg text-xs flex items-center gap-2.5 transition ${
+                    isDark ? 'hover:bg-zinc-800 text-zinc-200' : 'hover:bg-slate-100 text-slate-800'
                   }`}
                 >
-                  <div className="w-7 h-7 rounded bg-violet-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                  <div className="w-7 h-7 rounded-md bg-violet-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
                     S
                   </div>
-                  <div>
-                    <div className="font-bold uppercase tracking-wider">下载 SangDocCraft 文档 (.sdc)</div>
-                    <div className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-slate-500'}`}>包含正文、主题、图片与历史</div>
+                  <div className="min-w-0">
+                    <div className="font-semibold">SangDocCraft 文档 (.sdc)</div>
+                    <div className={`text-[10px] truncate ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>打包正文、主题、图片与历史</div>
                   </div>
                 </button>
               </div>
             )}
           </div>
+
+          <div className={`w-px h-5 ${isDark ? 'bg-zinc-800' : 'bg-slate-200'}`} />
+
+          {/* Group 5: Theme Switcher (3 options: System / Light / Dark, default System) */}
+          <div 
+            className={`flex items-center p-0.5 rounded-lg border shrink-0 ${
+              isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-slate-100/90 border-slate-200'
+            }`}
+            role="radiogroup"
+            aria-label="深浅色外观切换"
+          >
+            <button
+              onClick={() => onThemeModeChange('system')}
+              className={`p-1.5 rounded-md text-xs font-medium transition ${
+                themeMode === 'system'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : isDark ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800' : 'text-slate-500 hover:text-slate-800 hover:bg-white'
+              }`}
+              title="跟随系统外观 (默认)"
+              role="radio"
+              aria-checked={themeMode === 'system'}
+            >
+              <Monitor className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => onThemeModeChange('light')}
+              className={`p-1.5 rounded-md text-xs font-medium transition ${
+                themeMode === 'light'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : isDark ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800' : 'text-slate-500 hover:text-slate-800 hover:bg-white'
+              }`}
+              title="浅色模式"
+              role="radio"
+              aria-checked={themeMode === 'light'}
+            >
+              <Sun className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => onThemeModeChange('dark')}
+              className={`p-1.5 rounded-md text-xs font-medium transition ${
+                themeMode === 'dark'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : isDark ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800' : 'text-slate-500 hover:text-slate-800 hover:bg-white'
+              }`}
+              title="深色模式"
+              role="radio"
+              aria-checked={themeMode === 'dark'}
+            >
+              <Moon className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Group 6: About Modal Trigger */}
+          <button
+            onClick={onOpenAbout}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition shrink-0 ${
+              isDark 
+                ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-300 hover:text-white' 
+                : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 hover:text-slate-900 shadow-xs'
+            }`}
+            title="关于 SangDocCraft (开源项目与协议)"
+            aria-label="关于 SangDocCraft"
+          >
+            <Info className="w-3.5 h-3.5 text-blue-500" />
+            <span className="hidden sm:inline">关于</span>
+          </button>
 
         </div>
 
