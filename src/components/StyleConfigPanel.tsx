@@ -11,16 +11,13 @@ import {
   Check, 
   ChevronRight,
   BookOpen,
-  Info,
-  Upload,
   Trash2,
   Plus,
   RotateCcw,
   Bold,
   Italic,
   Underline,
-  Image as ImageIcon,
-  X
+  Image as ImageIcon
 } from 'lucide-react';
 import { DocumentTheme, CoverStyle, FontChoice, CoverListItem, HeadingFontStyle } from '../types';
 import { getCoverTemplate, getCoverTemplates } from '../themes/themeRegistry';

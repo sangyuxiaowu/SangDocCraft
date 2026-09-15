@@ -20,7 +20,7 @@ import {
 } from 'docx';
 import { marked } from 'marked';
 import { DocumentTheme } from '../types';
-import { getHeadingText } from './markdownParser';
+import { getHeadingText } from './documentStructure';
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidPng } from './mermaidRenderer';
@@ -41,13 +41,11 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
   const { header, footer, toc, style } = theme;
   const meta = theme.meta;
   const coverTemplate = getCoverTemplate(meta.coverStyle);
-  const coverStyle = coverTemplate.id;
   const bodyText = markdownText;
 
   const primaryHex = cleanHex(style.primaryColor);
   const accentHex = cleanHex(style.accentColor);
   const textHex = cleanHex(style.textColor);
-  const coverBgHex = cleanHex(style.coverBgColor);
 
   const fontName = style.fontFamily === 'serif' ? 'SimSun' :
                    style.fontFamily === 'kaiti' ? 'KaiTi' :

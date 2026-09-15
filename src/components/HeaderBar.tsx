@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  FileText, 
   Download, 
-  Printer, 
-  Code, 
   Sparkles, 
   Palette,
   BookOpen, 
@@ -31,8 +28,6 @@ interface HeaderBarProps {
   onOpenJsonModal: () => void;
   uiMode: 'dark' | 'light';
   onToggleUiMode: () => void;
-  isConfigPanelOpen?: boolean;
-  onToggleConfigPanel?: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -47,9 +42,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onExportHtml,
   onOpenJsonModal,
   uiMode,
-  onToggleUiMode,
-  isConfigPanelOpen = true,
-  onToggleConfigPanel
+  onToggleUiMode
 }) => {
   const [showPresetDropdown, setShowPresetDropdown] = useState(false);
   const [showSampleDropdown, setShowSampleDropdown] = useState(false);

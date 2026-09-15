@@ -1,9 +1,10 @@
 import { marked } from 'marked';
-import { TocItem, DocumentMeta, FooterConfig, StyleConfig, ImageStyleConfig, TableCaptionConfig, TocConfig } from '../types';
+import { TocItem, DocumentMeta, StyleConfig, ImageStyleConfig, TableCaptionConfig, TocConfig } from '../types';
+import { getHeadingText, TOC_ITEMS_PER_PAGE } from './documentStructure';
 import { resolveImageSrc } from './tauriHelper';
 import { splitExplicitPages } from './pageBreaks';
 
-export const TOC_ITEMS_PER_PAGE = 22;
+export { formatPageNumber, getFooterSlots, getHeadingText, getTocChunks, TOC_ITEMS_PER_PAGE } from './documentStructure';
 
 export interface DomPaginationOptions {
   fontSize?: number;
@@ -531,36 +532,6 @@ export function paginateContentByDom(
   return pages.length > 0 ? pages : [markdownText];
 }
 
-export function getTocChunks(items: TocItem[], perPage: number = TOC_ITEMS_PER_PAGE): TocItem[][] {
-  if (!items || items.length === 0) return [[]];
-  const chunks: TocItem[][] = [];
-  for (let i = 0; i < items.length; i += perPage) {
-    chunks.push(items.slice(i, i + perPage));
-  }
-  return chunks;
-}
-
-export function getHeadingText(text: string, level: number, counters: number[], numbering: TocConfig['headingNumbering'] = 'none'): string {
-  if (numbering === 'none') return text;
-
-  counters[level - 1] += 1;
-  for (let index = level; index < counters.length; index += 1) counters[index] = 0;
-
-  if (numbering === 'decimal') {
-    return `${counters.slice(0, level).join('.')}. ${text}`;
-  }
-
-  const chineseNumerals = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
-  const chineseNumber = (value: number) => value <= 10 ? chineseNumerals[value] : String(value);
-  const prefixes = [
-    `${chineseNumber(counters[0])}、`,
-    `（${chineseNumber(counters[1])}）`,
-    `${counters[2]}.`,
-    `（${counters[3]}）`,
-  ];
-  return `${prefixes[level - 1]} ${text}`;
-}
-
 /**
  * Extracts H1, H2, H3 headings from markdown to build Table of Contents items with calculated page numbers
  */
@@ -915,56 +886,6 @@ export function splitContentByPages(markdown: string, h1PageBreak: boolean = fal
   });
 
   return pages.length > 0 ? pages : [contentToSplit];
-}
-
-/**
- * Formats current and total page numbers based on the pageNumberFormat setting
- */
-export function formatPageNumber(current: number, total: number, format: string): string {
-  if (!format || format === 'none') {
-    return '';
-  }
-  if (format === 'pageOfTotal') {
-    return `第 ${current} 页 / 共 ${total} 页`;
-  }
-  if (format === 'page') {
-    return `第 ${current} 页`;
-  }
-  if (format === 'hyphen' || format === 'dash') {
-    return `- ${current} -`;
-  }
-  if (format === 'simple') {
-    return `${current} / ${total}`;
-  }
-  if (format === 'english') {
-    return `Page ${current} of ${total}`;
-  }
-  return `第 ${current} 页 / 共 ${total} 页`;
-}
-
-/**
- * Computes left, center, and right footer slot contents based on page number position and footer text configs
- */
-export function getFooterSlots(pageNum: number, totalPages: number, footer: FooterConfig, meta: DocumentMeta) {
-  const pageStr = formatPageNumber(pageNum, totalPages, footer.pageNumberFormat);
-  const pos = footer.pageNumberPosition || 'right';
-
-  let left = footer.leftText || meta.organization || '';
-  let center = footer.centerText || '';
-  let right = footer.rightText || '';
-
-  if (pageStr) {
-    if (pos === 'left') {
-      left = left ? `${left} \u00A0\u00A0 ${pageStr}` : pageStr;
-    } else if (pos === 'center') {
-      center = pageStr;
-    } else {
-      // right
-      right = right ? `${right} \u00A0\u00A0 ${pageStr}` : pageStr;
-    }
-  }
-
-  return { left, center, right };
 }
 
 /**

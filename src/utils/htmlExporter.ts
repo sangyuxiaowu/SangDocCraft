@@ -1,6 +1,7 @@
 import { marked } from 'marked';
 import { DocumentTheme, FooterConfig, DocumentMeta } from '../types';
-import { parseTableOfContents, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss, getHeadingText } from './markdownParser';
+import { getFooterSlots, getHeadingText, getTocChunks } from './documentStructure';
+import { parseTableOfContents, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss } from './markdownParser';
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidInHtml } from './mermaidRenderer';

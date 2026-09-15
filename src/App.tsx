@@ -210,8 +210,6 @@ export default function App() {
         onOpenJsonModal={() => setShowJsonModal(true)}
         uiMode={uiMode}
         onToggleUiMode={toggleUiMode}
-        isConfigPanelOpen={isConfigPanelOpen}
-        onToggleConfigPanel={() => setIsConfigPanelOpen(!isConfigPanelOpen)}
       />
 
       {/* Main Workspace Layout */}

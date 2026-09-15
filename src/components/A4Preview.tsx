@@ -8,8 +8,9 @@ import {
   ChevronUp, 
   Check 
 } from 'lucide-react';
-import { DocumentTheme, TocItem, DocumentMeta, ViewMode } from '../types';
-import { parseTableOfContents, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss, getHeadingText } from '../utils/markdownParser';
+import { DocumentTheme, TocItem, ViewMode } from '../types';
+import { getFooterSlots, getHeadingText, getTocChunks } from '../utils/documentStructure';
+import { parseTableOfContents, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss } from '../utils/markdownParser';
 import { resolveImageSrc, resolvePreviewImageSrc } from '../utils/tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidElements } from '../utils/mermaidRenderer';
