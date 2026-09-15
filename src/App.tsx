@@ -7,12 +7,16 @@ import { A4Preview } from './components/A4Preview';
 import { JsonThemeModal } from './components/JsonThemeModal';
 import { DocumentTheme, ViewMode } from './types';
 import { getRegisteredThemes } from './themes/themeRegistry';
+import { loadCustomThemes, saveCustomThemes } from './themes/customThemeStore';
 import { SAMPLE_MARKDOWNS } from './data/defaultMarkdown';
 import { exportToDocx } from './utils/docxExporter';
 import { exportToHtmlFile } from './utils/htmlExporter';
 import { getEffectiveMeta, parseFrontmatter, updateMarkdownFrontmatter } from './utils/markdownParser';
 
 export default function App() {
+  const builtinThemes = getRegisteredThemes();
+  const [customThemes, setCustomThemes] = useState<DocumentTheme[]>(loadCustomThemes);
+
   // Load initial theme from localStorage or fallback to enterprise default
   const [theme, setTheme] = useState<DocumentTheme>(() => {
     try {
@@ -99,6 +103,10 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
+    saveCustomThemes(customThemes);
+  }, [customThemes]);
+
+  useEffect(() => {
     try {
       localStorage.setItem('sangdoccraft_markdown', markdown);
     } catch (e) {}
@@ -180,6 +188,18 @@ export default function App() {
     setTheme(selectedTheme);
   };
 
+  const handleSaveCustomTheme = (savedTheme: DocumentTheme, previousId?: string) => {
+    setCustomThemes((themes) => [
+      ...themes.filter((item) => item.id !== (previousId || savedTheme.id)),
+      savedTheme,
+    ]);
+  };
+
+  const handleDeleteCustomTheme = (id: string) => {
+    setCustomThemes((themes) => themes.filter((item) => item.id !== id));
+    if (theme.id === id) handlePresetThemeChange(builtinThemes[0]);
+  };
+
   // Export handlers
   const handleExportDocx = async () => {
     try {
@@ -209,6 +229,8 @@ export default function App() {
       {/* Top Header Controls Bar */}
       <HeaderBar
         currentTheme={theme}
+        themes={[...builtinThemes, ...customThemes]}
+        customThemeIds={customThemes.map((item) => item.id)}
         onThemeChange={handlePresetThemeChange}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
@@ -313,7 +335,11 @@ export default function App() {
         isOpen={showJsonModal}
         onClose={() => setShowJsonModal(false)}
         currentTheme={theme}
-        onApplyTheme={setTheme}
+        builtinThemes={builtinThemes}
+        customThemes={customThemes}
+        onApplyTheme={handlePresetThemeChange}
+        onSaveTheme={handleSaveCustomTheme}
+        onDeleteTheme={handleDeleteCustomTheme}
         isDark={isDark}
       />
 
