@@ -14,6 +14,7 @@ import {
   ArrowRight 
 } from 'lucide-react';
 import type { DocumentHistoryEntry, DocumentSettings } from '../types';
+import { modal } from '../utils/modalDialog';
 
 interface DocumentHistoryModalProps {
   isOpen: boolean;
@@ -50,16 +51,30 @@ export const DocumentHistoryModal: React.FC<DocumentHistoryModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleRestoreClick = (entry: DocumentHistoryEntry) => {
+  const handleRestoreClick = async (entry: DocumentHistoryEntry) => {
     const timeStr = new Date(entry.createdAt).toLocaleString();
-    if (confirm(`确定要恢复至 ${timeStr} 的版本吗？\n当前未保存的修改将被此历史快照覆盖。`)) {
+    const ok = await modal.confirm({
+      title: '恢复历史快照',
+      message: `确定要恢复至 ${timeStr} 的版本吗？\n当前未保存的修改将被此历史快照覆盖。`,
+      confirmText: '确认恢复',
+      cancelText: '取消',
+      variant: 'warning',
+    });
+    if (ok) {
       onRestore(entry);
       onClose();
     }
   };
 
-  const handleClearClick = () => {
-    if (confirm('确定清空所有文档历史快照记录吗？此操作无法撤销。')) {
+  const handleClearClick = async () => {
+    const ok = await modal.confirm({
+      title: '清空历史快照',
+      message: '确定清空所有文档历史快照记录吗？此操作将彻底删除历史记录且无法撤销。',
+      confirmText: '清空记录',
+      cancelText: '取消',
+      variant: 'danger',
+    });
+    if (ok) {
       onClear();
       setSelectedEntryId('');
     }

@@ -8,6 +8,8 @@ import { StyleConfigPanel } from './components/StyleConfigPanel';
 import { A4Preview } from './components/A4Preview';
 import { JsonThemeModal } from './components/JsonThemeModal';
 import { AboutModal } from './components/AboutModal';
+import { ModalDialogContainer } from './components/ModalDialogContainer';
+import { modal } from './utils/modalDialog';
 import { DocumentAsset, DocumentHistoryEntry, DocumentTheme, ThemeMode, ViewMode } from './types';
 import { getRegisteredThemes } from './themes/themeRegistry';
 import { loadCustomThemes, saveCustomThemes } from './themes/customThemeStore';
@@ -166,20 +168,33 @@ export default function App() {
           return;
         }
         const draft = await getLatestDraft();
-        if (draft && confirm('检测到未保存的文档草稿，是否恢复？')) {
-          setDocumentId(draft.documentId);
-          setDocumentCreatedAt(draft.createdAt);
-          setDocumentPath(isTauriEnvironment() ? draft.path : undefined);
-          setDocumentSettings(draft.settings);
-          setHistory(draft.history);
-          setMarkdown(draft.markdown);
-          setTheme(draft.theme);
-          setIsDocumentDirty(true);
-          await refreshAssets(draft.documentId);
+        if (draft) {
+          const shouldRestore = await modal.confirm({
+            title: '发现未保存的草稿',
+            message: '检测到本地存在上次未保存的文档草稿，是否立即恢复？',
+            confirmText: '恢复草稿',
+            cancelText: '放弃',
+            variant: 'primary',
+          });
+          if (shouldRestore) {
+            setDocumentId(draft.documentId);
+            setDocumentCreatedAt(draft.createdAt);
+            setDocumentPath(isTauriEnvironment() ? draft.path : undefined);
+            setDocumentSettings(draft.settings);
+            setHistory(draft.history);
+            setMarkdown(draft.markdown);
+            setTheme(draft.theme);
+            setIsDocumentDirty(true);
+            await refreshAssets(draft.documentId);
+          }
         }
       } catch (error) {
         console.error('Restore startup document failed:', error);
-        alert(error instanceof Error ? error.message : '无法恢复文档');
+        await modal.alert({
+          title: '恢复文档失败',
+          message: error instanceof Error ? error.message : '无法恢复文档',
+          type: 'error',
+        });
       }
     })();
   }, []);
@@ -292,7 +307,16 @@ export default function App() {
   };
 
   const handleNewDocument = async () => {
-    if (isDocumentDirty && !confirm('当前文档尚未保存，确定新建文档吗？')) return;
+    if (isDocumentDirty) {
+      const ok = await modal.confirm({
+        title: '新建文档确认',
+        message: '当前文档尚未保存，确定新建文档吗？未保存的修改将会丢失。',
+        confirmText: '确认新建',
+        cancelText: '取消',
+        variant: 'danger',
+      });
+      if (!ok) return;
+    }
     await clearDocumentAssets(documentId);
     clearDocumentAssetUrls();
     const now = new Date().toISOString();
@@ -312,13 +336,26 @@ export default function App() {
   };
 
   const handleOpenDocument = async () => {
-    if (isDocumentDirty && !confirm('当前文档尚未保存，确定打开其他文档吗？')) return;
+    if (isDocumentDirty) {
+      const ok = await modal.confirm({
+        title: '打开文档确认',
+        message: '当前文档尚未保存，确定打开其他文档吗？未保存的修改将会丢失。',
+        confirmText: '确认打开',
+        cancelText: '取消',
+        variant: 'danger',
+      });
+      if (!ok) return;
+    }
     try {
       const opened = await openSangDocument();
       if (opened) await applyOpenedDocument(opened);
       else if (!(window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) documentFileInputRef.current?.click();
     } catch (error) {
-      alert(error instanceof Error ? error.message : '打开文档失败');
+      await modal.alert({
+        title: '打开文档失败',
+        message: error instanceof Error ? error.message : '打开文档失败',
+        type: 'error',
+      });
     }
   };
 
@@ -364,7 +401,11 @@ export default function App() {
       setIsDocumentDirty(false);
       await deleteDraft(documentId);
     } catch (error) {
-      alert(error instanceof Error ? error.message : '保存文档失败');
+      await modal.alert({
+        title: '保存文档失败',
+        message: error instanceof Error ? error.message : '保存文档失败',
+        type: 'error',
+      });
     }
   };
 
@@ -441,7 +482,11 @@ export default function App() {
       await exportToDocx(markdown, theme);
     } catch (err) {
       console.error('Docx export error:', err);
-      alert('导出 Word 文件遇到问题，请检查文档内容');
+      await modal.alert({
+        title: '导出 Word 遇到问题',
+        message: '导出 Word 文件遇到问题，请检查文档内容与格式设置。',
+        type: 'error',
+      });
     }
   };
 
@@ -451,7 +496,11 @@ export default function App() {
       await exportToHtmlFile(markdown, theme);
     } catch (err) {
       console.error('HTML export error:', err);
-      alert('导出 HTML 文件遇到问题');
+      await modal.alert({
+        title: '导出 HTML 遇到问题',
+        message: '导出 HTML 文件遇到问题，请重试。',
+        type: 'error',
+      });
     }
   };
 
@@ -592,7 +641,7 @@ export default function App() {
         onClear={() => { setHistory([]); setIsDocumentDirty(true); }}
       />
 
-      {/* JSON Theme Import / Export Modal */}
+      {/* Document File Input for Open */}
       <input
         ref={documentFileInputRef}
         type="file"
@@ -600,7 +649,17 @@ export default function App() {
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0];
-          if (file) void readSangDocumentFile(file).then(applyOpenedDocument).catch((error) => alert(error instanceof Error ? error.message : '打开文档失败'));
+          if (file) {
+            void readSangDocumentFile(file)
+              .then(applyOpenedDocument)
+              .catch((error) => {
+                void modal.alert({
+                  title: '打开文档失败',
+                  message: error instanceof Error ? error.message : '打开文档失败',
+                  type: 'error',
+                });
+              });
+          }
           event.target.value = '';
         }}
       />
@@ -642,6 +701,9 @@ export default function App() {
         onClose={() => setShowAboutModal(false)}
         isDark={isDark}
       />
+
+      {/* Modal Dialog System (replaces native alert and confirm) */}
+      <ModalDialogContainer isDark={isDark} />
 
     </div>
   );
