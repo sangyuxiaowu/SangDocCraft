@@ -1,21 +1,24 @@
-import mermaid from 'mermaid';
-
 let initialized = false;
 let renderCounter = 0;
+let mermaidPromise: Promise<typeof import('mermaid').default> | undefined;
 
-function ensureMermaidInitialized(): void {
-  if (initialized) return;
-  mermaid.initialize({
-    startOnLoad: false,
-    securityLevel: 'strict',
-    theme: 'neutral',
-    htmlLabels: false,
-  });
-  initialized = true;
+async function getMermaid(): Promise<typeof import('mermaid').default> {
+  mermaidPromise ??= import('mermaid').then((module) => module.default);
+  const mermaid = await mermaidPromise;
+  if (!initialized) {
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      theme: 'neutral',
+      htmlLabels: false,
+    });
+    initialized = true;
+  }
+  return mermaid;
 }
 
 async function renderMermaidSvg(source: string): Promise<string> {
-  ensureMermaidInitialized();
+  const mermaid = await getMermaid();
   renderCounter += 1;
   const { svg } = await mermaid.render(`sangdoccraft-mermaid-${renderCounter}`, source);
   return svg;

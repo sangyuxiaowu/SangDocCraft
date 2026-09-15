@@ -9,8 +9,6 @@ import { DocumentTheme, ViewMode } from './types';
 import { getRegisteredThemes } from './themes/themeRegistry';
 import { loadCustomThemes, saveCustomThemes } from './themes/customThemeStore';
 import { SAMPLE_MARKDOWNS } from './data/defaultMarkdown';
-import { exportToDocx } from './utils/docxExporter';
-import { exportToHtmlFile } from './utils/htmlExporter';
 
 export default function App() {
   const builtinThemes = getRegisteredThemes();
@@ -173,6 +171,7 @@ export default function App() {
   // Export handlers
   const handleExportDocx = async () => {
     try {
+      const { exportToDocx } = await import('./utils/docxExporter');
       await exportToDocx(markdown, theme);
     } catch (err) {
       console.error('Docx export error:', err);
@@ -182,6 +181,7 @@ export default function App() {
 
   const handleExportHtml = async () => {
     try {
+      const { exportToHtmlFile } = await import('./utils/htmlExporter');
       await exportToHtmlFile(markdown, theme);
     } catch (err) {
       console.error('HTML export error:', err);

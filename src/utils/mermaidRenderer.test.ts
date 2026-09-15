@@ -69,8 +69,8 @@ describe('mermaidRenderer', () => {
     const firstRender = renderMermaidElements(document.body);
     await renderMermaidElements(document.body);
 
-    expect(render).toHaveBeenCalledOnce();
     expect(document.querySelector<HTMLElement>('.mermaid')?.dataset.mermaidRendered).toBe('pending');
+    await vi.waitFor(() => expect(render).toHaveBeenCalledOnce());
     finishRender?.({ svg: '<svg viewBox="0 0 300 120"></svg>' });
     await firstRender;
     expect(document.querySelector<HTMLElement>('.mermaid')?.dataset.mermaidRendered).toBe('true');

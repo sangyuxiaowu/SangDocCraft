@@ -52,7 +52,80 @@ export const SAMPLE_MARKDOWNS = {
 3. **数据缓存层 (Redis Cluster & Cache)**：多级缓存体系，解决热点数据高并发穿透。
 4. **持久化存储层 (MySQL / TiDB / OceanBase)**：主从读写分离与分库分表。
 
+\`\`\`mermaid
+flowchart TB
+    subgraph Client[客户端层]
+        C1[Web / H5]
+        C2[移动端 App]
+        C3[第三方开放平台]
+    end
+
+    subgraph Gateway[接入网关层 API Gateway]
+        G1[Nginx / Ingress]
+        G2[API 网关<br/>路由转发 · 鉴权限流 · TLS 卸载]
+    end
+
+    subgraph App[应用业务层 Business Microservices]
+        A1[认证与权限服务<br/>Auth Service]
+        A2[订单处理服务<br/>Order Engine]
+        A3[用户服务]
+        A4[商品服务]
+        A5[监控与链路追踪<br/>Observability]
+    end
+
+    subgraph Cache[数据缓存层 Redis Cluster / Cache]
+        R1[Redis Cluster<br/>热点数据缓存]
+        R2[本地缓存 / 多级缓存]
+    end
+
+    subgraph Storage[持久化存储层 MySQL / TiDB / OceanBase]
+        DB1[(MySQL 主从<br/>读写分离)]
+        DB2[(TiDB / OceanBase<br/>分库分表)]
+        MQ[(RocketMQ<br/>异步削峰)]
+    end
+
+    C1 --> G1
+    C2 --> G1
+    C3 --> G1
+    G1 --> G2
+    G2 --> A1
+    G2 --> A2
+    G2 --> A3
+    G2 --> A4
+    A1 --> R1
+    A2 --> R1
+    A3 --> R1
+    A4 --> R1
+    A1 --> DB1
+    A2 --> DB1
+    A2 --> MQ
+    MQ --> A2
+    A3 --> DB2
+    A4 --> DB2
+    A5 -. 监控指标 / 链路追踪 .-> G2
+    A5 -. 监控指标 / 链路追踪 .-> A1
+    A5 -. 监控指标 / 链路追踪 .-> A2
+\`\`\`
+
 ## 核心模块职责分配
+
+\`\`\`mermaid
+flowchart LR
+    U[用户 / 调用方] --> GW[API 网关]
+    GW --> Auth[认证与权限服务<br/>OAuth2.0 + JWT<br/>RBAC 权限控制]
+    GW --> Order[订单处理服务<br/>Order Engine]
+
+    Auth -. Token 校验 / 权限结果 .-> Order
+
+    Order --> MQ[(RocketMQ<br/>异步削峰填谷)]
+    Order --> Lock[乐观锁 + 分布式锁]
+    Lock --> Stock[(库存数据)]
+    Order --> OrderDB[(订单数据库)]
+
+    Obs[监控与链路追踪<br/>SkyWalking + Prometheus] -. 指标采集 / 链路追踪 .-> GW
+    Obs -. 指标采集 / 链路追踪 .-> Auth
+    Obs -. 指标采集 / 链路追踪 .-> Order
+\`\`\`
 
 * **认证与权限服务 (Auth Service)**
   * 基于 OAuth2.0 与 JWT 实现分布式统一鉴权。
