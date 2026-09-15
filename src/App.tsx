@@ -14,13 +14,14 @@ import { SAMPLE_MARKDOWNS } from './data/defaultMarkdown';
 import { listDocumentAssets, listLibraryAssets } from './utils/imageRepository';
 import { registerAssetUrls } from './utils/assetUrlRegistry';
 import { clearDocumentAssetUrls } from './utils/assetUrlRegistry';
-import { resolveImageSrc } from './utils/tauriHelper';
+import { isTauriEnvironment, resolveImageSrc } from './utils/tauriHelper';
 import { clearDocumentAssets, putDocumentAsset, putLibraryAsset } from './utils/imageRepository';
 import { collectImageReferences } from './utils/imageReferences';
 import { openSangDocument, readSangDocumentFile, readStartupDocument, saveSangDocument } from './utils/documentFileOperations';
 import type { SangDocument } from './types';
 import { appendUniqueHistory, createHistoryEntry } from './utils/documentHistory';
 import { deleteDraft, getLatestDraft, saveDraft } from './utils/draftStore';
+import { formatApplicationTitle } from './utils/applicationTitle';
 
 export default function App() {
   const builtinThemes = getRegisteredThemes();
@@ -106,6 +107,20 @@ export default function App() {
   useEffect(() => {
     void refreshAssets();
   }, [documentId]);
+
+  useEffect(() => {
+    const title = formatApplicationTitle(theme.meta.title);
+    document.title = title;
+    let cancelled = false;
+
+    if (isTauriEnvironment()) {
+      void import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
+        if (!cancelled) return getCurrentWindow().setTitle(title);
+      }).catch((error) => console.error('Update window title failed:', error));
+    }
+
+    return () => { cancelled = true; };
+  }, [theme.meta.title]);
 
   const applyOpenedDocument = async (opened: { document: SangDocument; path?: string }) => {
     await clearDocumentAssets(documentId);

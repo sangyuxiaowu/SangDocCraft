@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "SangDocCraft - 智能 Markdown 排版工具",
+        "title": "未命名文档 - SangDocCraft",
         "width": 1400,
         "height": 900,
         "resizable": true,
