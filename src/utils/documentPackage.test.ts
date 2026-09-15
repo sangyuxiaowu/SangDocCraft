@@ -20,6 +20,7 @@ describe('SangDocCraft document package', () => {
       markdown: `# 测试\n\n![标志](@images/${asset.id})`,
       theme: getRegisteredThemes()[0],
       settings: { historyEnabled: true, historyIdleMinutes: 10 },
+      history: [],
       assets: [asset, { ...asset, fileName: 'duplicate.png' }],
     };
 
@@ -34,6 +35,7 @@ describe('SangDocCraft document package', () => {
       markdown: document.markdown,
       theme: document.theme,
       settings: document.settings,
+      history: document.history,
     });
     expect(unpacked.assets).toHaveLength(1);
     expect(unpacked.assets[0].description).toBe('项目标志');
@@ -49,6 +51,7 @@ describe('SangDocCraft document package', () => {
       markdown: '',
       theme: getRegisteredThemes()[0],
       settings: { historyEnabled: false, historyIdleMinutes: 10 },
+      history: [],
       assets: [],
     }).slice(0, 10))).rejects.toThrow('有效的 .sdc 文件');
   });

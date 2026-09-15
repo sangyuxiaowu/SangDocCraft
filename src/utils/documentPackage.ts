@@ -3,6 +3,7 @@ import type {
   DocumentAsset,
   DocumentAssetMetadata,
   DocumentAssetScope,
+  DocumentHistoryEntry,
   DocumentSettings,
   DocumentTheme,
   SangDocument,
@@ -101,6 +102,7 @@ export function packSangDocument(document: SangDocument): Uint8Array {
     'theme.json': strToU8(JSON.stringify(document.theme, null, 2)),
     'images.json': strToU8(JSON.stringify({ images: assets.map(({ data: _, ...metadata }) => metadata) }, null, 2)),
     'settings.json': strToU8(JSON.stringify(document.settings, null, 2)),
+    'history.json': strToU8(JSON.stringify(document.history, null, 2)),
   };
   for (const asset of assets) files[assetPath(asset)] = asset.data;
   return zipSync(files, { level: 6 });
@@ -136,6 +138,7 @@ export async function unpackSangDocument(data: Uint8Array): Promise<SangDocument
     markdown: strFromU8(markdownFile),
     theme: parseJson<DocumentTheme>(files, 'theme.json'),
     settings: parseJson<DocumentSettings>(files, 'settings.json'),
+    history: files['history.json'] ? parseJson<DocumentHistoryEntry[]>(files, 'history.json') : [],
     assets,
   };
 }

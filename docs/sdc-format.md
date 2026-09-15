@@ -1,0 +1,53 @@
+# SangDocCraft 文档格式
+
+## 文件标识
+
+- 扩展名：`.sdc`
+- MIME：`application/vnd.sangdoccraft.document+zip`
+- 容器：ZIP
+- 当前格式版本：`1`
+
+## 包结构
+
+```text
+manifest.json      文档 ID、标题、时间与格式版本
+document.md        Markdown 正文
+theme.json         当前文档主题
+images.json        图片名称、描述、类型、大小、SHA-256 与作用域
+settings.json      文档级设置
+history.json       可选编辑历史，只保存正文与主题快照
+images/            按内容哈希 ID 存放的图片二进制
+```
+
+图片 ID 由 SHA-256 摘要生成。同一内容只保存一份二进制；描述和文件名不参与去重。
+
+## 内部引用
+
+- `@images/<id>`：当前文档图片，切换或新建文档时从 IndexedDB 清理。
+- `@library/<id>`：永久图片库，不随文档切换清理。
+
+Markdown 使用标准图片语法，例如：
+
+```markdown
+![系统架构](@images/img-0123456789abcdef01234567)
+```
+
+封面 Logo 与页眉 Logo 直接保存内部引用。保存自定义主题时，主题使用的文档图片会提升到永久库，并改写为 `@library/<id>`。
+
+## 网络图片收集
+
+“收集文档网络图片”扫描以下位置：
+
+- Markdown 图片语法中的 HTTP/HTTPS 图片；
+- 封面 Logo；
+- 页眉 Logo。
+
+收集后下载图片、按内容去重、写入当前文档图片库，并将原 URL 改写为 `@images/<id>`。Markdown 普通链接不会改写。
+
+## 保存与历史
+
+- 内容变化 1.5 秒后写入恢复草稿；已有文件路径时直接防抖保存 `.sdc`。
+- `Ctrl+S` 立即保存；首次保存显示文件对话框。
+- 开启编辑历史后，达到设置的无修改时间生成快照；手动保存也生成快照。
+- 历史只保存 Markdown 和主题，不复制图片数据；相同内容不会重复记录，最多保留 50 条。
+- 新建或打开其他文档会清理当前文档临时图片和恢复草稿，永久图片库不受影响。

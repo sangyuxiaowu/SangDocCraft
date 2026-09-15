@@ -39,6 +39,16 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "sdc"
+        ],
+        "name": "SangDocCraft Document",
+        "description": "SangDocCraft 文档",
+        "mimeType": "application/vnd.sangdoccraft.document+zip"
+      }
     ]
   }
 }

@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { forwardRef, useImperativeHandle, useRef } from 'react';
 import { 
   Heading1, 
   Heading2, 
@@ -24,7 +24,11 @@ interface EditorProps {
   uiMode?: 'dark' | 'light';
 }
 
-export const Editor: React.FC<EditorProps> = ({ value, onChange, uiMode = 'dark' }) => {
+export interface EditorHandle {
+  insertAtSelection: (text: string) => void;
+}
+
+export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, uiMode = 'dark' }, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isDark = uiMode === 'dark';
 
@@ -79,6 +83,10 @@ export const Editor: React.FC<EditorProps> = ({ value, onChange, uiMode = 'dark'
     textarea.setSelectionRange(insertion.position, insertion.position);
     insertText(insertion.text);
   };
+
+  useImperativeHandle(ref, () => ({
+    insertAtSelection: (text: string) => insertText(text),
+  }));
 
   const lineCount = value.split('\n').length;
   const wordCount = value.length;
@@ -237,4 +245,6 @@ export const Editor: React.FC<EditorProps> = ({ value, onChange, uiMode = 'dark'
 
     </div>
   );
-};
+});
+
+Editor.displayName = 'Editor';

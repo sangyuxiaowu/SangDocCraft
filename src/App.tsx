@@ -1,17 +1,35 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { HeaderBar } from './components/HeaderBar';
-import { Editor } from './components/Editor';
+import { Editor, type EditorHandle } from './components/Editor';
+import { ImageManager } from './components/ImageManager';
+import { DocumentHistoryModal } from './components/DocumentHistoryModal';
 import { StyleConfigPanel } from './components/StyleConfigPanel';
 import { A4Preview } from './components/A4Preview';
 import { JsonThemeModal } from './components/JsonThemeModal';
-import { DocumentTheme, ViewMode } from './types';
+import { DocumentAsset, DocumentHistoryEntry, DocumentTheme, ViewMode } from './types';
 import { getRegisteredThemes } from './themes/themeRegistry';
 import { loadCustomThemes, saveCustomThemes } from './themes/customThemeStore';
 import { SAMPLE_MARKDOWNS } from './data/defaultMarkdown';
+import { listDocumentAssets, listLibraryAssets } from './utils/imageRepository';
+import { registerAssetUrls } from './utils/assetUrlRegistry';
+import { clearDocumentAssetUrls } from './utils/assetUrlRegistry';
+import { resolveImageSrc } from './utils/tauriHelper';
+import { clearDocumentAssets, putDocumentAsset, putLibraryAsset } from './utils/imageRepository';
+import { collectImageReferences } from './utils/imageReferences';
+import { openSangDocument, readSangDocumentFile, readStartupDocument, saveSangDocument } from './utils/documentFileOperations';
+import type { SangDocument } from './types';
+import { appendUniqueHistory, createHistoryEntry } from './utils/documentHistory';
+import { deleteDraft, getLatestDraft, saveDraft } from './utils/draftStore';
 
 export default function App() {
   const builtinThemes = getRegisteredThemes();
+  const [documentId, setDocumentId] = useState<string>(() => crypto.randomUUID());
+  const [documentCreatedAt, setDocumentCreatedAt] = useState(() => new Date().toISOString());
+  const [documentPath, setDocumentPath] = useState<string>();
+  const [documentSettings, setDocumentSettings] = useState({ historyEnabled: false, historyIdleMinutes: 10 });
+  const [isDocumentDirty, setIsDocumentDirty] = useState(false);
+  const [history, setHistory] = useState<DocumentHistoryEntry[]>([]);
   const [customThemes, setCustomThemes] = useState<DocumentTheme[]>(loadCustomThemes);
 
   // Load initial theme from localStorage or fallback to enterprise default
@@ -49,6 +67,9 @@ export default function App() {
 
   const [viewMode, setViewMode] = useState<ViewMode>('split');
   const [showJsonModal, setShowJsonModal] = useState<boolean>(false);
+  const [showImageManager, setShowImageManager] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [assets, setAssets] = useState<DocumentAsset[]>([]);
 
   // Split View ratio state (%)
   const [splitRatio, setSplitRatio] = useState<number>(() => {
@@ -70,6 +91,66 @@ export default function App() {
 
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const mainWorkspaceRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<EditorHandle>(null);
+  const documentFileInputRef = useRef<HTMLInputElement>(null);
+
+  const refreshAssets = async (targetDocumentId = documentId) => {
+    const loadedAssets = [
+      ...await listDocumentAssets(targetDocumentId),
+      ...await listLibraryAssets(),
+    ];
+    registerAssetUrls(loadedAssets);
+    setAssets(loadedAssets);
+  };
+
+  useEffect(() => {
+    void refreshAssets();
+  }, [documentId]);
+
+  const applyOpenedDocument = async (opened: { document: SangDocument; path?: string }) => {
+    await clearDocumentAssets(documentId);
+    clearDocumentAssetUrls();
+    for (const asset of opened.document.assets) {
+      if (asset.scope === 'library') await putLibraryAsset(asset);
+      else await putDocumentAsset(opened.document.id, asset);
+    }
+    setDocumentId(opened.document.id);
+    setDocumentCreatedAt(opened.document.createdAt);
+    setDocumentPath(opened.path);
+    setDocumentSettings(opened.document.settings);
+    setHistory(opened.document.history);
+    setMarkdown(opened.document.markdown);
+    setTheme(opened.document.theme);
+    setIsDocumentDirty(false);
+    await refreshAssets(opened.document.id);
+  };
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const opened = await readStartupDocument();
+        if (opened) {
+          await applyOpenedDocument(opened);
+          return;
+        }
+        const draft = await getLatestDraft();
+        if (draft && confirm('检测到未保存的文档草稿，是否恢复？')) {
+          setDocumentId(draft.documentId);
+          setDocumentCreatedAt(draft.createdAt);
+          setDocumentPath(draft.path);
+          setDocumentSettings(draft.settings);
+          setHistory(draft.history);
+          setMarkdown(draft.markdown);
+          setTheme(draft.theme);
+          setIsDocumentDirty(true);
+          await refreshAssets(draft.documentId);
+        }
+      } catch (error) {
+        console.error('Restore startup document failed:', error);
+        alert(error instanceof Error ? error.message : '无法恢复文档');
+      }
+    })();
+  }, []);
 
   // Auto-save to localStorage
   useEffect(() => {
@@ -154,14 +235,148 @@ export default function App() {
 
   const handlePresetThemeChange = (selectedTheme: DocumentTheme) => {
     setTheme(selectedTheme);
+    setIsDocumentDirty(true);
   };
 
-  const handleSaveCustomTheme = (savedTheme: DocumentTheme, previousId?: string) => {
+  const handleSaveCustomTheme = async (savedTheme: DocumentTheme, previousId?: string) => {
+    let serializedTheme = JSON.stringify(savedTheme);
+    for (const reference of collectImageReferences('', savedTheme)) {
+      if (!reference.startsWith('@images/')) continue;
+      const id = reference.slice('@images/'.length);
+      const asset = assets.find((item) => item.scope === 'document' && item.id === id);
+      if (!asset) continue;
+      const libraryAsset = { ...asset, scope: 'library' as const };
+      await putLibraryAsset(libraryAsset);
+      registerAssetUrls([libraryAsset]);
+      serializedTheme = serializedTheme.replaceAll(reference, `@library/${id}`);
+    }
+    const persistentTheme = JSON.parse(serializedTheme) as DocumentTheme;
     setCustomThemes((themes) => [
-      ...themes.filter((item) => item.id !== (previousId || savedTheme.id)),
-      savedTheme,
+      ...themes.filter((item) => item.id !== (previousId || persistentTheme.id)),
+      persistentTheme,
     ]);
+    await refreshAssets();
   };
+
+  const handleMarkdownChange = (value: string) => {
+    setMarkdown(value);
+    setIsDocumentDirty(true);
+  };
+
+  const handleNewDocument = async () => {
+    if (isDocumentDirty && !confirm('当前文档尚未保存，确定新建文档吗？')) return;
+    await clearDocumentAssets(documentId);
+    clearDocumentAssetUrls();
+    const now = new Date().toISOString();
+    const nextId = crypto.randomUUID();
+    setDocumentId(nextId);
+    setDocumentCreatedAt(now);
+    setDocumentPath(undefined);
+    setDocumentSettings({ historyEnabled: false, historyIdleMinutes: 10 });
+    setHistory([]);
+    setMarkdown('# 未命名文档\n\n');
+    setTheme(builtinThemes[0]);
+    const libraryAssets = await listLibraryAssets();
+    setAssets(libraryAssets);
+    registerAssetUrls(libraryAssets);
+    await deleteDraft(documentId);
+    setIsDocumentDirty(false);
+  };
+
+  const handleOpenDocument = async () => {
+    if (isDocumentDirty && !confirm('当前文档尚未保存，确定打开其他文档吗？')) return;
+    try {
+      const opened = await openSangDocument();
+      if (opened) await applyOpenedDocument(opened);
+      else if (!(window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) documentFileInputRef.current?.click();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '打开文档失败');
+    }
+  };
+
+  const buildCurrentDocument = (documentHistory = history): SangDocument => {
+    const references = collectImageReferences(markdown, theme);
+    const packageAssets = assets.filter((asset) => asset.scope === 'document' || references.has(`@library/${asset.id}`));
+    return {
+      id: documentId,
+      title: theme.meta.title.trim() || '未命名文档',
+      createdAt: documentCreatedAt,
+      modifiedAt: new Date().toISOString(),
+      markdown,
+      theme,
+      settings: documentSettings,
+      history: documentHistory,
+      assets: packageAssets,
+    };
+  };
+
+  const handleSaveDocument = async () => {
+    try {
+      let nextHistory = history;
+      if (documentSettings.historyEnabled) {
+        nextHistory = appendUniqueHistory(history, await createHistoryEntry(markdown, theme, 'manual'));
+        setHistory(nextHistory);
+      }
+      const savedPath = await saveSangDocument(buildCurrentDocument(nextHistory), documentPath);
+      if (!savedPath) return;
+      setDocumentPath(savedPath);
+      setIsDocumentDirty(false);
+      await deleteDraft(documentId);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '保存文档失败');
+    }
+  };
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (!isDocumentDirty) return;
+      if (documentPath) {
+        void saveSangDocument(buildCurrentDocument(), documentPath).then((savedPath) => {
+          if (savedPath) {
+            setIsDocumentDirty(false);
+            void deleteDraft(documentId);
+          }
+        }).catch((error) => console.error('Auto-save failed:', error));
+      } else {
+        void saveDraft({
+          documentId,
+          createdAt: documentCreatedAt,
+          updatedAt: new Date().toISOString(),
+          path: documentPath,
+          markdown,
+          theme,
+          settings: documentSettings,
+          history,
+        });
+      }
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [documentId, documentCreatedAt, documentPath, documentSettings, markdown, theme, history, assets, isDocumentDirty]);
+
+  useEffect(() => {
+    if (!documentSettings.historyEnabled) return;
+    const timer = window.setTimeout(() => {
+      void createHistoryEntry(markdown, theme, 'idle').then((entry) => {
+        const nextHistory = appendUniqueHistory(history, entry);
+        setHistory(nextHistory);
+        if (documentPath && nextHistory !== history) {
+          void saveSangDocument(buildCurrentDocument(nextHistory), documentPath);
+        }
+      });
+    }, documentSettings.historyIdleMinutes * 60_000);
+    return () => window.clearTimeout(timer);
+  }, [documentSettings.historyEnabled, documentSettings.historyIdleMinutes, markdown, theme]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        void handleSaveDocument();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [documentId, documentPath, documentCreatedAt, documentSettings, markdown, theme, assets]);
 
   const handleDeleteCustomTheme = (id: string) => {
     setCustomThemes((themes) => themes.filter((item) => item.id !== id));
@@ -190,6 +405,10 @@ export default function App() {
   };
 
   const isDark = uiMode === 'dark';
+  const previewTheme = structuredClone(theme);
+  if (previewTheme.meta.logo) previewTheme.meta.logo = resolveImageSrc(previewTheme.meta.logo);
+  if (previewTheme.meta.logoUrl) previewTheme.meta.logoUrl = resolveImageSrc(previewTheme.meta.logoUrl);
+  if (previewTheme.header.logoUrl) previewTheme.header.logoUrl = resolveImageSrc(previewTheme.header.logoUrl);
 
   return (
     <div className={`flex flex-col h-screen w-screen overflow-hidden font-sans transition-colors duration-200 ${
@@ -204,12 +423,19 @@ export default function App() {
         onThemeChange={handlePresetThemeChange}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        onMarkdownChange={setMarkdown}
+        onMarkdownChange={handleMarkdownChange}
         onExportDocx={handleExportDocx}
         onExportHtml={handleExportHtml}
         onOpenJsonModal={() => setShowJsonModal(true)}
+        onOpenImageManager={() => setShowImageManager(true)}
         uiMode={uiMode}
         onToggleUiMode={toggleUiMode}
+        documentTitle={theme.meta.title || '未命名文档'}
+        isDocumentDirty={isDocumentDirty}
+        onNewDocument={() => void handleNewDocument()}
+        onOpenDocument={() => void handleOpenDocument()}
+        onSaveDocument={() => void handleSaveDocument()}
+        onOpenHistory={() => setShowHistory(true)}
       />
 
       {/* Main Workspace Layout */}
@@ -226,7 +452,7 @@ export default function App() {
               isDark ? 'border-[#2A2A2A] bg-[#181818]' : 'border-slate-200 bg-white'
             }`}
           >
-            <Editor value={markdown} onChange={setMarkdown} uiMode={uiMode} />
+            <Editor ref={editorRef} value={markdown} onChange={handleMarkdownChange} uiMode={uiMode} />
           </div>
         )}
 
@@ -254,7 +480,7 @@ export default function App() {
           <div className={`flex-1 min-w-[240px] h-full flex flex-col overflow-hidden ${
             isDark ? 'bg-[#1E1E1E]' : 'bg-slate-200/80'
           }`}>
-            <A4Preview markdown={markdown} theme={theme} uiMode={uiMode} viewMode={viewMode} />
+            <A4Preview markdown={markdown} theme={previewTheme} uiMode={uiMode} viewMode={viewMode} />
           </div>
         )}
 
@@ -265,7 +491,7 @@ export default function App() {
           }`}>
             <StyleConfigPanel 
               theme={theme} 
-              onChange={setTheme} 
+              onChange={(value) => { setTheme(value); setIsDocumentDirty(true); }}
               uiMode={uiMode}
             />
           </div>
@@ -295,6 +521,49 @@ export default function App() {
         )}
 
       </div>
+
+      {/* JSON Theme Import / Export Modal */}
+      <DocumentHistoryModal
+        isOpen={showHistory}
+        isDark={isDark}
+        settings={documentSettings}
+        history={history}
+        onClose={() => setShowHistory(false)}
+        onSettingsChange={(settings) => { setDocumentSettings(settings); setIsDocumentDirty(true); }}
+        onRestore={(entry) => { setMarkdown(entry.markdown); setTheme(entry.theme); setIsDocumentDirty(true); setShowHistory(false); }}
+        onClear={() => { setHistory([]); setIsDocumentDirty(true); }}
+      />
+
+      {/* JSON Theme Import / Export Modal */}
+      <input
+        ref={documentFileInputRef}
+        type="file"
+        accept=".sdc,application/vnd.sangdoccraft.document+zip"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void readSangDocumentFile(file).then(applyOpenedDocument).catch((error) => alert(error instanceof Error ? error.message : '打开文档失败'));
+          event.target.value = '';
+        }}
+      />
+
+      {/* JSON Theme Import / Export Modal */}
+      <ImageManager
+        isOpen={showImageManager}
+        documentId={documentId}
+        assets={assets}
+        markdown={markdown}
+        theme={theme}
+        isDark={isDark}
+        onClose={() => setShowImageManager(false)}
+        onAssetsChanged={refreshAssets}
+        onInsert={(imageMarkdown) => editorRef.current?.insertAtSelection(`\n\n${imageMarkdown}\n\n`)}
+        onDocumentContentChange={(nextMarkdown, nextTheme) => {
+          setMarkdown(nextMarkdown);
+          setTheme(nextTheme);
+          setIsDocumentDirty(true);
+        }}
+      />
 
       {/* JSON Theme Import / Export Modal */}
       <JsonThemeModal

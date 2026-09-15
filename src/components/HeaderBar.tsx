@@ -7,10 +7,15 @@ import {
   Layout, 
   Eye, 
   Edit3,
+  Images,
   ChevronDown,
   Check,
   Sun,
-  Moon
+  Moon,
+  FilePlus2,
+  FolderOpen,
+  Save,
+  History,
 } from 'lucide-react';
 import { DocumentTheme, ViewMode } from '../types';
 import { SAMPLE_MARKDOWNS } from '../data/defaultMarkdown';
@@ -26,8 +31,15 @@ interface HeaderBarProps {
   onExportDocx: () => void;
   onExportHtml: () => void;
   onOpenJsonModal: () => void;
+  onOpenImageManager: () => void;
   uiMode: 'dark' | 'light';
   onToggleUiMode: () => void;
+  documentTitle: string;
+  isDocumentDirty: boolean;
+  onNewDocument: () => void;
+  onOpenDocument: () => void;
+  onSaveDocument: () => void;
+  onOpenHistory: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -41,8 +53,15 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onExportDocx,
   onExportHtml,
   onOpenJsonModal,
+  onOpenImageManager,
   uiMode,
-  onToggleUiMode
+  onToggleUiMode,
+  documentTitle,
+  isDocumentDirty,
+  onNewDocument,
+  onOpenDocument,
+  onSaveDocument,
+  onOpenHistory,
 }) => {
   const [showPresetDropdown, setShowPresetDropdown] = useState(false);
   const [showSampleDropdown, setShowSampleDropdown] = useState(false);
@@ -123,6 +142,15 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
         {/* RIGHT PART: Action Controls & Dropdowns */}
         <div className="flex items-center gap-2 flex-wrap justify-end">
+          <div className="flex items-center gap-0.5 mr-1">
+            <button onClick={onNewDocument} className={`p-2 rounded ${isDark ? 'hover:bg-[#2A2A2A]' : 'hover:bg-slate-100'}`} title="新建文档"><FilePlus2 className="w-4 h-4" /></button>
+            <button onClick={onOpenDocument} className={`p-2 rounded ${isDark ? 'hover:bg-[#2A2A2A]' : 'hover:bg-slate-100'}`} title="打开 .sdc 文档"><FolderOpen className="w-4 h-4" /></button>
+            <button onClick={onSaveDocument} className={`p-2 rounded ${isDark ? 'hover:bg-[#2A2A2A]' : 'hover:bg-slate-100'}`} title="保存文档 (Ctrl+S)"><Save className="w-4 h-4" /></button>
+            <button onClick={onOpenHistory} className={`p-2 rounded ${isDark ? 'hover:bg-[#2A2A2A]' : 'hover:bg-slate-100'}`} title="文档设置与编辑历史"><History className="w-4 h-4" /></button>
+          </div>
+          <div className={`max-w-32 truncate text-[10px] font-bold ${isDark ? 'text-zinc-400' : 'text-slate-500'}`} title={documentTitle}>
+            {documentTitle}{isDocumentDirty ? ' *' : ''}
+          </div>
           
           {/* Light / Dark Mode Toggle */}
           <button
@@ -279,6 +307,20 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               </div>
             )}
           </div>
+
+          {/* Theme Manager */}
+          <button
+            onClick={onOpenImageManager}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-bold uppercase tracking-wider transition ${
+              isDark
+                ? 'bg-[#0A0A0A] hover:bg-[#2A2A2A] border-[#2A2A2A] text-zinc-200'
+                : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800'
+            }`}
+            title="收集、压缩和管理文档图片"
+          >
+            <Images className="w-3.5 h-3.5 text-blue-500" />
+            <span>图片</span>
+          </button>
 
           {/* Theme Manager */}
           <button

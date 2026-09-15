@@ -145,6 +145,15 @@ export interface DocumentSettings {
   historyIdleMinutes: number;
 }
 
+export interface DocumentHistoryEntry {
+  id: string;
+  createdAt: string;
+  reason: 'idle' | 'manual';
+  contentHash: string;
+  markdown: string;
+  theme: DocumentTheme;
+}
+
 export type DocumentAssetScope = 'document' | 'library';
 
 export interface DocumentAssetMetadata {
@@ -169,6 +178,7 @@ export interface SangDocument {
   markdown: string;
   theme: DocumentTheme;
   settings: DocumentSettings;
+  history: DocumentHistoryEntry[];
   assets: DocumentAsset[];
 }
 

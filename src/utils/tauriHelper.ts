@@ -1,4 +1,5 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+import { getInternalAsset, resolveInternalAssetUrl } from './assetUrlRegistry';
 
 /**
  * Helper to check if the app is currently running inside Tauri window
@@ -19,6 +20,9 @@ export function resolveImageSrc(src?: string): string {
   if (!src) return '';
   const trimmed = src.trim();
   if (!trimmed) return '';
+
+  const internalUrl = resolveInternalAssetUrl(trimmed);
+  if (internalUrl) return internalUrl;
 
   // Return web remote URLs or inline data URIs directly
   if (
@@ -80,6 +84,11 @@ interface NativeImageBinary {
 
 /** Fetches image bytes and uses the native backend when browser CORS blocks a source. */
 export async function fetchImageBinary(source: string): Promise<{ data: ArrayBuffer; contentType: string }> {
+  const internalAsset = getInternalAsset(source);
+  if (internalAsset) {
+    const bytes = new Uint8Array(internalAsset.data);
+    return { data: bytes.buffer, contentType: internalAsset.mediaType };
+  }
   try {
     const response = await fetch(resolveImageSrc(source));
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
