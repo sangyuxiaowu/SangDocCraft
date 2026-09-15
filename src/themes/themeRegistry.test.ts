@@ -39,10 +39,19 @@ describe('themeRegistry', () => {
   it('registers every preset theme and its cover template', async () => {
     const registry = await loadRegistry();
     expect(registry.getRegisteredThemes().map((theme) => theme.id)).toEqual(PRESET_THEMES.map((theme) => theme.id));
+    expect(registry.getRegisteredThemes().map((theme) => theme.meta.coverStyle)).toEqual(expect.arrayContaining(['signature', 'briefing']));
     expect(new Set(PRESET_THEMES.map((theme) => theme.id)).size).toBe(PRESET_THEMES.length);
     for (const theme of PRESET_THEMES) {
       expect(registry.hasCoverTemplate(theme.meta.coverStyle)).toBe(true);
     }
+  });
+
+  it('uses minimal toc and heading styles for the signature theme', () => {
+    const theme = PRESET_THEMES.find((preset) => preset.id === 'enterprise-signature');
+    expect(theme?.toc.titleStyle).toBe('minimal');
+    expect(theme?.style.h1Style).toBe('minimal');
+    expect(theme?.style.h2Style).toBe('plain');
+    expect(theme?.style.h3Style).toBe('plain');
   });
 
   it('falls back to the enterprise cover for unknown IDs', async () => {
