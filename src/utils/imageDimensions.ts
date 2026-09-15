@@ -33,3 +33,11 @@ export function extractImageDimensionSuffix(text?: string): ImageDimensionSuffix
   const dimensions = parseImageDimensions(suffixMatch[1]);
   return dimensions ? { dimensions, length: suffixMatch[0].length } : undefined;
 }
+
+export function formatImageDimensionSuffix(dimensions?: ImageDimensions): string {
+  const attributes = [
+    dimensions?.width ? `w=${dimensions.width}` : '',
+    dimensions?.height ? `h=${dimensions.height}` : '',
+  ].filter(Boolean);
+  return attributes.length ? `{${attributes.join(' ')}}` : '';
+}

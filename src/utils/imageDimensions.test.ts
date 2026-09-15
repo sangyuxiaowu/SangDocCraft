@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractImageDimensionSuffix, parseImageDimensions } from './imageDimensions';
+import { extractImageDimensionSuffix, formatImageDimensionSuffix, parseImageDimensions } from './imageDimensions';
 
 describe('image dimensions', () => {
   it('parses w and h in either order', () => {
@@ -10,6 +10,12 @@ describe('image dimensions', () => {
   it('supports a single dimension', () => {
     expect(parseImageDimensions('w=320')).toEqual({ width: 320 });
     expect(parseImageDimensions('h=180')).toEqual({ height: 180 });
+  });
+
+  it('formats only dimensions that were provided', () => {
+    expect(formatImageDimensionSuffix()).toBe('');
+    expect(formatImageDimensionSuffix({ width: 320 })).toBe('{w=320}');
+    expect(formatImageDimensionSuffix({ width: 320, height: 180 })).toBe('{w=320 h=180}');
   });
 
   it('extracts only a valid leading suffix', () => {

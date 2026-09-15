@@ -1,4 +1,4 @@
-import React, { forwardRef, useImperativeHandle, useRef } from 'react';
+import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { 
   Heading1, 
   Heading2, 
@@ -14,13 +14,18 @@ import {
   Minus, 
   FilePlus, 
   FileCode,
-  Type
+  Type,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { getPageBreakInsertion } from '../utils/pageBreaks';
+import type { DocumentAsset } from '../types';
+import { ImagePicker } from './ImagePicker';
+import { formatImageDimensionSuffix } from '../utils/imageDimensions';
 
 interface EditorProps {
   value: string;
   onChange: (val: string) => void;
+  assets: DocumentAsset[];
   uiMode?: 'dark' | 'light';
 }
 
@@ -28,8 +33,9 @@ export interface EditorHandle {
   insertAtSelection: (text: string) => void;
 }
 
-export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, uiMode = 'dark' }, ref) => {
+export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, assets, uiMode = 'dark' }, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [showImagePicker, setShowImagePicker] = useState(false);
   const isDark = uiMode === 'dark';
 
   // Insert helper for formatting buttons
@@ -202,6 +208,15 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, 
           <Table className="w-4 h-4 text-blue-500" />
         </button>
 
+        <button
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => setShowImagePicker(true)}
+          className={`p-1.5 rounded transition ${btnHoverClass}`}
+          title="从图片库插入图片"
+        >
+          <ImageIcon className="w-4 h-4 text-blue-500" />
+        </button>
+
         <div className={`w-px h-4 mx-1 ${dividerClass}`} />
 
         {/* Page Break Tag Insert */}
@@ -242,6 +257,19 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, 
           <FileCode className="w-3.5 h-3.5 text-blue-500" />
         </div>
       </div>
+
+      <ImagePicker
+        isOpen={showImagePicker}
+        assets={assets}
+        isDark={isDark}
+        showDimensions
+        onClose={() => setShowImagePicker(false)}
+        onSelect={(reference, asset, dimensions) => {
+          const altText = (asset.description || asset.fileName).replace(/[[\]]/g, '');
+          insertText(`\n\n![${altText}](${reference})${formatImageDimensionSuffix(dimensions)}\n\n`);
+          setShowImagePicker(false);
+        }}
+      />
 
     </div>
   );
