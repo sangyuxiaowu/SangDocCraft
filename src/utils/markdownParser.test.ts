@@ -275,4 +275,13 @@ describe('Rendered Markdown post-processing', () => {
     expect(second).toContain('图 2: 部署图');
     expect(counters.imgCount).toBe(2);
   });
+
+  it('applies compact image dimensions and removes the attribute suffix', () => {
+    const rawHtml = marked.parse('![架构图](a.png){w=320 h=180}') as string;
+    const html = postProcessRenderedHtml(rawHtml, theme.style);
+
+    expect(html).toContain('width: 320px');
+    expect(html).toContain('height: 180px');
+    expect(html).not.toContain('{w=320 h=180}');
+  });
 });

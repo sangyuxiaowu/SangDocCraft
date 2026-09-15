@@ -25,6 +25,7 @@ import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidPng } from './mermaidRenderer';
 import { splitExplicitPages } from './pageBreaks';
+import { extractImageDimensionSuffix } from './imageDimensions';
 
 /**
  * Converts Hex color string (#RRGGBB) to pure Hex string without '#'
@@ -68,10 +69,14 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
       const { data, contentType } = await fetchImageBinary(source);
       const imageType = contentType.includes('png') ? 'png' : contentType.includes('gif') ? 'gif' : contentType.includes('bmp') ? 'bmp' : 'jpg';
       let imageWidth = width ?? 480;
-      const imageHeight = height ?? 270;
-      if (width === undefined && height !== undefined) {
+      let imageHeight = height ?? 270;
+      if ((width === undefined) !== (height === undefined)) {
         const bitmap = await createImageBitmap(new Blob([data], { type: contentType }));
-        imageWidth = imageHeight * bitmap.width / bitmap.height;
+        if (width === undefined) {
+          imageWidth = imageHeight * bitmap.width / bitmap.height;
+        } else {
+          imageHeight = imageWidth * bitmap.height / bitmap.width;
+        }
         bitmap.close();
       }
       return new ImageRun({
@@ -88,7 +93,9 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
 
   const createInlineRuns = async (tokens: any[], options: { bold?: boolean; italics?: boolean; underline?: boolean; size?: number; color?: string; font?: string } = {}): Promise<(TextRun | ImageRun)[]> => {
     const runs: (TextRun | ImageRun)[] = [];
-    for (const inlineToken of tokens || []) {
+    const inlineTokens = (tokens || []).map((token: any) => ({ ...token }));
+    for (let index = 0; index < inlineTokens.length; index++) {
+      const inlineToken = inlineTokens[index];
       const inherited = { bold: options.bold, italics: options.italics, underline: options.underline ? {} : undefined, size: options.size || 22, color: options.color || textHex, font: options.font || docxFont };
       if (inlineToken.type === 'strong' || inlineToken.type === 'em' || inlineToken.type === 'del' || inlineToken.type === 'link') {
         runs.push(...await createInlineRuns(inlineToken.tokens, {
@@ -97,7 +104,20 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
           italics: inlineToken.type === 'em' || options.italics,
         }));
       } else if (inlineToken.type === 'image') {
-        const imageRun = await createImageRun(inlineToken.href, inlineToken.text || '图片');
+        const nextToken = inlineTokens[index + 1];
+        const nextText = nextToken?.type === 'text' ? nextToken.text || nextToken.raw || '' : '';
+        const dimensionSuffix = extractImageDimensionSuffix(nextText);
+        if (dimensionSuffix) {
+          const remainingText = nextText.slice(dimensionSuffix.length);
+          nextToken.text = remainingText;
+          nextToken.raw = remainingText;
+        }
+        const imageRun = await createImageRun(
+          inlineToken.href,
+          inlineToken.text || '图片',
+          dimensionSuffix?.dimensions.width,
+          dimensionSuffix?.dimensions.height
+        );
         if (imageRun) {
           runs.push(imageRun);
         } else {

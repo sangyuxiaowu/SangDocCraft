@@ -3,6 +3,7 @@ import { TocItem, DocumentMeta, StyleConfig, ImageStyleConfig, TableCaptionConfi
 import { getHeadingText, TOC_ITEMS_PER_PAGE } from './documentStructure';
 import { resolveImageSrc } from './tauriHelper';
 import { splitExplicitPages } from './pageBreaks';
+import { parseImageDimensions } from './imageDimensions';
 
 export { formatPageNumber, getFooterSlots, getHeadingText, getTocChunks, TOC_ITEMS_PER_PAGE } from './documentStructure';
 
@@ -933,7 +934,7 @@ export function postProcessRenderedHtml(
   };
 
   // 1. Process <img> tags into <figure> with border styling and captions
-  let processed = mermaidProcessed.replace(/<img\s+([^>]*?)src=["']([^"']+)["']([^>]*?)\/?>/gi, (match, p1, rawSrc, p2) => {
+  let processed = mermaidProcessed.replace(/<img\s+([^>]*?)src=["']([^"']+)["']([^>]*?)\/?>\s*(?:\{([^{}]*)\})?/gi, (match, p1, rawSrc, p2, dimensionAttributes) => {
     const combinedAttrs = `${p1} ${p2}`;
 
     const altMatch = combinedAttrs.match(/alt=["']([^"']*)["']/i);
@@ -959,11 +960,16 @@ export function postProcessRenderedHtml(
     }
 
     const borderClass = `doc-img-border-${imgConfig.borderStyle}`;
+    const dimensions = parseImageDimensions(dimensionAttributes);
+    const dimensionStyle = dimensions
+      ? `${dimensions.width ? `width: ${dimensions.width}px; ` : 'width: auto; '}${dimensions.height ? `height: ${dimensions.height}px; ` : 'height: auto; '}`
+      : 'height: auto; ';
+    const unparsedSuffix = dimensionAttributes && !dimensions ? `{${dimensionAttributes}}` : '';
 
     return `<figure class="doc-image-figure" style="text-align: ${imgConfig.captionAlign}; margin: 1.2em auto;">
-      <img src="${resolvedSrc}" alt="${rawAlt || 'Image'}" class="doc-image ${borderClass}" style="max-width: 100%; height: auto; display: inline-block;" />
+      <img src="${resolvedSrc}" alt="${rawAlt || 'Image'}" class="doc-image ${borderClass}" style="max-width: 100%; ${dimensionStyle}display: inline-block;" />
       ${captionHtml}
-    </figure>`;
+    </figure>${unparsedSuffix}`;
   });
 
   // 2. Process Tables and Table Captions

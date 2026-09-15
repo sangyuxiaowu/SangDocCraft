@@ -43,7 +43,7 @@ export const SAMPLE_MARKDOWNS = {
 
 ## 逻辑架构图视图
 
-![云原生高可用分布式微服务系统总体架构视图](https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&auto=format&fit=crop&q=80)
+![云原生高可用分布式微服务系统总体架构视图](https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&auto=format&fit=crop&q=80){h=230}
 
 系统采用四层分层架构进行划分，确保控制流与数据流分离：
 
