@@ -30,6 +30,7 @@ interface HeaderBarProps {
   onMarkdownChange: (md: string) => void;
   onExportDocx: () => void;
   onExportHtml: () => void;
+  onExportSdc: () => void;
   onOpenJsonModal: () => void;
   onOpenImageManager: () => void;
   uiMode: 'dark' | 'light';
@@ -52,6 +53,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onMarkdownChange,
   onExportDocx,
   onExportHtml,
+  onExportSdc,
   onOpenJsonModal,
   onOpenImageManager,
   uiMode,
@@ -392,6 +394,24 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   <div>
                     <div className="font-bold uppercase tracking-wider">导出 HTML 网页 (.html)</div>
                     <div className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-slate-500'}`}>单文件自包含格式，随时网页查阅</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onExportSdc();
+                    setShowExportDropdown(false);
+                  }}
+                  className={`w-full text-left px-3 py-2.5 rounded text-xs flex items-center gap-2.5 transition ${
+                    isDark ? 'text-white hover:bg-[#2A2A2A]' : 'text-slate-800 hover:bg-slate-100'
+                  }`}
+                >
+                  <div className="w-7 h-7 rounded bg-violet-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                    S
+                  </div>
+                  <div>
+                    <div className="font-bold uppercase tracking-wider">下载 SangDocCraft 文档 (.sdc)</div>
+                    <div className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-slate-500'}`}>包含正文、主题、图片与历史</div>
                   </div>
                 </button>
               </div>

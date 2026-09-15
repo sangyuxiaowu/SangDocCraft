@@ -31,22 +31,28 @@ export async function readStartupDocument(): Promise<OpenedDocument | undefined>
   return { document: await unpackSangDocument(Uint8Array.from(file.bytes)), path: file.path };
 }
 
-function downloadDocument(data: Uint8Array, fileName: string): void {
+function getSuggestedFileName(document: SangDocument): string {
+  return `${document.title.replace(/[<>:"/\\|?*]+/g, '-').trim() || '未命名文档'}.sdc`;
+}
+
+export function downloadSangDocument(sangDocument: SangDocument): void {
+  const data = packSangDocument(sangDocument);
+  const fileName = getSuggestedFileName(sangDocument);
   const url = URL.createObjectURL(new Blob([new Uint8Array(data)], { type: SANG_DOCUMENT_MIME_TYPE }));
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = fileName;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 export async function saveSangDocument(document: SangDocument, path?: string): Promise<string | undefined> {
+  if (!isTauriEnvironment()) return undefined;
   const bytes = packSangDocument(document);
-  const suggestedName = `${document.title.replace(/[<>:"/\\|?*]+/g, '-').trim() || '未命名文档'}.sdc`;
-  if (!isTauriEnvironment()) {
-    downloadDocument(bytes, suggestedName);
-    return path || suggestedName;
-  }
+  const suggestedName = getSuggestedFileName(document);
   return (await invoke<string | null>('save_sdc_document', {
     request: { path, suggestedName, bytes: Array.from(bytes) },
   })) || undefined;

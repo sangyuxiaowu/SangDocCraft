@@ -17,7 +17,7 @@ import { clearDocumentAssetUrls } from './utils/assetUrlRegistry';
 import { isTauriEnvironment, resolveImageSrc } from './utils/tauriHelper';
 import { clearDocumentAssets, putDocumentAsset, putLibraryAsset } from './utils/imageRepository';
 import { collectImageReferences } from './utils/imageReferences';
-import { openSangDocument, readSangDocumentFile, readStartupDocument, saveSangDocument } from './utils/documentFileOperations';
+import { downloadSangDocument, openSangDocument, readSangDocumentFile, readStartupDocument, saveSangDocument } from './utils/documentFileOperations';
 import type { SangDocument } from './types';
 import { appendUniqueHistory, createHistoryEntry } from './utils/documentHistory';
 import { deleteDraft, getLatestDraft, saveDraft } from './utils/draftStore';
@@ -152,7 +152,7 @@ export default function App() {
         if (draft && confirm('检测到未保存的文档草稿，是否恢复？')) {
           setDocumentId(draft.documentId);
           setDocumentCreatedAt(draft.createdAt);
-          setDocumentPath(draft.path);
+          setDocumentPath(isTauriEnvironment() ? draft.path : undefined);
           setDocumentSettings(draft.settings);
           setHistory(draft.history);
           setMarkdown(draft.markdown);
@@ -332,6 +332,19 @@ export default function App() {
         nextHistory = appendUniqueHistory(history, await createHistoryEntry(markdown, theme, 'manual'));
         setHistory(nextHistory);
       }
+      if (!isTauriEnvironment()) {
+        await saveDraft({
+          documentId,
+          createdAt: documentCreatedAt,
+          updatedAt: new Date().toISOString(),
+          markdown,
+          theme,
+          settings: documentSettings,
+          history: nextHistory,
+        });
+        setIsDocumentDirty(false);
+        return;
+      }
       const savedPath = await saveSangDocument(buildCurrentDocument(nextHistory), documentPath);
       if (!savedPath) return;
       setDocumentPath(savedPath);
@@ -345,7 +358,7 @@ export default function App() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       if (!isDocumentDirty) return;
-      if (documentPath) {
+      if (isTauriEnvironment() && documentPath) {
         void saveSangDocument(buildCurrentDocument(), documentPath).then((savedPath) => {
           if (savedPath) {
             setIsDocumentDirty(false);
@@ -362,7 +375,7 @@ export default function App() {
           theme,
           settings: documentSettings,
           history,
-        });
+        }).then(() => setIsDocumentDirty(false));
       }
     }, 1500);
     return () => window.clearTimeout(timer);
@@ -374,8 +387,18 @@ export default function App() {
       void createHistoryEntry(markdown, theme, 'idle').then((entry) => {
         const nextHistory = appendUniqueHistory(history, entry);
         setHistory(nextHistory);
-        if (documentPath && nextHistory !== history) {
+        if (isTauriEnvironment() && documentPath && nextHistory !== history) {
           void saveSangDocument(buildCurrentDocument(nextHistory), documentPath);
+        } else if (nextHistory !== history) {
+          void saveDraft({
+            documentId,
+            createdAt: documentCreatedAt,
+            updatedAt: new Date().toISOString(),
+            markdown,
+            theme,
+            settings: documentSettings,
+            history: nextHistory,
+          });
         }
       });
     }, documentSettings.historyIdleMinutes * 60_000);
@@ -441,6 +464,7 @@ export default function App() {
         onMarkdownChange={handleMarkdownChange}
         onExportDocx={handleExportDocx}
         onExportHtml={handleExportHtml}
+        onExportSdc={() => downloadSangDocument(buildCurrentDocument())}
         onOpenJsonModal={() => setShowJsonModal(true)}
         onOpenImageManager={() => setShowImageManager(true)}
         uiMode={uiMode}
