@@ -21,16 +21,20 @@ async function renderMermaidSvg(source: string): Promise<string> {
   return svg;
 }
 
-export async function renderMermaidElements(root: ParentNode): Promise<void> {
+export async function renderMermaidElements(
+  root: ParentNode,
+  onRendered?: (source: string, height: number) => void,
+): Promise<void> {
   const elements = Array.from(root.querySelectorAll<HTMLElement>('.mermaid:not([data-mermaid-rendered])'));
   for (const element of elements) {
-    const source = element.textContent || '';
+    const source = (element.textContent || '').trim();
     element.dataset.mermaidRendered = 'pending';
     try {
       const svg = await renderMermaidSvg(source);
       if (!element.isConnected) continue;
       element.innerHTML = svg;
       element.dataset.mermaidRendered = 'true';
+      onRendered?.(source, element.offsetHeight);
     } catch (error) {
       console.warn('Mermaid preview rendering failed:', error);
       if (!element.isConnected) continue;

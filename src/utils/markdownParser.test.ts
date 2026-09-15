@@ -18,6 +18,25 @@ import {
 const theme = PRESET_THEMES[0];
 
 describe('Markdown pagination and numbering', () => {
+  it('uses measured Mermaid heights instead of reserving the maximum height', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      const mermaid = this.querySelector<HTMLElement>('.mermaid');
+      return this.querySelectorAll('h2').length * 300 + (mermaid ? Number.parseFloat(mermaid.style.height) || 180 : 0);
+    });
+    const source = '## Before\n\n```mermaid\nflowchart LR\nA --> B\n```\n\n## After';
+    try {
+      expect(paginateContentByDom(source, { style: theme.style })).toHaveLength(1);
+      const measuredPages = paginateContentByDom(source, {
+        style: theme.style,
+        mermaidHeights: { 'flowchart LR\nA --> B': 700 },
+      });
+      expect(measuredPages.length).toBeGreaterThan(1);
+      expect(measuredPages.join('\n')).toContain('A --> B');
+    } finally {
+      height.mockRestore();
+    }
+  });
+
   it.each([4, 5])('measures %i list items with the same width and direct-child margins as the page', (itemCount) => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       expect(this.style.width).toBe('180mm');

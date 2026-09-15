@@ -43,6 +43,21 @@ describe('mermaidRenderer', () => {
     expect(element?.querySelector('svg')).not.toBeNull();
   });
 
+  it('reports the rendered layout height for repagination', async () => {
+    render.mockResolvedValue({
+      svg: '<svg viewBox="0 0 300 120"><text>Rendered</text></svg>',
+    });
+    const { renderMermaidElements } = await loadRenderer();
+    document.body.innerHTML = '<div class="mermaid">flowchart LR\nA --> B</div>';
+    const element = document.querySelector<HTMLElement>('.mermaid')!;
+    vi.spyOn(element, 'offsetHeight', 'get').mockReturnValue(240);
+    const onRendered = vi.fn();
+
+    await renderMermaidElements(document.body, onRendered);
+
+    expect(onRendered).toHaveBeenCalledWith('flowchart LR\nA --> B', 240);
+  });
+
   it('marks an element pending before awaiting Mermaid', async () => {
     let finishRender: ((value: { svg: string }) => void) | undefined;
     render.mockReturnValue(new Promise((resolve) => {

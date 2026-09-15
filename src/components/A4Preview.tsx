@@ -41,6 +41,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
   const [showZoomPresets, setShowZoomPresets] = useState<boolean>(false);
   const [headerLogoSrc, setHeaderLogoSrc] = useState<string>('');
   const [overflowPageCount, setOverflowPageCount] = useState(0);
+  const [mermaidHeights, setMermaidHeights] = useState<Record<string, number>>({});
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -97,6 +98,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
     headerShow: header.show,
     footerShow: footer.show,
     style,
+    mermaidHeights,
   });
 
   // Build TOC page numbers from the same pages rendered below.
@@ -119,7 +121,13 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
     let animationFrame = 0;
     const scheduleRender = () => {
       cancelAnimationFrame(animationFrame);
-      animationFrame = requestAnimationFrame(() => void renderMermaidElements(container));
+      animationFrame = requestAnimationFrame(() => void renderMermaidElements(container, (source, height) => {
+        if (height <= 0) return;
+        const roundedHeight = Math.round(height);
+        setMermaidHeights((current) => current[source] === roundedHeight
+          ? current
+          : { ...current, [source]: roundedHeight });
+      }));
     };
     const observer = new MutationObserver((mutations) => {
       if (mutations.some((mutation) => mutation.addedNodes.length > 0)) scheduleRender();

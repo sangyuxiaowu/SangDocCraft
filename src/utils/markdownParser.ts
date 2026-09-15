@@ -16,6 +16,7 @@ export interface DomPaginationOptions {
   headerShow?: boolean;
   footerShow?: boolean;
   style?: StyleConfig;
+  mermaidHeights?: Record<string, number>;
 }
 
 export function getDocumentFontStack(style: Pick<StyleConfig, 'fontFamily' | 'latinFontFamily'>): string {
@@ -454,7 +455,11 @@ export function paginateContentByDom(
         tempContainer.innerHTML = postProcessRenderedHtml(rawTokenHtml, options.style);
         if (token.type === 'code' && token.lang?.toLowerCase() === 'mermaid') {
           const mermaidElement = tempContainer.content.querySelector<HTMLElement>('.mermaid');
-          if (mermaidElement) mermaidElement.style.height = '720px';
+          const source = mermaidElement?.textContent?.trim();
+          const measuredHeight = source ? options.mermaidHeights?.[source] : undefined;
+          if (mermaidElement && measuredHeight !== undefined) {
+            mermaidElement.style.height = `${Math.min(720, Math.max(180, measuredHeight))}px`;
+          }
         }
         const tokenNodes = Array.from(tempContainer.content.childNodes);
         measurer.append(...tokenNodes);
