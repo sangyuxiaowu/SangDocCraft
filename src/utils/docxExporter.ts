@@ -20,7 +20,7 @@ import {
 } from 'docx';
 import { marked } from 'marked';
 import { DocumentTheme } from '../types';
-import { getEffectiveMeta, parseFrontmatter, getHeadingText } from './markdownParser';
+import { getHeadingText } from './markdownParser';
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidPng } from './mermaidRenderer';
@@ -39,11 +39,10 @@ function cleanHex(hex: string): string {
  */
 export async function exportToDocx(markdownText: string, theme: DocumentTheme, filename?: string): Promise<void> {
   const { header, footer, toc, style } = theme;
-  const meta = getEffectiveMeta(theme.meta, markdownText);
+  const meta = theme.meta;
   const coverTemplate = getCoverTemplate(meta.coverStyle);
   const coverStyle = coverTemplate.id;
-  const parsedMarkdown = parseFrontmatter(markdownText);
-  const bodyText = parsedMarkdown.body || markdownText;
+  const bodyText = markdownText;
 
   const primaryHex = cleanHex(style.primaryColor);
   const accentHex = cleanHex(style.accentColor);

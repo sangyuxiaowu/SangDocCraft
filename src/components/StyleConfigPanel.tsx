@@ -23,23 +23,18 @@ import {
   X
 } from 'lucide-react';
 import { DocumentTheme, CoverStyle, FontChoice, CoverListItem, HeadingFontStyle } from '../types';
-import { updateMarkdownFrontmatter } from '../utils/markdownParser';
 import { getCoverTemplate, getCoverTemplates } from '../themes/themeRegistry';
 
 interface StyleConfigPanelProps {
   theme: DocumentTheme;
   onChange: (updatedTheme: DocumentTheme) => void;
   uiMode?: 'dark' | 'light';
-  markdown?: string;
-  onMarkdownChange?: (updatedMarkdown: string) => void;
 }
 
 export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({ 
   theme, 
   onChange, 
-  uiMode = 'dark',
-  markdown,
-  onMarkdownChange
+  uiMode = 'dark'
 }) => {
   const [activeTab, setActiveTab] = useState<'cover' | 'headerFooter' | 'toc' | 'style' | 'headingList' | 'other'>('cover');
   const isDark = uiMode === 'dark';
@@ -62,36 +57,19 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
     ? 'bg-[#1A1A1A] hover:bg-[#252525] border-[#333] text-blue-400'
     : 'bg-white hover:bg-slate-100 border-slate-200 text-blue-600 shadow-2xs';
 
-  // Update helpers with Frontmatter Sync
   const updateMeta = (field: string, val: any) => {
     const newMeta = { ...theme.meta, [field]: val };
-    const updatedTheme = {
+    onChange({
       ...theme,
       meta: newMeta,
-    };
-    onChange(updatedTheme);
-
-    if (markdown !== undefined && onMarkdownChange) {
-      const updatedMd = updateMarkdownFrontmatter(markdown, newMeta);
-      if (updatedMd !== markdown) {
-        onMarkdownChange(updatedMd);
-      }
-    }
+    });
   };
 
   const updateFullMeta = (newMeta: any) => {
-    const updatedTheme = {
+    onChange({
       ...theme,
       meta: newMeta,
-    };
-    onChange(updatedTheme);
-
-    if (markdown !== undefined && onMarkdownChange) {
-      const updatedMd = updateMarkdownFrontmatter(markdown, newMeta);
-      if (updatedMd !== markdown) {
-        onMarkdownChange(updatedMd);
-      }
-    }
+    });
   };
 
   // Cover List Helper

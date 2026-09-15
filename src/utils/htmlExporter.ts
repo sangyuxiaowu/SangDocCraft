@@ -1,6 +1,6 @@
 import { marked } from 'marked';
 import { DocumentTheme, FooterConfig, DocumentMeta } from '../types';
-import { getEffectiveMeta, parseFrontmatter, parseTableOfContents, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss, getHeadingText } from './markdownParser';
+import { parseTableOfContents, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss, getHeadingText } from './markdownParser';
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidInHtml } from './mermaidRenderer';
@@ -63,11 +63,9 @@ async function inlineImagesAsDataUris(html: string): Promise<string> {
 
 export function generateStandaloneHtml(markdownText: string, theme: DocumentTheme): string {
   const { header, footer, toc, style } = theme;
-  const meta = getEffectiveMeta(theme.meta, markdownText);
+  const meta = theme.meta;
   const coverTemplate = getCoverTemplate(meta.coverStyle);
   const coverStyle = coverTemplate.id;
-  const parsedMarkdown = parseFrontmatter(markdownText);
-  const bodyText = parsedMarkdown.body || markdownText;
 
   const fontStack = getDocumentFontStack(style);
   const bulletChar = style.bulletStyle === 'square' ? '■' :
@@ -75,7 +73,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
     style.bulletStyle === 'arrow' ? '▸' : '•';
 
   // Split markdown body using dynamic DOM measurement algorithm
-  const rawContentPages = paginateContentByDom(bodyText, {
+  const rawContentPages = paginateContentByDom(markdownText, {
     fontSize: style.fontSize,
     lineHeight: style.lineHeight,
     fontFamily: fontStack,

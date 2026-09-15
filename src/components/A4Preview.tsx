@@ -9,7 +9,7 @@ import {
   Check 
 } from 'lucide-react';
 import { DocumentTheme, TocItem, DocumentMeta, ViewMode } from '../types';
-import { parseTableOfContents, getEffectiveMeta, parseFrontmatter, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss, getHeadingText } from '../utils/markdownParser';
+import { parseTableOfContents, getFooterSlots, formatPageNumber, splitContentByPages, getTocChunks, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss, getHeadingText } from '../utils/markdownParser';
 import { resolveImageSrc, resolvePreviewImageSrc } from '../utils/tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidElements } from '../utils/mermaidRenderer';
@@ -33,9 +33,8 @@ interface PageItem {
 
 export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 'dark', viewMode = 'split' }) => {
   const { header, footer, toc, style } = theme;
-  const meta = getEffectiveMeta(theme.meta, markdown);
+  const meta = theme.meta;
   const coverTemplate = getCoverTemplate(meta.coverStyle);
-  const parsedMarkdown = parseFrontmatter(markdown);
   const isDark = uiMode === 'dark';
 
   const [zoom, setZoom] = useState<number>(85);
@@ -87,8 +86,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                      style.bulletStyle === 'arrow' ? '▸' : '•';
 
   // Split markdown body with real-time DOM overflow measurement
-  const bodyText = parsedMarkdown.body || markdown;
-  const rawContentPages = paginateContentByDom(bodyText, {
+  const rawContentPages = paginateContentByDom(markdown, {
     fontSize: style.fontSize,
     lineHeight: style.lineHeight,
     fontFamily: fontStack,

@@ -5,7 +5,8 @@ import { generateStandaloneHtml } from './htmlExporter';
 
 describe('generateStandaloneHtml', () => {
   it.each(['signature', 'briefing'])('keeps body heading borders off the %s cover title', (coverStyle) => {
-    const html = generateStandaloneHtml(`---\ncoverStyle: ${coverStyle}\n---\n# Body`, PRESET_THEMES[0]);
+    const base = PRESET_THEMES[0];
+    const html = generateStandaloneHtml('# Body', { ...base, meta: { ...base.meta, coverStyle } });
     document.documentElement.innerHTML = html;
     const coverTitle = document.querySelector('.cover-page h1')!;
     const bodyTitle = document.querySelector('.markdown-content h1')!;
@@ -19,10 +20,23 @@ describe('generateStandaloneHtml', () => {
     document.documentElement.innerHTML = '';
   });
 
-  it.each(['enterprise', 'academic', 'signature', 'briefing'])('exports frontmatter metadata columns for %s', (coverStyle) => {
+  it.each(['enterprise', 'academic', 'signature', 'briefing'])('exports theme metadata columns for %s', (coverStyle) => {
+    const base = PRESET_THEMES[0];
     const html = generateStandaloneHtml(
-      `---\ncoverStyle: ${coverStyle}\ncoverListColumns: 2\ncoverlist:\n  - Author: Alice\n  - Date: ""\n  - Reviewer: Bob\n---\n# Body`,
-      PRESET_THEMES[0],
+      '# Body',
+      {
+        ...base,
+        meta: {
+          ...base.meta,
+          coverStyle,
+          coverListColumns: 2,
+          coverlist: [
+            { label: 'Author', value: 'Alice' },
+            { label: 'Date', value: '' },
+            { label: 'Reviewer', value: 'Bob' },
+          ],
+        },
+      },
     );
     expect(html).toContain(`cover-style-${coverStyle}`);
     expect(html).toContain('data-cover-columns="2"');
@@ -72,14 +86,16 @@ describe('generateStandaloneHtml', () => {
     expect(html).not.toContain('<!-- pagebreak -->');
   });
 
-  it('creates a standalone document with frontmatter metadata and TOC anchors', () => {
+  it('does not treat YAML-like document prefixes as metadata', () => {
+    const base = PRESET_THEMES[0];
     const html = generateStandaloneHtml(
       '---\ntitle: Export title\n---\n# First\n\nBody\n\n## Second',
-      PRESET_THEMES[0],
+      base,
     );
 
     expect(html).toMatch(/^<!DOCTYPE html>/i);
-    expect(html).toContain('<title>Export title</title>');
+    expect(html).toContain(`<title>${base.meta.title}</title>`);
+    expect(html).toContain('title: Export title');
     expect(html).toContain('id="heading-1"');
     expect(html).toContain('First');
     expect(html).toContain('Second');

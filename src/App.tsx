@@ -11,7 +11,6 @@ import { loadCustomThemes, saveCustomThemes } from './themes/customThemeStore';
 import { SAMPLE_MARKDOWNS } from './data/defaultMarkdown';
 import { exportToDocx } from './utils/docxExporter';
 import { exportToHtmlFile } from './utils/htmlExporter';
-import { getEffectiveMeta, parseFrontmatter, updateMarkdownFrontmatter } from './utils/markdownParser';
 
 export default function App() {
   const builtinThemes = getRegisteredThemes();
@@ -73,27 +72,6 @@ export default function App() {
 
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const mainWorkspaceRef = useRef<HTMLDivElement>(null);
-
-  // Sync frontmatter from markdown text into theme.meta when markdown changes
-  useEffect(() => {
-    const { extractedMeta } = parseFrontmatter(markdown);
-    if (extractedMeta && Object.keys(extractedMeta).length > 0) {
-      setTheme((prev) => {
-        let changed = false;
-        const newMeta = { ...prev.meta };
-        for (const [key, val] of Object.entries(extractedMeta)) {
-          if (JSON.stringify(newMeta[key]) !== JSON.stringify(val)) {
-            newMeta[key] = val;
-            changed = true;
-          }
-        }
-        if (changed) {
-          return { ...prev, meta: newMeta };
-        }
-        return prev;
-      });
-    }
-  }, [markdown]);
 
   // Auto-save to localStorage
   useEffect(() => {
@@ -177,14 +155,6 @@ export default function App() {
   };
 
   const handlePresetThemeChange = (selectedTheme: DocumentTheme) => {
-    setMarkdown((currentMarkdown) => {
-      const currentMeta = getEffectiveMeta(selectedTheme.meta, currentMarkdown);
-      const updatedMeta = {
-        ...currentMeta,
-        coverStyle: selectedTheme.meta.coverStyle,
-      };
-      return updateMarkdownFrontmatter(currentMarkdown, updatedMeta);
-    });
     setTheme(selectedTheme);
   };
 
@@ -299,8 +269,6 @@ export default function App() {
               theme={theme} 
               onChange={setTheme} 
               uiMode={uiMode}
-              markdown={markdown}
-              onMarkdownChange={setMarkdown}
             />
           </div>
         )}

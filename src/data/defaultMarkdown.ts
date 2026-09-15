@@ -1,11 +1,5 @@
 export const SAMPLE_MARKDOWNS = {
-  systemTemplate: `---
-title: 系统使用说明
-subtitle: SangDocCraft Markdown 文档范本
-author: 文档编写人
----
-
-# 文档概述
+  systemTemplate: `# 文档概述
 
 本文档使用 **Markdown** 编写，可通过右侧面板设置封面、页眉页脚、目录与排版。
 
@@ -24,21 +18,7 @@ author: 文档编写人
 - 导出 Word 后更新目录字段
 `,
 
-  architectureDoc: `---
-title: 下一代 AIGC 创意工作流与云原生系统架构方案
-subtitle: 企业级微服务重构与智能化交付白皮书
-author: 某某团队
-number: DOC-DEMO-001
-logo: https://iph.href.lu/160x60?text=logo
-coverlist:
-  - 📁项目名称: Project Name
-  - 🏷️文档版本: v1.5
-  - ✍️撰写团队: 前沿探索组
-  - 🏢所属部门: 基础架构研发中心
-  - 📅交付日期: 2026年Q3
----
-
-# 项目概述与设计目标
+  architectureDoc: `# 项目概述与设计目标
 
 ## 背景说明
 本设计文档旨在为 **企业级云原生中台系统** 的升级交付提供标准化架构说明。随着业务流量的快速增长，原有的单体服务架构在吞吐量、容错性与扩展性方面遇到了挑战。
@@ -164,19 +144,7 @@ CREATE TABLE \`t_orders\` (
 * ✅ **部署脚本**：Helm Charts, Terraform 脚本与 K8s YAML 配置。
 `,
 
-  uiDesignDoc: `---
-title: 某某体验设计语言与组件规范
-subtitle: 全终端一致性视觉体系与 Design Token 交付指南
-author: 某某设计团队
-number: DOC-DEMO-002
-logo: https://iph.href.lu/160x60?text=logo
-coverlist:
-  - 文档类型: 体验设计规范
-  - 撰写团队: 某某设计团队
-  - 适用范围: 内部示例
----
-
-# 体验设计原则与 Token 系统
+  uiDesignDoc: `# 体验设计原则与 Token 系统
 
 ## 设计视觉语言
 本规范定义了 **某某设计系统** 的基础视觉组件与交互范式。旨在为全终端应用提供一致、优雅、无障碍（WCAG 2.1 AA）的用户体验。

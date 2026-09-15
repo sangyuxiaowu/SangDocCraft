@@ -1,216 +1,7 @@
-import * as jsYaml from 'js-yaml';
 import { marked } from 'marked';
-import { TocItem, DocumentMeta, CoverListItem, FooterConfig, StyleConfig, ImageStyleConfig, TableCaptionConfig, TocConfig } from '../types';
-import { hasCoverTemplate } from '../themes/themeRegistry';
+import { TocItem, DocumentMeta, FooterConfig, StyleConfig, ImageStyleConfig, TableCaptionConfig, TocConfig } from '../types';
 import { resolveImageSrc } from './tauriHelper';
 import { splitExplicitPages } from './pageBreaks';
-
-export interface ParsedMarkdown {
-  raw: string;
-  body: string;
-  frontmatter: Record<string, any> | null;
-  extractedMeta?: Partial<DocumentMeta>;
-}
-
-/**
- * Parses YAML frontmatter from top of markdown string (e.g. --- title: xx ---)
- */
-export function parseFrontmatter(markdown: string): ParsedMarkdown {
-  if (!markdown || typeof markdown !== 'string') {
-    return { raw: '', body: '', frontmatter: null };
-  }
-
-  const trimmed = markdown.trimStart();
-  if (!trimmed.startsWith('---')) {
-    return { raw: markdown, body: markdown, frontmatter: null };
-  }
-
-  // Find the closing ---
-  const match = trimmed.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
-  if (!match) {
-    return { raw: markdown, body: markdown, frontmatter: null };
-  }
-
-  const yamlStr = match[1];
-  const body = trimmed.slice(match[0].length);
-
-  try {
-    // Replace tabs with spaces for YAML compatibility
-    const safeYamlStr = yamlStr.replace(/\t/g, '  ');
-    const loadYaml = jsYaml.load || (jsYaml as any).default?.load;
-    const parsed = loadYaml(safeYamlStr) as Record<string, any>;
-
-    if (parsed && typeof parsed === 'object') {
-      const extractedMeta = processFrontmatterData(parsed);
-      return {
-        raw: markdown,
-        body,
-        frontmatter: parsed,
-        extractedMeta,
-      };
-    }
-  } catch (err) {
-    console.warn('YAML Frontmatter parsing warning:', err);
-  }
-
-  return { raw: markdown, body: markdown, frontmatter: null };
-}
-
-function processFrontmatterData(data: Record<string, any>): Partial<DocumentMeta> {
-  const meta: Partial<DocumentMeta> = {};
-
-  if (data.title && typeof data.title === 'string') meta.title = data.title;
-  if (data.subtitle && typeof data.subtitle === 'string') meta.subtitle = data.subtitle;
-  if (data.author && typeof data.author === 'string') meta.author = String(data.author);
-  if (data.organization && typeof data.organization === 'string') meta.organization = String(data.organization);
-  if (data.department && typeof data.department === 'string') meta.department = String(data.department);
-  if (data.date !== undefined) meta.date = String(data.date);
-  if (data.number !== undefined) meta.number = String(data.number);
-
-  // logo or logoUrl
-  const logoVal = data.logo || data.logoUrl;
-  if (logoVal && typeof logoVal === 'string') {
-    meta.logo = logoVal;
-    meta.logoUrl = logoVal;
-  }
-  if (typeof data.logoHeight === 'number' && Number.isFinite(data.logoHeight)) {
-    meta.logoHeight = Math.min(120, Math.max(20, data.logoHeight));
-  }
-  if (data.coverListColumns === 1 || data.coverListColumns === 2) {
-    meta.coverListColumns = data.coverListColumns;
-  }
-
-  // coverStyle
-  if (data.coverStyle || data.style) {
-    const styleVal = String(data.coverStyle || data.style).toLowerCase();
-    if (hasCoverTemplate(styleVal)) {
-      meta.coverStyle = styleVal as any;
-    }
-  }
-
-  // Parse coverlist
-  if (data.coverlist) {
-    meta.coverlist = parseCoverList(data.coverlist);
-  }
-
-  return meta;
-}
-
-function parseCoverList(rawList: any): CoverListItem[] {
-  const items: CoverListItem[] = [];
-
-  if (Array.isArray(rawList)) {
-    for (const item of rawList) {
-      if (!item) continue;
-
-      if (typeof item === 'object') {
-        // e.g. - 📁项目名称: Project Hyperion
-        // or - { label: "...", value: "..." }
-        if (item.label !== undefined && item.value !== undefined) {
-          items.push({ label: String(item.label), value: String(item.value) });
-        } else {
-          // Object key-value pairs
-          for (const key of Object.keys(item)) {
-            items.push({ label: key, value: String(item[key]) });
-          }
-        }
-      } else if (typeof item === 'string') {
-        // e.g. "📁项目名称: Project Hyperion"
-        const colonIdx = item.indexOf(':');
-        if (colonIdx > -1) {
-          const label = item.slice(0, colonIdx).trim();
-          const value = item.slice(colonIdx + 1).trim();
-          items.push({ label, value });
-        } else {
-          items.push({ label: item.trim(), value: '' });
-        }
-      }
-    }
-  } else if (typeof rawList === 'object') {
-    // coverlist: { "📁项目名称": "Project Hyperion", "文档版本": "v1.5" }
-    for (const key of Object.keys(rawList)) {
-      items.push({ label: key, value: String(rawList[key]) });
-    }
-  }
-
-  return items;
-}
-
-/**
- * Returns merged effective DocumentMeta where frontmatter takes precedence when defined
- */
-export function getEffectiveMeta(baseMeta: DocumentMeta, markdown: string): DocumentMeta {
-  const parsed = parseFrontmatter(markdown);
-  if (!parsed.extractedMeta) return baseMeta;
-
-  const em = parsed.extractedMeta;
-  return {
-    ...baseMeta,
-    title: em.title ?? baseMeta.title,
-    subtitle: em.subtitle ?? baseMeta.subtitle,
-    author: em.author ?? baseMeta.author,
-    organization: em.organization ?? baseMeta.organization,
-    department: em.department ?? baseMeta.department,
-    date: em.date ?? baseMeta.date,
-    logo: em.logo ?? baseMeta.logo,
-    logoUrl: em.logoUrl ?? baseMeta.logoUrl,
-    logoHeight: em.logoHeight ?? baseMeta.logoHeight,
-    number: em.number ?? baseMeta.number,
-    coverStyle: em.coverStyle ?? baseMeta.coverStyle,
-    coverListColumns: em.coverListColumns ?? baseMeta.coverListColumns,
-    coverlist: em.coverlist ?? baseMeta.coverlist,
-  };
-}
-
-/**
- * Updates or prepends YAML frontmatter in markdown string with given meta values
- */
-export function updateMarkdownFrontmatter(markdown: string, meta: DocumentMeta): string {
-  const parsed = parseFrontmatter(markdown);
-  const body = parsed.body || markdown;
-
-  // Build yaml data object from meta, preserving any extra user frontmatter fields
-  const yamlObj: Record<string, any> = { ...(parsed.frontmatter || {}) };
-
-  if (meta.title) yamlObj.title = meta.title; else delete yamlObj.title;
-  if (meta.subtitle) yamlObj.subtitle = meta.subtitle; else delete yamlObj.subtitle;
-  if (meta.author) yamlObj.author = meta.author; else delete yamlObj.author;
-  if (meta.organization) yamlObj.organization = meta.organization; else delete yamlObj.organization;
-  if (meta.department) yamlObj.department = meta.department; else delete yamlObj.department;
-  if (meta.date) yamlObj.date = meta.date; else delete yamlObj.date;
-  if (meta.number) yamlObj.number = meta.number; else delete yamlObj.number;
-
-  const logoVal = meta.logo || meta.logoUrl;
-  if (logoVal) yamlObj.logo = logoVal; else delete yamlObj.logo;
-  if (meta.logoHeight !== undefined) yamlObj.logoHeight = meta.logoHeight; else delete yamlObj.logoHeight;
-
-  if (meta.coverStyle) yamlObj.coverStyle = meta.coverStyle; else delete yamlObj.coverStyle;
-  if (meta.coverListColumns !== undefined) yamlObj.coverListColumns = meta.coverListColumns; else delete yamlObj.coverListColumns;
-
-  if (meta.coverlist && meta.coverlist.length > 0) {
-    yamlObj.coverlist = meta.coverlist.map(item => ({ [item.label]: item.value }));
-  } else {
-    delete yamlObj.coverlist;
-  }
-
-  if (Object.keys(yamlObj).length === 0) {
-    return body;
-  }
-
-  try {
-    const dumpYaml = jsYaml.dump || (jsYaml as any).default?.dump;
-    const yamlStr = dumpYaml(yamlObj, {
-      lineWidth: -1,
-      noRefs: true,
-      quotingType: '"',
-      forceQuotes: false,
-    });
-    return `---\n${yamlStr.trim()}\n---\n\n${body.trimStart()}`;
-  } catch (e) {
-    console.error('Error dumping YAML frontmatter:', e);
-    return markdown;
-  }
-}
 
 export const TOC_ITEMS_PER_PAGE = 22;
 
@@ -561,7 +352,7 @@ export function paginateContentByDom(
   options: DomPaginationOptions = {}
 ): string[] {
   const paginationMode = options.style?.paginationMode || 'auto';
-  if (paginationMode === 'manual') return splitExplicitPages(parseFrontmatter(markdownText).body);
+  if (paginationMode === 'manual') return splitExplicitPages(markdownText);
   if (typeof document === 'undefined') {
     return splitContentByPages(markdownText, options.h1PageBreak);
   }
@@ -768,13 +559,10 @@ export function parseTableOfContents(
   paginatedContent?: string[],
   headingNumbering: TocConfig['headingNumbering'] = 'none'
 ): TocItem[] {
-  const parsed = parseFrontmatter(markdown);
-  const contentToParse = parsed.body || markdown;
-
   const showCover = meta?.showCover !== false;
   const showToc = tocShow !== false;
 
-  const contentPages = paginatedContent || splitContentByPages(contentToParse, h1PageBreak);
+  const contentPages = paginatedContent || splitContentByPages(markdown, h1PageBreak);
 
   // Compute total TOC pages if TOC is shown
   let tocPagesCount = 0;
@@ -826,8 +614,7 @@ export function parseTableOfContents(
  * Splits markdown content by explicit pagebreak tags, level 1 headings (if enabled), and automatically when content overflows A4 printable height
  */
 export function splitContentByPages(markdown: string, h1PageBreak: boolean = false, paginationMode: 'auto' | 'manual' = 'auto'): string[] {
-  const parsed = parseFrontmatter(markdown);
-  const contentToSplit = (parsed.body || markdown).trim();
+  const contentToSplit = markdown.trim();
   if (!contentToSplit) return [''];
 
   const initialChunks = splitExplicitPages(contentToSplit);

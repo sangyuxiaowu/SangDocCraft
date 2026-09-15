@@ -5,102 +5,17 @@ import { getPageBreakInsertion, splitExplicitPages } from './pageBreaks';
 import { PRESET_THEMES } from '../data/presetThemes';
 import {
   formatPageNumber,
-  getEffectiveMeta,
   getFooterSlots,
   getHeadingText,
   getMarkdownBodyCss,
   getTocChunks,
-  parseFrontmatter,
   paginateContentByDom,
   parseTableOfContents,
   postProcessRenderedHtml,
   splitContentByPages,
-  updateMarkdownFrontmatter,
 } from './markdownParser';
 
 const theme = PRESET_THEMES[0];
-
-describe('Markdown frontmatter', () => {
-  it.each([1, 2] as const)('round-trips %i cover metadata columns and supports resetting', (coverListColumns) => {
-    const meta = { ...theme.meta, coverStyle: 'signature', coverListColumns };
-    const updated = updateMarkdownFrontmatter('Body', meta);
-    expect(getEffectiveMeta(theme.meta, updated)).toMatchObject({ coverStyle: 'signature', coverListColumns });
-    const reset = updateMarkdownFrontmatter(updated, { ...meta, coverListColumns: undefined });
-    expect(parseFrontmatter(reset).frontmatter).not.toHaveProperty('coverListColumns');
-  });
-
-  it.each(['0', '3', '"2"', 'null'])('ignores invalid cover metadata columns: %s', (value) => {
-    expect(parseFrontmatter(`---\ncoverListColumns: ${value}\n---\nBody`).extractedMeta?.coverListColumns).toBeUndefined();
-  });
-
-  it.each([20, 80, 120])('round-trips a document logo height of %i px and resets to the cover default', (logoHeight) => {
-    const meta = { ...theme.meta, logoHeight };
-    const updated = updateMarkdownFrontmatter('Body', meta);
-    expect(getEffectiveMeta(theme.meta, updated).logoHeight).toBe(logoHeight);
-    const resetMeta = { ...meta, logoHeight: undefined };
-    const reset = updateMarkdownFrontmatter(updated, resetMeta);
-    expect(parseFrontmatter(reset).frontmatter).not.toHaveProperty('logoHeight');
-    expect(getEffectiveMeta(resetMeta, reset).logoHeight).toBeUndefined();
-  });
-
-  it.each([[10, 20], [150, 120], ['invalid', undefined], ['.nan', undefined]])('validates imported logo height %s', (value, expected) => {
-    expect(parseFrontmatter(`---\nlogoHeight: ${value}\n---\nBody`).extractedMeta?.logoHeight).toBe(expected);
-  });
-
-  it('parses metadata and normalizes cover list values', () => {
-    const markdown = `---
-title: API 设计
-date: 2026-08-15
-coverStyle: enterprise
-coverlist:
-  - 环境: 生产
-  - label: 版本
-    value: v2
----
-# 正文`;
-
-    const parsed = parseFrontmatter(markdown);
-
-    expect(parsed.body).toBe('# 正文');
-    expect(parsed.extractedMeta).toMatchObject({
-      title: 'API 设计',
-      date: '2026-08-15',
-      coverStyle: 'enterprise',
-      coverlist: [
-        { label: '环境', value: '生产' },
-        { label: '版本', value: 'v2' },
-      ],
-    });
-  });
-
-  it('ignores invalid YAML and unknown cover templates', () => {
-    expect(parseFrontmatter('---\ntitle: [\n---\nbody').frontmatter).toBeNull();
-    expect(parseFrontmatter('---\ncoverStyle: missing\n---\nbody').extractedMeta?.coverStyle).toBeUndefined();
-  });
-
-  it('round-trips metadata while preserving custom fields', () => {
-    const source = '---\ncustom: retained\ntitle: old\n---\n\nBody';
-    const nextMeta = {
-      ...theme.meta,
-      title: 'New title',
-      logo: 'assets/logo.png',
-      coverlist: [{ label: '版本', value: 'v3' }],
-    };
-
-    const updated = updateMarkdownFrontmatter(source, nextMeta);
-    const parsed = parseFrontmatter(updated);
-
-    expect(parsed.frontmatter).toMatchObject({ custom: 'retained', title: 'New title', logo: 'assets/logo.png' });
-    expect(parsed.extractedMeta?.coverlist).toEqual([{ label: '版本', value: 'v3' }]);
-    expect(parsed.body.trim()).toBe('Body');
-  });
-
-  it('lets frontmatter override only fields it defines', () => {
-    const effective = getEffectiveMeta(theme.meta, '---\ntitle: Override\n---\nBody');
-    expect(effective.title).toBe('Override');
-    expect(effective.organization).toBe(theme.meta.organization);
-  });
-});
 
 describe('Markdown pagination and numbering', () => {
   it.each([4, 5])('measures %i list items with the same width and direct-child margins as the page', (itemCount) => {
