@@ -172,6 +172,10 @@ function buildCodeMd(lines: string[], lang: string = ''): string {
   return `\`\`\`${lang}\n${lines.join('\n')}\n\`\`\``;
 }
 
+function paragraphContainsImage(token: any): boolean {
+  return Array.isArray(token.tokens) && token.tokens.some((inlineToken: any) => inlineToken.type === 'image');
+}
+
 function findDomParagraphSplit(
   text: string,
   measurer: HTMLElement,
@@ -473,7 +477,7 @@ export function paginateContentByDom(
 
         tokenNodes.forEach(node => node.remove());
 
-        if (token.type === 'paragraph') {
+        if (token.type === 'paragraph' && !paragraphContainsImage(token)) {
           const splitRes = findDomParagraphSplit(token.text || token.raw || '', measurer, maxHeight);
           if (splitRes) {
             currentPageTokens.push(splitRes.part1);
@@ -836,7 +840,7 @@ export function splitContentByPages(markdown: string, h1PageBreak: boolean = fal
       // Overflow handling: try smart splitting
       const availUnits = MAX_PAGE_UNITS - currentUnits;
 
-      if (token.type === 'paragraph') {
+      if (token.type === 'paragraph' && !paragraphContainsImage(token)) {
         const splitRes = splitParagraph(token.text || token.raw || '', availUnits);
         if (splitRes) {
           currentPageTokens.push(splitRes.firstRaw);

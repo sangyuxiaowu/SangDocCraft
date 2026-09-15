@@ -57,6 +57,29 @@ describe('Markdown pagination and numbering', () => {
     expect(document.querySelector('.pagination-measurer')).toBeNull();
   });
 
+  it('keeps an image markdown expression intact when it overflows the remaining page space', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.querySelectorAll('h2').length * 900 + this.querySelectorAll('img').length * 200;
+    });
+    const imageMarkdown = '![网络图片与内部资源示例](https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&auto=format&fit=crop&q=80){w=520}';
+    try {
+      const pages = paginateContentByDom(`## 图片与内部资源\n\n${imageMarkdown}`, { style: theme.style });
+      expect(pages).toHaveLength(2);
+      expect(pages[1]).toBe(imageMarkdown);
+      expect(marked.parse(pages[1])).toContain('<img');
+    } finally {
+      height.mockRestore();
+    }
+  });
+
+  it('keeps image markdown intact in the non-DOM pagination fallback', () => {
+    const imageMarkdown = '![架构图](https://example.com/architecture.png?w=1200&fit=crop){w=520}';
+    const pages = splitContentByPages(`${'正文内容'.repeat(380)}\n\n${imageMarkdown}`);
+
+    expect(pages.at(-1)).toBe(imageMarkdown);
+    expect(marked.parse(pages.at(-1) || '')).toContain('<img');
+  });
+
   it.each([
     ['| ID | Value |\n| --- | --- |\n| 1 | first |\n| 2 | second |', 'second'],
     ['| ID | Value |\r\n| --- | --- |\r\n| 1 | first |\r\n| 2 | second |\r\n', 'second'],
