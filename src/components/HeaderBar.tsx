@@ -295,17 +295,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 >
                   UI/UX 体验设计交付规范
                 </button>
-                <button
-                  onClick={() => {
-                    onMarkdownChange('# 新增交付文档\n\n请在此处输入您的 Markdown 内容...');
-                    setShowSampleDropdown(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded text-xs font-medium transition border-t mt-1 pt-2 ${
-                    isDark ? 'text-zinc-500 hover:text-zinc-200 hover:bg-[#2A2A2A] border-[#2A2A2A]' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100 border-slate-200'
-                  }`}
-                >
-                  清空并创建空白文档
-                </button>
               </div>
             )}
           </div>
