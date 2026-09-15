@@ -1,21 +1,74 @@
 export const SAMPLE_MARKDOWNS = {
-  systemTemplate: `# 文档概述
+  systemTemplate: `# SangDocCraft 使用范本
 
-本文档使用 **Markdown** 编写，可通过右侧面板设置封面、页眉页脚、目录与排版。
+本文档用于演示本系统支持的主要 Markdown 排版能力。可在右侧设置封面、目录、页眉页脚、字体、配色和分页规则。
 
-## 基础内容
+## 文本与列表
 
-正文默认使用中文字体与 Times New Roman 英文字体。封面属性由 coverlist 自由定义，可插入表格、代码、图片和分页符。
+正文支持 **粗体**、*斜体*、删除线、[普通链接](https://example.com) 和行内代码 \`Ctrl+S\`。
 
-### 图片示例
+> Web 端的自动保存与 Ctrl+S 只写入浏览器草稿；Tauri 端会保存到当前 .sdc 文件。
 
-![示例图片](https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&auto=format&fit=crop&q=80)
+交付前建议完成以下检查：
 
-#### 交付检查
+- [ ] 核对封面信息与文档标题
+- [ ] 检查目录、页眉、页脚和页码
+- [ ] 收集正文、封面和页眉中的网络图片
+- [ ] 下载或保存 .sdc 文档作为源文件
+- [ ] 导出 Word 或 HTML 并检查最终效果
 
-- 检查目录链接
-- 检查页眉页脚
-- 导出 Word 后更新目录字段
+## 表格与题注
+
+在表格前添加 caption 注释可生成表格题注。
+
+<!-- caption: 交付格式与适用场景 -->
+| 格式 | 内容 | 适用场景 |
+| :--- | :--- | :--- |
+| .sdc | 正文、主题、图片、设置与历史 | 继续编辑与完整备份 |
+| .docx | A4 排版后的 Word 文档 | 正式交付与修订 |
+| .html | 自包含单文件网页 | 浏览与归档 |
+
+## 图片与内部资源
+
+下面是一张带宽度限制的网络图片。打开顶部“图片”管理器并点击“收集文档网络图片”，系统会下载图片、按内容去重，并将 URL 改写为 \`@images/<id>\`。
+
+![网络图片与内部资源示例](https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&auto=format&fit=crop&q=80){w=520}
+
+从编辑器工具栏插入内部图片时，可以留空尺寸，也可以生成以下形式：
+
+\`![图片说明](@images/img-资源ID){w=640 h=360}\`
+
+仍被正文、封面或页眉引用的图片不能删除。自定义主题使用的图片会保存到永久图片库，并使用 \`@library/<id>\` 引用。
+
+<!-- pagebreak -->
+
+# 图表、代码与分页
+
+上方的 \`<!-- pagebreak -->\` 会强制从新页开始。Mermaid 图表使用标准围栏代码块：
+
+\`\`\`mermaid
+flowchart LR
+    Markdown[Markdown 正文] --> Preview[A4 实时预览]
+    Theme[主题与页面设置] --> Preview
+    Images[统一图片仓库] --> Preview
+    Preview --> SDC[.sdc 源文档]
+    Preview --> DOCX[Word]
+    Preview --> HTML[HTML]
+\`\`\`
+
+代码块会保留语言标识并按主题显示：
+
+\`\`\`json
+{
+  "format": "SangDocCraft",
+  "formatVersion": 1,
+  "historyEnabled": true
+}
+\`\`\`
+
+## 文档历史
+
+在顶部历史按钮中可为当前文档启用编辑历史，并设置无修改多少分钟后生成快照。手动保存也会生成快照；相同内容不会重复记录，图片二进制不会在历史中重复复制。
 `,
 
   architectureDoc: `# 项目概述与设计目标
