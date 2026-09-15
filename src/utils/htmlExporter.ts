@@ -434,7 +434,10 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
       color: #64748b;
       padding-bottom: 6px;
       margin-bottom: 16px;
-      border-bottom: ${header.lineStyle === 'none' ? 'none' : header.lineStyle === 'double' ? '3px double ' + style.accentColor : '1px solid ' + style.accentColor};
+      border-bottom: ${header.lineStyle === 'none' ? 'none' :
+        header.lineStyle === 'double' ? `3px double ${style.accentColor}` :
+        header.lineStyle === 'accent' ? `2px solid ${style.accentColor}` :
+        '1px solid #cbd5e1'};
       shrink: 0;
     }
     .doc-header-left {

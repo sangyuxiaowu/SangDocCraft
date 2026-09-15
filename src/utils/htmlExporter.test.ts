@@ -44,6 +44,22 @@ describe('generateStandaloneHtml', () => {
     expect(html).toContain('id="heading-1"');
   });
 
+  it.each([
+    ['solid', '1px solid #cbd5e1'],
+    ['accent', `2px solid ${PRESET_THEMES[0].style.accentColor}`],
+    ['double', `3px double ${PRESET_THEMES[0].style.accentColor}`],
+    ['none', 'none'],
+  ] as const)('exports the %s header divider independently from ordinary accent usage', (lineStyle, expected) => {
+    const base = PRESET_THEMES[0];
+    const html = generateStandaloneHtml('# Body', {
+      ...base,
+      header: { ...base.header, lineStyle },
+    });
+    const headerRule = html.match(/\.doc-header \{[^}]*\}/)?.[0] || '';
+
+    expect(headerRule).toContain(`border-bottom: ${expected}`);
+  });
+
   it('exports manual table breaks with repeated headers and no implicit heading breaks', () => {
     const base = PRESET_THEMES[0];
     const html = generateStandaloneHtml(
