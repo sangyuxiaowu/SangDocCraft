@@ -43,6 +43,15 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
   const bulletChar = style.bulletStyle === 'square' ? '■' :
     style.bulletStyle === 'checkmark' ? '✓' :
     style.bulletStyle === 'arrow' ? '▸' : '•';
+  const minimalTable = style.tableStyle === 'minimal';
+  const borderedTable = style.tableStyle === 'bordered';
+  const tableHeaderBackground = minimalTable ? 'transparent' : 'var(--primary-color)';
+  const tableHeaderColor = minimalTable ? style.primaryColor : '#fff';
+  const tableBorder = minimalTable ? `border-top: 1px solid ${style.primaryColor}; border-bottom: 1px solid ${style.primaryColor};` : '';
+  const tableHeaderBorder = minimalTable ? `border: none; border-bottom: 1px solid ${style.primaryColor};` : borderedTable ? 'border: 1px solid var(--primary-color);' : '';
+  const tableCellBorder = minimalTable ? 'border: none;' : 'border: 1px solid #e2e8f0;';
+  const tableTextAlign = minimalTable ? 'center' : 'left';
+  const tableHeaderWeight = minimalTable ? 400 : 600;
 
   return `
     ${selector} { font-family: ${style.bodyFontFamily || 'inherit'}; }
@@ -110,9 +119,9 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
     ${selector} ol { margin: 0.8em 0; padding-left: 20px; list-style-type: ${style.numberStyle === 'chinese' ? 'cjk-ideographic' : style.numberStyle === 'paren' ? 'none' : 'decimal'}; }
     ${selector} ol li { margin-bottom: 0.3em; }
     ${style.numberStyle === 'paren' ? `${selector} ol { counter-reset: item; } ${selector} ol li { counter-increment: item; } ${selector} ol li::before { content: '(' counter(item) ') '; color: var(--accent-color); font-weight: 700; }` : ''}
-    ${selector} table { width: 100%; border-collapse: collapse; margin: 1.2em 0; font-size: 0.9em; table-layout: auto; word-break: break-word; overflow-wrap: break-word; }
-    ${selector} th { background: var(--primary-color); color: #fff; padding: 8px 12px; text-align: left; font-weight: 600; }
-    ${selector} td { border: 1px solid #e2e8f0; padding: 8px 12px; }
+    ${selector} table { width: 100%; border-collapse: collapse; ${tableBorder} margin: 1.2em 0; font-size: 0.9em; table-layout: auto; word-break: break-word; overflow-wrap: break-word; }
+    ${selector} th { background: ${tableHeaderBackground}; color: ${tableHeaderColor}; ${tableHeaderBorder} padding: 8px 12px; text-align: ${tableTextAlign}; font-weight: ${tableHeaderWeight}; }
+    ${selector} td { ${tableCellBorder} padding: 8px 12px; text-align: ${tableTextAlign}; }
     ${selector} tr:nth-child(even) { background: ${style.tableStyle === 'striped' ? '#f8fafc' : 'transparent'}; }
     ${selector} hr { border: none; border-top: 1px solid #cbd5e1; margin: 1.8em 0; }
   `;

@@ -531,26 +531,6 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
         .markdown-rendered-body ol li { counter-increment: item; }
         .markdown-rendered-body ol li::before { content: '(' counter(item) ') '; color: var(--accent-color); font-weight: 700; }
         ` : ''}
-        .markdown-rendered-body table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 1.2em 0;
-          font-size: 0.9em;
-        }
-        .markdown-rendered-body th {
-          background-color: var(--primary-color);
-          color: #ffffff;
-          padding: 8px 12px;
-          text-align: left;
-          font-weight: 600;
-        }
-        .markdown-rendered-body td {
-          border: 1px solid #e2e8f0;
-          padding: 8px 12px;
-        }
-        .markdown-rendered-body tr:nth-child(even) {
-          background-color: ${style.tableStyle === 'striped' ? '#f8fafc' : 'transparent'};
-        }
         .markdown-rendered-body hr {
           border: none;
           border-top: 1px solid #cbd5e1;

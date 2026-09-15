@@ -230,6 +230,24 @@ describe('Rendered Markdown post-processing', () => {
     expect(css).toContain('.body { font-family: Microsoft YaHei; }');
   });
 
+  it.each([
+    ['striped', 'background: #f8fafc', 'background: var(--primary-color)', 'border: 1px solid #e2e8f0'],
+    ['bordered', 'background: transparent', 'border: 1px solid var(--primary-color)', 'border: 1px solid #e2e8f0'],
+    ['minimal', 'background: transparent', `border: none; border-bottom: 1px solid ${theme.style.primaryColor}`, 'border: none;'],
+  ] as const)('applies the %s table style', (tableStyle, rowRule, headerRule, cellRule) => {
+    const css = getMarkdownBodyCss('.body', { ...theme.style, tableStyle });
+
+    expect(css).toContain(rowRule);
+    expect(css).toContain(headerRule);
+    expect(css).toContain(cellRule);
+    if (tableStyle === 'minimal') {
+      expect(css).toContain(`border-top: 1px solid ${theme.style.primaryColor}; border-bottom: 1px solid ${theme.style.primaryColor}`);
+      expect(css).toContain('text-align: center');
+      expect(css).toContain('font-weight: 400');
+      expect(css).not.toContain('border-bottom: 1px solid #e2e8f0');
+    }
+  });
+
   it('wraps and numbers image captions with shared counters', () => {
     const counters = { imgCount: 0, tableCount: 0 };
     const first = postProcessRenderedHtml('<p><img src="a.png" alt="架构图"></p>', theme.style, counters);

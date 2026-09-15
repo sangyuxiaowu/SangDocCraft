@@ -44,6 +44,33 @@ describe('generateStandaloneHtml', () => {
     expect(html).toContain('Bob');
   });
 
+  it('exports minimal tables with a borderless regular-weight header', () => {
+    const base = PRESET_THEMES[0];
+    const html = generateStandaloneHtml(
+      '| 因素 | 水平 1 | 水平 2 |\n| --- | --- | --- |\n| 电压 | 1050 | 900 |',
+      {
+        ...base,
+        meta: { ...base.meta, showCover: false },
+        toc: { ...base.toc, show: false },
+        style: { ...base.style, tableStyle: 'minimal' },
+      },
+    );
+    const tableRules = html.match(/\.markdown-content table\s*\{[^}]*\}/g) || [];
+    const headerRules = html.match(/\.markdown-content th\s*\{[^}]*\}/g) || [];
+    const cellRules = html.match(/\.markdown-content td\s*\{[^}]*\}/g) || [];
+    const tableRule = tableRules.at(-1)!;
+    const headerRule = headerRules.at(-1)!;
+    const cellRule = cellRules.at(-1)!;
+
+    expect(tableRule).toContain(`border-top: 1px solid ${base.style.primaryColor}`);
+    expect(tableRule).toContain(`border-bottom: 1px solid ${base.style.primaryColor}`);
+    expect(headerRule).toContain('border: none');
+    expect(headerRule).toContain(`border-bottom: 1px solid ${base.style.primaryColor}`);
+    expect(headerRule.indexOf('border: none')).toBeLessThan(headerRule.indexOf('border-bottom'));
+    expect(headerRule).toContain('font-weight: 400');
+    expect(cellRule).toContain('border: none');
+  });
+
   it.each([
     ['underline', 'border-bottom: 2px solid'],
     ['accent-block', 'border-left: 5px solid'],

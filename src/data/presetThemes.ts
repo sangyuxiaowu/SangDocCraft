@@ -553,7 +553,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
       bulletStyle: 'dot',
       numberStyle: 'decimal',
       codeTheme: 'light',
-      tableStyle: 'bordered',
+      tableStyle: 'minimal',
       imageConfig: {
         borderStyle: 'none',
         showCaption: true,

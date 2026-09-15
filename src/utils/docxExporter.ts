@@ -406,19 +406,36 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
       }
 
       case 'table': {
+        const minimalTable = style.tableStyle === 'minimal';
+        const borderedTable = style.tableStyle === 'bordered';
+        const minimalHeaderBorders = {
+          top: { style: BorderStyle.NONE, size: 0, color: 'auto' },
+          bottom: { style: BorderStyle.SINGLE, size: 4, color: primaryHex },
+          left: { style: BorderStyle.NONE, size: 0, color: 'auto' },
+          right: { style: BorderStyle.NONE, size: 0, color: 'auto' },
+        };
+        const minimalTableBorders = {
+          top: { style: BorderStyle.SINGLE, size: 4, color: primaryHex },
+          bottom: { style: BorderStyle.SINGLE, size: 4, color: primaryHex },
+          left: { style: BorderStyle.NONE, size: 0, color: 'auto' },
+          right: { style: BorderStyle.NONE, size: 0, color: 'auto' },
+          insideHorizontal: { style: BorderStyle.NONE, size: 0, color: 'auto' },
+          insideVertical: { style: BorderStyle.NONE, size: 0, color: 'auto' },
+        };
         const headerCells = await Promise.all(token.header.map(async (col: any) => {
           return new TableCell({
-            shading: {
+            shading: minimalTable ? undefined : {
               fill: primaryHex,
               type: ShadingType.CLEAR,
             },
+            borders: minimalTable ? minimalHeaderBorders : undefined,
             margins: { top: 120, bottom: 120, left: 160, right: 160 },
             children: [
               new Paragraph({
-                alignment: AlignmentType.LEFT,
+                alignment: minimalTable ? AlignmentType.CENTER : AlignmentType.LEFT,
                 children: await createInlineRuns(col.tokens || [{ type: 'text', text: col.text }], {
-                  bold: true,
-                  color: 'FFFFFF',
+                  bold: !minimalTable,
+                  color: minimalTable ? primaryHex : 'FFFFFF',
                   size: 20,
                   font: bodyFont,
                 }),
@@ -438,12 +455,14 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
           const rowCells = await Promise.all(row.map(async (cell: any) => {
             return new TableCell({
               shading: {
-                fill: rowIndex % 2 === 1 ? 'F8FAFC' : 'FFFFFF',
+                fill: style.tableStyle === 'striped' && rowIndex % 2 === 1 ? 'F8FAFC' : 'FFFFFF',
                 type: ShadingType.CLEAR,
               },
+              borders: minimalTable ? noTableBorders : undefined,
               margins: { top: 100, bottom: 100, left: 160, right: 160 },
               children: [
                 new Paragraph({
+                  alignment: minimalTable ? AlignmentType.CENTER : AlignmentType.LEFT,
                   children: await createInlineRuns(cell.tokens || [{ type: 'text', text: cell.text }], {
                     color: textHex,
                     size: 20,
@@ -459,6 +478,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
         sectionsChildren.push(
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: borderedTable ? undefined : minimalTable ? minimalTableBorders : undefined,
             rows: tableRows,
           })
         );

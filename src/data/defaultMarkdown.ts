@@ -37,8 +37,6 @@ export const SAMPLE_MARKDOWNS = {
 | **数据库 CPU 占用** | 85% (高危) | **< 35%** (平稳) | -50% |
 | **故障自动恢复时间** | > 15 分钟 | **< 3 秒** (RTO) | 99% |
 
----
-
 <!-- pagebreak -->
 
 # 系统整体架构设计
@@ -64,8 +62,6 @@ export const SAMPLE_MARKDOWNS = {
   * 乐观锁 + 分布式锁保障库存扣减原子性。
 * **监控与链路追踪 (Observability)**
   * 全链路 SkyWalking 跟踪与 Prometheus 告警指标收集。
-
----
 
 # 核心 API 接口与数据模型
 
@@ -124,8 +120,6 @@ CREATE TABLE \`t_orders\` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单主表';
 \`\`\`
 
----
-
 <!-- pagebreak -->
 
 # 实施计划与交付验收标准
@@ -163,8 +157,6 @@ CREATE TABLE \`t_orders\` (
 | **Brand Accent** | \`#2563EB\` | 链接、选中态、聚焦光圈 | **4.6:1** (AA) |
 | **Success Emerald** | \`#059669\` | 成功提示、进度完成条 | **4.7:1** (AA) |
 | **Warning Amber** | \`#D97706\` | 警告状态、警示徽章 | **4.5:1** (AA) |
-
----
 
 # 核心组件布局与规则
 
