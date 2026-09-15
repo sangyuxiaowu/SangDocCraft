@@ -491,6 +491,7 @@ export default function App() {
           }`}>
             <StyleConfigPanel 
               theme={theme} 
+              assets={assets}
               onChange={(value) => { setTheme(value); setIsDocumentDirty(true); }}
               uiMode={uiMode}
             />

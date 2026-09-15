@@ -19,21 +19,26 @@ import {
   Underline,
   Image as ImageIcon
 } from 'lucide-react';
-import { DocumentTheme, CoverStyle, FontChoice, CoverListItem, HeadingFontStyle } from '../types';
+import { DocumentAsset, DocumentTheme, CoverStyle, FontChoice, CoverListItem, HeadingFontStyle } from '../types';
 import { getCoverTemplate, getCoverTemplates } from '../themes/themeRegistry';
+import { resolveImageSrc } from '../utils/tauriHelper';
+import { ImagePicker } from './ImagePicker';
 
 interface StyleConfigPanelProps {
   theme: DocumentTheme;
   onChange: (updatedTheme: DocumentTheme) => void;
+  assets: DocumentAsset[];
   uiMode?: 'dark' | 'light';
 }
 
 export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({ 
   theme, 
   onChange, 
+  assets,
   uiMode = 'dark'
 }) => {
   const [activeTab, setActiveTab] = useState<'cover' | 'headerFooter' | 'toc' | 'style' | 'headingList' | 'other'>('cover');
+  const [imagePickerTarget, setImagePickerTarget] = useState<'cover' | 'header'>();
   const isDark = uiMode === 'dark';
 
   // Dynamic theme class helpers for light/dark mode
@@ -488,16 +493,21 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       )}
                     </div>
 
-                    {(theme.meta.logo || theme.meta.logoUrl) && (
-                      <div className={`flex items-center gap-3 p-2 rounded border ${subCardBgClass}`}>
+                    <div className={`flex items-center gap-3 p-2 rounded border ${subCardBgClass}`}>
+                      {(theme.meta.logo || theme.meta.logoUrl) ? (
+                        <>
                         <img
-                          src={theme.meta.logo || theme.meta.logoUrl}
+                          src={resolveImageSrc(theme.meta.logo || theme.meta.logoUrl)}
                           alt="Logo Preview"
                           className="h-8 max-w-[120px] object-contain bg-slate-100/50 p-1 rounded"
                         />
                         <span className="text-[10px] text-emerald-600 font-bold truncate font-mono">已加载 Logo 图片</span>
-                      </div>
-                    )}
+                        </>
+                      ) : <span className={`text-[10px] ${textMutedClass}`}>未选择图片</span>}
+                      <button type="button" onClick={() => setImagePickerTarget('cover')} className="ml-auto p-2 rounded border border-inherit hover:border-blue-500 hover:text-blue-500" title="从图片库选择封面 Logo">
+                        <ImageIcon className="w-4 h-4" />
+                      </button>
+                    </div>
 
                     <div className="pt-1">
                       <input
@@ -727,16 +737,21 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                         </button>
                       )}
                     </div>
-                    {theme.header.logoUrl && (
-                      <div className={`flex items-center gap-3 p-2 rounded border ${subCardBgClass}`}>
+                    <div className={`flex items-center gap-3 p-2 rounded border ${subCardBgClass}`}>
+                      {theme.header.logoUrl ? (
+                        <>
                         <img
-                          src={theme.header.logoUrl}
+                          src={resolveImageSrc(theme.header.logoUrl)}
                           alt="Header Logo Preview"
                           className="h-8 w-auto object-contain bg-slate-100/50 p-1 rounded"
                         />
                         <span className="text-[10px] text-emerald-600 font-bold truncate font-mono">已加载 Logo 图片</span>
-                      </div>
-                    )}
+                        </>
+                      ) : <span className={`text-[10px] ${textMutedClass}`}>未选择图片</span>}
+                      <button type="button" onClick={() => setImagePickerTarget('header')} className="ml-auto p-2 rounded border border-inherit hover:border-blue-500 hover:text-blue-500" title="从图片库选择页眉 Logo">
+                        <ImageIcon className="w-4 h-4" />
+                      </button>
+                    </div>
                     <div>
                       <input
                         type="text"
@@ -1471,6 +1486,18 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
 
       </div>
 
+      <ImagePicker
+        isOpen={Boolean(imagePickerTarget)}
+        assets={assets}
+        currentReference={imagePickerTarget === 'cover' ? theme.meta.logo || theme.meta.logoUrl : theme.header.logoUrl}
+        isDark={isDark}
+        onClose={() => setImagePickerTarget(undefined)}
+        onSelect={(reference) => {
+          if (imagePickerTarget === 'cover') updateFullMeta({ ...theme.meta, logo: reference, logoUrl: reference });
+          if (imagePickerTarget === 'header') updateHeader('logoUrl', reference);
+          setImagePickerTarget(undefined);
+        }}
+      />
     </div>
   );
 };
