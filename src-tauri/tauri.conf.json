@@ -1,11 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "SangDocCraft",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "identifier": "com.sangyuxiaowu.sangdoccraft",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run prebuild:tauri && npx vite build",
+    "beforeBuildCommand": "npm run prebuild:tauri && npx vite build --mode=tauri",
     "devUrl": "http://localhost:3000",
     "frontendDist": "../dist"
   },

@@ -1,12 +1,50 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig, loadEnv} from 'vite';
+import {VitePWA} from 'vite-plugin-pwa';
 import packageJson from './package.json' with { type: 'json' };
 
 export default defineConfig(({ mode }) => {
+  const isTauriMode = mode === 'tauri';
+  const env = loadEnv(mode, '.', '');
+  let base = env.VITE_BASE || '/';
+  if (!base.endsWith('/')) base += '/';
+
   return {
-    plugins: [mode !== 'test' && react(), tailwindcss()],
+    base,
+    plugins: [
+      mode !== 'test' && react(),
+      tailwindcss(),
+      !isTauriMode && mode !== 'test' && VitePWA({
+        registerType: 'autoUpdate',
+        manifest: {
+          name: 'SangDocCraft - 智能 Markdown 排版工具',
+          short_name: 'SangDocCraft',
+          description: '智能 Markdown 排版与文档导出工具。',
+          lang: 'zh-CN',
+          start_url: base,
+          scope: base,
+          display: 'standalone',
+          background_color: '#ffffff',
+          theme_color: '#2563eb',
+          icons: [
+            {
+              src: `${base}sangdoc-192.png`,
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'any maskable',
+            },
+            {
+              src: `${base}sangdoc-512.png`,
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'any maskable',
+            },
+          ],
+        },
+      }),
+    ],
     define: {
       __APP_VERSION__: JSON.stringify(packageJson.version),
     },
