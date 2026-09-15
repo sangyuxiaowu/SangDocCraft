@@ -140,6 +140,38 @@ export interface DocumentTheme {
   style: StyleConfig;
 }
 
+export interface DocumentSettings {
+  historyEnabled: boolean;
+  historyIdleMinutes: number;
+}
+
+export type DocumentAssetScope = 'document' | 'library';
+
+export interface DocumentAssetMetadata {
+  id: string;
+  fileName: string;
+  description: string;
+  mediaType: string;
+  byteLength: number;
+  sha256: string;
+  scope: DocumentAssetScope;
+}
+
+export interface DocumentAsset extends DocumentAssetMetadata {
+  data: Uint8Array;
+}
+
+export interface SangDocument {
+  id: string;
+  title: string;
+  createdAt: string;
+  modifiedAt: string;
+  markdown: string;
+  theme: DocumentTheme;
+  settings: DocumentSettings;
+  assets: DocumentAsset[];
+}
+
 export interface TocItem {
   id: string;
   text: string;
