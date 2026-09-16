@@ -8,6 +8,7 @@ import { StyleConfigPanel } from './components/StyleConfigPanel';
 import { A4Preview } from './components/A4Preview';
 import { JsonThemeModal } from './components/JsonThemeModal';
 import { AboutModal } from './components/AboutModal';
+import { PrintPdfModal } from './components/PrintPdfModal';
 import { ModalDialogContainer } from './components/ModalDialogContainer';
 import { modal } from './utils/modalDialog';
 import { DocumentAsset, DocumentHistoryEntry, DocumentTheme, ThemeMode, ViewMode } from './types';
@@ -97,6 +98,7 @@ export default function App() {
   const [showImageManager, setShowImageManager] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
+  const [showPrintPdfModal, setShowPrintPdfModal] = useState(false);
   const [assets, setAssets] = useState<DocumentAsset[]>([]);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
@@ -744,6 +746,7 @@ export default function App() {
         onExportDocx={handleExportDocx}
         onExportHtml={handleExportHtml}
         onExportSdc={handleExportSdc}
+        onOpenPrintPdf={() => setShowPrintPdfModal(true)}
         onOpenJsonModal={() => setShowJsonModal(true)}
         onOpenImageManager={() => setShowImageManager(true)}
         themeMode={themeMode}
@@ -929,6 +932,14 @@ export default function App() {
       <AboutModal
         isOpen={showAboutModal}
         onClose={() => setShowAboutModal(false)}
+        isDark={isDark}
+      />
+
+      <PrintPdfModal
+        isOpen={showPrintPdfModal}
+        onClose={() => setShowPrintPdfModal(false)}
+        markdown={markdown}
+        theme={previewTheme}
         isDark={isDark}
       />
 

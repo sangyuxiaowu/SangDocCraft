@@ -20,6 +20,7 @@ import {
   FileText,
   Layers,
   Info,
+  Printer,
 } from 'lucide-react';
 import { DocumentTheme, ThemeMode, ViewMode } from '../types';
 import { SAMPLE_MARKDOWNS } from '../data/defaultMarkdown';
@@ -35,6 +36,7 @@ interface HeaderBarProps {
   onExportDocx: () => void;
   onExportHtml: () => void;
   onExportSdc: () => void;
+  onOpenPrintPdf?: () => void;
   onOpenJsonModal: () => void;
   onOpenImageManager: () => void;
   themeMode: ThemeMode;
@@ -60,6 +62,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onExportDocx,
   onExportHtml,
   onExportSdc,
+  onOpenPrintPdf,
   onOpenJsonModal,
   onOpenImageManager,
   themeMode,
@@ -464,6 +467,29 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   isDark ? 'bg-[#181818] border-zinc-800 text-zinc-200' : 'bg-white border-slate-200 text-slate-800'
                 }`}
               >
+                {onOpenPrintPdf && (
+                  <button
+                    onClick={() => {
+                      onOpenPrintPdf();
+                      setActiveDropdown(null);
+                    }}
+                    className={`w-full text-left p-2 rounded-lg text-xs flex items-center gap-2.5 transition ${
+                      isDark ? 'hover:bg-zinc-800 text-zinc-200' : 'hover:bg-slate-100 text-slate-800'
+                    }`}
+                  >
+                    <div className="w-7 h-7 rounded-md bg-rose-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                      <Printer className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold flex items-center justify-between">
+                        <span>打印 / 导出 PDF</span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium">独立弹窗</span>
+                      </div>
+                      <div className={`text-[10px] truncate ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>基于 HTML 独立弹窗打印，排版更佳</div>
+                    </div>
+                  </button>
+                )}
+
                 <button
                   onClick={() => {
                     onExportDocx();

@@ -854,9 +854,13 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
 </html>`;
 }
 
-export async function exportToHtmlFile(markdownText: string, theme: DocumentTheme, filename?: string): Promise<void> {
+export async function generatePreparedHtml(markdownText: string, theme: DocumentTheme): Promise<string> {
   const renderedHtml = await renderMermaidInHtml(generateStandaloneHtml(markdownText, theme));
-  const htmlContent = await inlineImagesAsDataUris(renderedHtml);
+  return inlineImagesAsDataUris(renderedHtml);
+}
+
+export async function exportToHtmlFile(markdownText: string, theme: DocumentTheme, filename?: string): Promise<void> {
+  const htmlContent = await generatePreparedHtml(markdownText, theme);
   const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
   const outName = filename || `${theme.meta.title || '交付文档'}.html`;
 
