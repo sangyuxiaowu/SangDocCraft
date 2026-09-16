@@ -99,14 +99,10 @@ export const PrintPdfModal: React.FC<PrintPdfModalProps> = ({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold truncate">打印 / 导出 PDF (独立预览)</h3>
-                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                  <Sparkles className="w-2.5 h-2.5" />
-                  A4 独立沙箱渲染
-                </span>
+                <h3 className="text-sm font-bold truncate">打印 / 导出 PDF</h3>
               </div>
               <p className={`text-[11px] truncate hidden sm:block ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
-                基于隔离的 A4 单独页面执行系统打印，自动排版分页，避免工作区边框错位
+                基于隔离的 A4 单独页面执行系统打印，自动排版分页
               </p>
             </div>
           </div>

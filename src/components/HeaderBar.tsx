@@ -483,9 +483,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     <div className="min-w-0 flex-1">
                       <div className="font-semibold flex items-center justify-between">
                         <span>打印 / 导出 PDF</span>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium">独立弹窗</span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium">推荐</span>
                       </div>
-                      <div className={`text-[10px] truncate ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>基于 HTML 独立弹窗打印，排版更佳</div>
+                      <div className={`text-[10px] truncate ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>通过 HTML 打印导出 PDF，排版更佳</div>
                     </div>
                   </button>
                 )}
