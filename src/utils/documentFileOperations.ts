@@ -24,6 +24,13 @@ export async function openSangDocument(): Promise<OpenedDocument | undefined> {
   return { document: await unpackSangDocument(Uint8Array.from(file.bytes)), path: file.path };
 }
 
+export async function openSangDocumentByPath(path: string): Promise<OpenedDocument | undefined> {
+  if (!isTauriEnvironment() || !path) return undefined;
+  const file = await invoke<NativeDocumentFile | null>('open_sdc_document_by_path', { path });
+  if (!file) return undefined;
+  return { document: await unpackSangDocument(Uint8Array.from(file.bytes)), path: file.path };
+}
+
 export async function readStartupDocument(): Promise<OpenedDocument | undefined> {
   if (!isTauriEnvironment()) return undefined;
   const file = await invoke<NativeDocumentFile | null>('take_startup_document');

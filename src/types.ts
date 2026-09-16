@@ -19,11 +19,14 @@ export interface DocumentMeta {
   logo?: string;
   logoHeight?: number;
   number?: string;
+  version?: string;
   coverlist?: CoverListItem[];
   coverListColumns?: 1 | 2;
   showCover: boolean;
   coverStyle: CoverStyle;
 }
+
+export type CoverConfig = DocumentMeta;
 
 export interface HeaderConfig {
   show: boolean;

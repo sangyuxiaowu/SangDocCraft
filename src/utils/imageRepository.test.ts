@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { getRegisteredThemes } from '../themes/themeRegistry';
 import { createDocumentAsset } from './documentPackage';
 import {
+  cleanupOrphanDocumentAssets,
   clearDocumentAssets,
   listDocumentAssets,
   listLibraryAssets,
@@ -47,5 +48,23 @@ describe('image repository', () => {
     expect(isImageReferenced('img-12345678', 'library', '', theme)).toBe(true);
     expect(isImageReferenced('img-87654321', 'document', '', theme)).toBe(true);
     expect(isImageReferenced('img-unused00', 'document', '', theme)).toBe(false);
+  });
+
+  it('cleans up orphan document assets while retaining valid document assets and library assets', async () => {
+    const asset1 = await createDocumentAsset(new Uint8Array([10]), { fileName: 'a.png', mediaType: 'image/png' });
+    const asset2 = await createDocumentAsset(new Uint8Array([20]), { fileName: 'b.png', mediaType: 'image/png' });
+    const asset3 = await createDocumentAsset(new Uint8Array([30]), { fileName: 'c.png', mediaType: 'image/png' });
+
+    await putDocumentAsset('doc-valid-1', asset1);
+    await putDocumentAsset('doc-valid-2', asset2);
+    await putDocumentAsset('doc-orphan', asset3);
+
+    const validIds = new Set(['doc-valid-1', 'doc-valid-2']);
+    const deleted = await cleanupOrphanDocumentAssets(validIds);
+
+    expect(deleted).toBe(1);
+    expect(await listDocumentAssets('doc-valid-1')).toHaveLength(1);
+    expect(await listDocumentAssets('doc-valid-2')).toHaveLength(1);
+    expect(await listDocumentAssets('doc-orphan')).toHaveLength(0);
   });
 });

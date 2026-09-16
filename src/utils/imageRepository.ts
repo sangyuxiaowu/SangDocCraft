@@ -95,3 +95,24 @@ export async function clearDocumentAssets(documentId: string): Promise<void> {
   keys.forEach((key) => store.delete(key));
   await transactionDone(transaction);
 }
+
+/**
+ * 垃圾回收 (Garbage Collection):
+ * 扫描 DOCUMENT_STORE，将所有不属于 validDocumentIds 的孤立图片记录彻底删除
+ * 返回被清理的孤立图片数量
+ */
+export async function cleanupOrphanDocumentAssets(validDocumentIds: Set<string>): Promise<number> {
+  const database = await openDatabase();
+  const transaction = database.transaction(DOCUMENT_STORE, 'readwrite');
+  const store = transaction.objectStore(DOCUMENT_STORE);
+  const allRecords = (await requestResult(store.getAll())) as StoredDocumentAsset[];
+  let deletedCount = 0;
+  for (const record of allRecords) {
+    if (!validDocumentIds.has(record.documentId)) {
+      store.delete(record.key);
+      deletedCount++;
+    }
+  }
+  await transactionDone(transaction);
+  return deletedCount;
+}

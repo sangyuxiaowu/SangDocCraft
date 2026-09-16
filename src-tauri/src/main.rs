@@ -43,6 +43,15 @@ async fn open_sdc_document() -> Result<Option<NativeDocumentFile>, String> {
 }
 
 #[tauri::command]
+async fn open_sdc_document_by_path(path: String) -> Result<Option<NativeDocumentFile>, String> {
+    let path_buf = std::path::PathBuf::from(&path);
+    if !path_buf.is_file() {
+        return Ok(None);
+    }
+    read_document_file(path_buf).map(Some)
+}
+
+#[tauri::command]
 async fn save_sdc_document(request: SaveDocumentRequest) -> Result<Option<String>, String> {
     let path = if let Some(path) = request.path {
         std::path::PathBuf::from(path)
@@ -131,9 +140,9 @@ async fn read_image_binary(source: String) -> Result<ImageBinary, String> {
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             open_sdc_document,
+            open_sdc_document_by_path,
             read_image_binary,
             resolve_image_path,
             save_sdc_document,

@@ -41,6 +41,7 @@ interface HeaderBarProps {
   onThemeModeChange: (mode: ThemeMode) => void;
   effectiveUiMode: 'dark' | 'light';
   isDocumentDirty: boolean;
+  onOpenWelcome: () => void;
   onNewDocument: () => void;
   onOpenDocument: () => void;
   onSaveDocument: () => void;
@@ -65,6 +66,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onThemeModeChange,
   effectiveUiMode,
   isDocumentDirty,
+  onOpenWelcome,
   onNewDocument,
   onOpenDocument,
   onSaveDocument,
@@ -195,11 +197,23 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             }`}
           >
             <button 
+              onClick={onOpenWelcome} 
+              className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold transition ${
+                isDark 
+                  ? 'text-blue-400 hover:text-white hover:bg-zinc-800' 
+                  : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50/80'
+              }`} 
+              title="开始主页与模板中心"
+            >
+              <Layout className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">主页</span>
+            </button>
+            <button 
               onClick={onNewDocument} 
               className={`p-1.5 rounded-md text-xs transition ${
                 isDark ? 'text-zinc-300 hover:text-white hover:bg-zinc-800' : 'text-slate-600 hover:text-slate-900 hover:bg-white'
               }`} 
-              title="新建文档"
+              title="新建文档 (选择模板或空白)"
             >
               <FilePlus2 className="w-3.5 h-3.5" />
             </button>
@@ -308,6 +322,24 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                       <div className="font-semibold">UI/UX 体验设计交付规范</div>
                       <div className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>视觉组件、交互模式与设计系统</div>
                     </div>
+                  </button>
+
+                  <div className={`my-1 border-t ${isDark ? 'border-zinc-800' : 'border-slate-100'}`} />
+
+                  <button
+                    onClick={() => {
+                      onOpenWelcome();
+                      setActiveDropdown(null);
+                    }}
+                    className={`w-full text-left px-2.5 py-2 rounded-lg text-xs font-semibold flex items-center justify-between gap-2 transition ${
+                      isDark ? 'hover:bg-zinc-800 text-blue-400' : 'hover:bg-blue-50/70 text-blue-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Layout className="w-3.5 h-3.5 shrink-0" />
+                      <span>浏览更多模板</span>
+                    </div>
+                    <span className="text-[10px] opacity-70">前往欢迎页</span>
                   </button>
                 </div>
               )}
