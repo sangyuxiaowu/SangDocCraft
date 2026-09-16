@@ -1,5 +1,44 @@
 @import "tailwindcss";
 
+.a4-preview-shell {
+  container-name: a4-preview;
+  container-type: inline-size;
+}
+
+@container a4-preview (max-width: 500px) {
+  .a4-preview-fit-label {
+    display: none;
+  }
+
+  .a4-preview-footer {
+    padding-inline: 12px;
+  }
+
+  .a4-preview-zoom-slider {
+    width: 48px;
+  }
+}
+
+@container a4-preview (max-width: 400px) {
+  .a4-preview-zoom-step,
+  .a4-preview-zoom-step-divider {
+    display: none;
+  }
+}
+
+@container a4-preview (max-width: 350px) {
+  .a4-preview-fit-button,
+  .a4-preview-fit-divider {
+    display: none;
+  }
+}
+
+@container a4-preview (max-width: 290px) {
+  .a4-preview-zoom-slider {
+    display: none;
+  }
+}
+
 /* Custom Scrollbar Styles for Dark and Light UI */
 @layer utilities {
   /* Firefox */

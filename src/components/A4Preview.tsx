@@ -294,7 +294,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
       ].filter(item => !!item.value);
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden relative">
+    <div className="a4-preview-shell w-full h-full flex flex-col overflow-hidden relative">
       {/* Floating Document Outline (Collapsed by default in top-left) */}
       <div className="absolute top-3 left-3 z-30 flex flex-col items-start select-none print-hide">
         <button
@@ -783,20 +783,11 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
       </div>{/* End Scrollable Preview Workspace */}
 
       {/* Docked Word-like Footer Zoom Control Bar */}
-      <div className={`h-8 shrink-0 border-t flex items-center justify-between px-3 md:px-4 text-xs select-none z-20 ${
+      <div className={`a4-preview-footer h-8 shrink-0 border-t flex items-center justify-between gap-2 px-3 md:px-4 text-xs select-none z-20 ${
         isDark ? 'bg-[#161616] border-[#2A2A2A] text-zinc-400' : 'bg-slate-100 border-slate-200 text-slate-600'
       }`}>
-        {/* Document Stats / Page Navigation Controls */}
-        <div className="flex items-center gap-2 sm:gap-3 text-[11px] font-mono">
-          <div className="flex items-center gap-1.5 shrink-0">
-            <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-            <span className="font-medium">共 {totalPages} 页</span>
-          </div>
-
-          <div className={`w-px h-3.5 ${isDark ? 'bg-zinc-800' : 'bg-slate-300'}`} />
-
-          {/* Quick Page Jump & Navigation */}
-          <div className="flex items-center gap-1 text-[11px] font-mono">
+        {/* Quick Page Jump & Navigation */}
+        <div className="a4-preview-page-nav flex items-center gap-1 text-[11px] font-mono shrink-0">
             {/* Jump to first page */}
             <button
               onClick={() => scrollToPage(1)}
@@ -841,27 +832,26 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
             >
               <ArrowDownToLine className="w-3.5 h-3.5" />
             </button>
-          </div>
         </div>
 
         {/* Zoom Controls */}
-        <div className="flex items-center gap-1 sm:gap-1.5">
+        <div className="a4-preview-zoom-controls flex items-center gap-1 sm:gap-1.5 shrink-0">
           {/* Fit Width Button */}
           <button
             onClick={handleFitWidth}
-            className="p-1 rounded hover:bg-blue-500/10 hover:text-blue-500 transition text-[11px] font-medium flex items-center gap-1"
+            className="a4-preview-fit-button p-1 rounded hover:bg-blue-500/10 hover:text-blue-500 transition text-[11px] font-medium flex items-center gap-1"
             title="自适应缩放到合适宽度"
           >
             <Maximize2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">适合宽度</span>
+            <span className="a4-preview-fit-label hidden sm:inline">适合宽度</span>
           </button>
 
-          <div className={`w-px h-3.5 mx-0.5 ${isDark ? 'bg-zinc-800' : 'bg-slate-300'}`} />
+          <div className={`a4-preview-fit-divider w-px h-3.5 mx-0.5 ${isDark ? 'bg-zinc-800' : 'bg-slate-300'}`} />
 
           {/* Zoom Out Button */}
           <button
             onClick={() => setZoom(prev => Math.max(30, prev - 10))}
-            className="p-1 rounded hover:bg-blue-500/10 hover:text-blue-500 transition"
+            className="a4-preview-zoom-step p-1 rounded hover:bg-blue-500/10 hover:text-blue-500 transition"
             title="缩小"
           >
             <ZoomOut className="w-3.5 h-3.5" />
@@ -875,19 +865,19 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
             step={5}
             value={zoom}
             onChange={(e) => setZoom(Number(e.target.value))}
-            className="w-14 sm:w-24 h-1 bg-slate-300 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+            className="a4-preview-zoom-slider w-14 sm:w-24 h-1 bg-slate-300 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
           />
 
           {/* Zoom In Button */}
           <button
             onClick={() => setZoom(prev => Math.min(200, prev + 10))}
-            className="p-1 rounded hover:bg-blue-500/10 hover:text-blue-500 transition"
+            className="a4-preview-zoom-step p-1 rounded hover:bg-blue-500/10 hover:text-blue-500 transition"
             title="放大"
           >
             <ZoomIn className="w-3.5 h-3.5" />
           </button>
 
-          <div className={`w-px h-3.5 mx-0.5 ${isDark ? 'bg-zinc-800' : 'bg-slate-300'}`} />
+          <div className={`a4-preview-zoom-step-divider w-px h-3.5 mx-0.5 ${isDark ? 'bg-zinc-800' : 'bg-slate-300'}`} />
 
           {/* Zoom Percentage Dropdown Trigger */}
           <div className="relative">

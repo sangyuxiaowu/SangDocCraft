@@ -123,6 +123,8 @@ export default function App() {
 
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const mainWorkspaceRef = useRef<HTMLDivElement>(null);
+  const splitterRef = useRef<HTMLDivElement>(null);
+  const configPanelRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<EditorHandle>(null);
   const documentFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -278,13 +280,11 @@ export default function App() {
       let newPercentage = (currentX / rect.width) * 100;
 
       if (newPercentage < 15) newPercentage = 15;
-      
-      let configPanelWidthPx = 0;
-      if (isConfigPanelOpen && viewMode !== 'edit') {
-        configPanelWidthPx = Math.min(400, Math.max(340, rect.width * 0.25));
-      }
 
-      const maxPercentage = ((rect.width - configPanelWidthPx - 200) / rect.width) * 100;
+      const configPanelWidth = configPanelRef.current?.getBoundingClientRect().width ?? 0;
+      const splitterWidth = splitterRef.current?.getBoundingClientRect().width ?? 0;
+      const previewMinWidth = 240;
+      const maxPercentage = ((rect.width - configPanelWidth - splitterWidth - previewMinWidth) / rect.width) * 100;
       if (newPercentage > maxPercentage) newPercentage = Math.max(15, maxPercentage);
 
       setSplitRatio(newPercentage);
@@ -775,8 +775,11 @@ export default function App() {
         {/* Left Column: Editor (Visible in 'split' and 'edit' mode) */}
         {(viewMode === 'split' || viewMode === 'edit') && (
           <div 
-            style={{ width: viewMode === 'split' ? `${splitRatio}%` : '100%' }}
-            className={`h-full flex flex-col shrink-0 border-r ${
+            style={{
+              width: viewMode === 'split' ? `${splitRatio}%` : '100%',
+              minWidth: viewMode === 'split' ? '15%' : undefined,
+            }}
+            className={`h-full flex flex-col border-r ${
               isDark ? 'border-[#2A2A2A] bg-[#181818]' : 'border-slate-200 bg-white'
             }`}
           >
@@ -797,8 +800,9 @@ export default function App() {
         {/* Resizable Middle Splitter Handle (Only in 'split' mode) */}
         {viewMode === 'split' && (
           <div
+            ref={splitterRef}
             onMouseDown={handleMouseDownSplitter}
-            className={`w-1.5 hover:w-2.5 h-full cursor-col-resize select-none shrink-0 z-20 flex items-center justify-center transition-all group ${
+            className={`w-1.5 h-full cursor-col-resize select-none shrink-0 z-20 flex items-center justify-center transition-colors group ${
               isDragging
                 ? 'bg-blue-600'
                 : isDark
@@ -815,7 +819,7 @@ export default function App() {
 
         {/* Center / Right Column: A4 Live Preview (Visible in 'split' and 'preview' mode) */}
         {(viewMode === 'split' || viewMode === 'preview') && (
-          <div className={`flex-1 min-w-[870px] h-full flex flex-col overflow-hidden ${
+          <div className={`flex-1 min-w-[240px] h-full flex flex-col overflow-hidden ${
             isDark ? 'bg-[#1E1E1E]' : 'bg-slate-200/80'
           }`}>
             <A4Preview markdown={markdown} theme={previewTheme} uiMode={uiMode} viewMode={viewMode} />
@@ -824,7 +828,7 @@ export default function App() {
 
         {/* Far Right Sidebar: Style Configuration Panel */}
         {viewMode !== 'edit' && isConfigPanelOpen && (
-          <div className={`w-[360px] xl:w-[400px] h-full hidden lg:block shrink-0 border-l ${
+          <div ref={configPanelRef} className={`w-[360px] xl:w-[400px] h-full hidden lg:block shrink-0 border-l ${
             isDark ? 'bg-[#181818] border-[#2A2A2A]' : 'bg-white border-slate-200'
           }`}>
             <StyleConfigPanel 
