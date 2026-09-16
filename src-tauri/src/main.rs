@@ -131,6 +131,7 @@ async fn read_image_binary(source: String) -> Result<ImageBinary, String> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             open_sdc_document,
             read_image_binary,
