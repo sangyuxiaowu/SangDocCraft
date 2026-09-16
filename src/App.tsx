@@ -750,7 +750,15 @@ export default function App() {
               isDark ? 'border-[#2A2A2A] bg-[#181818]' : 'border-slate-200 bg-white'
             }`}
           >
-            <Editor ref={editorRef} value={markdown} onChange={handleMarkdownChange} assets={assets} uiMode={uiMode} />
+            <Editor
+              ref={editorRef}
+              value={markdown}
+              onChange={handleMarkdownChange}
+              assets={assets}
+              uiMode={uiMode}
+              documentId={documentId}
+              onAssetsChanged={() => refreshAssets()}
+            />
           </div>
         )}
 

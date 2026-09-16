@@ -21,21 +21,27 @@ import { getPageBreakInsertion } from '../utils/pageBreaks';
 import type { DocumentAsset } from '../types';
 import { ImagePicker } from './ImagePicker';
 import { formatImageDimensionSuffix } from '../utils/imageDimensions';
+import { createDocumentAsset } from '../utils/documentPackage';
+import { putDocumentAsset } from '../utils/imageRepository';
+import { registerAssetUrl } from '../utils/assetUrlRegistry';
 
 interface EditorProps {
   value: string;
   onChange: (val: string) => void;
   assets: DocumentAsset[];
   uiMode?: 'dark' | 'light';
+  documentId: string;
+  onAssetsChanged: () => Promise<void>;
 }
 
 export interface EditorHandle {
   insertAtSelection: (text: string) => void;
 }
 
-export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, assets, uiMode = 'dark' }, ref) => {
+export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, assets, uiMode = 'dark', documentId, onAssetsChanged }, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showImagePicker, setShowImagePicker] = useState(false);
+  const [isPastingImage, setIsPastingImage] = useState(false);
   const isDark = uiMode === 'dark';
 
   // Insert helper for formatting buttons
@@ -145,6 +151,50 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, 
       textareaRef.current.setSelectionRange(nextPosition, nextPosition);
       textareaRef.current.scrollTop = scrollTop;
     });
+  };
+
+  const handlePaste = async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const imageItem = Array.from(event.clipboardData.items).find((item) => item.type.startsWith('image/'));
+    if (!imageItem) return;
+    event.preventDefault();
+
+    const file = imageItem.getAsFile();
+    if (!file) return;
+    const selectionStart = event.currentTarget.selectionStart;
+    const selectionEnd = event.currentTarget.selectionEnd;
+    const scrollTop = event.currentTarget.scrollTop;
+
+    setIsPastingImage(true);
+    try {
+      const data = new Uint8Array(await file.arrayBuffer());
+      const now = new Date();
+      const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+      const asset = await createDocumentAsset(data, {
+        fileName: `screenshot_${timestamp}.png`,
+        description: '剪贴板截图',
+        mediaType: file.type || 'image/png',
+        scope: 'document',
+      });
+
+      await putDocumentAsset(documentId, asset);
+      registerAssetUrl(asset);
+      await onAssetsChanged();
+
+      const imageMarkdown = `\n\n![截图_${timestamp.slice(-4)}](@images/${asset.id})\n\n`;
+      const currentValue = textareaRef.current?.value ?? value;
+      onChange(currentValue.substring(0, selectionStart) + imageMarkdown + currentValue.substring(selectionEnd));
+      requestAnimationFrame(() => {
+        if (!textareaRef.current) return;
+        const cursorPosition = selectionStart + imageMarkdown.length;
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(cursorPosition, cursorPosition);
+        textareaRef.current.scrollTop = scrollTop;
+      });
+    } catch (error) {
+      console.error('Failed to process pasted screenshot:', error);
+    } finally {
+      setIsPastingImage(false);
+    }
   };
 
   const insertTable = () => {
@@ -308,6 +358,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, 
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           placeholder="在此处输入或粘贴您的 Markdown 文档内容..."
           className={`w-full h-full p-4 font-mono text-xs leading-relaxed resize-none focus:outline-none border-none select-text transition-colors duration-200 ${
             isDark 
@@ -323,6 +374,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, 
         <div className="flex items-center gap-4">
           <span>行数: <strong className={isDark ? 'text-zinc-200' : 'text-slate-800'}>{lineCount}</strong></span>
           <span>字符数: <strong className={isDark ? 'text-zinc-200' : 'text-slate-800'}>{wordCount}</strong></span>
+          {isPastingImage && <span className="text-indigo-500 normal-case tracking-normal animate-pulse">正在转存粘贴截图...</span>}
         </div>
         <div className="flex items-center gap-1">
           <FileCode className="w-3.5 h-3.5 text-blue-500" />

@@ -10,7 +10,9 @@ function renderEditor(value: string) {
   document.body.append(container);
   const root = createRoot(container);
   const onChange = vi.fn();
-  act(() => root.render(<Editor value={value} onChange={onChange} assets={[]} />));
+  act(() => root.render(
+    <Editor value={value} onChange={onChange} assets={[]} documentId="test-document" onAssetsChanged={async () => {}} />,
+  ));
   return { root, onChange, textarea: container.querySelector('textarea')! };
 }
 
