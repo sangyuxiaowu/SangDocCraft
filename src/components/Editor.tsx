@@ -376,7 +376,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, 
         <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
           <span>行数: <strong className={isDark ? 'text-zinc-200' : 'text-slate-800'}>{lineCount}</strong></span>
           <span>字符数: <strong className={isDark ? 'text-zinc-200' : 'text-slate-800'}>{wordCount}</strong></span>
-          <div className={`w-px h-3 ${isDark ? 'bg-[#2A2A2A]' : 'bg-slate-200'}`} />
+          {isPastingImage && <span className="text-indigo-500 normal-case tracking-normal animate-pulse">正在转存粘贴截图...</span>}
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
           {saveStatus === 'saving' && <span className="text-blue-500 normal-case tracking-normal animate-pulse">正在保存草稿...</span>}
           {saveStatus === 'unsaved' && <span className="text-amber-500 normal-case tracking-normal">有未保存修改</span>}
           {saveStatus === 'saved' && (
@@ -384,9 +386,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, 
               已自动保存{lastSavedAt ? ` ${lastSavedAt}` : ''}
             </span>
           )}
-          {isPastingImage && <span className="text-indigo-500 normal-case tracking-normal animate-pulse">正在转存粘贴截图...</span>}
-        </div>
-        <div className="flex items-center gap-1">
+          <div className={`w-px h-3 ${isDark ? 'bg-[#2A2A2A]' : 'bg-slate-200'}`} />
           <FileCode className="w-3.5 h-3.5 text-blue-500" />
         </div>
       </div>
