@@ -815,7 +815,7 @@ export default function App() {
 
         {/* Center / Right Column: A4 Live Preview (Visible in 'split' and 'preview' mode) */}
         {(viewMode === 'split' || viewMode === 'preview') && (
-          <div className={`flex-1 min-w-[240px] h-full flex flex-col overflow-hidden ${
+          <div className={`flex-1 min-w-[870px] h-full flex flex-col overflow-hidden ${
             isDark ? 'bg-[#1E1E1E]' : 'bg-slate-200/80'
           }`}>
             <A4Preview markdown={markdown} theme={previewTheme} uiMode={uiMode} viewMode={viewMode} />
