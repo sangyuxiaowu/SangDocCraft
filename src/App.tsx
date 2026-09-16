@@ -671,7 +671,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [documentId, documentPath, documentCreatedAt, documentSettings, markdown, theme, assets]);
+  }, [documentId, documentPath, documentCreatedAt, documentSettings, markdown, theme, history, assets]);
 
   const handleDeleteCustomTheme = (id: string) => {
     setCustomThemes((themes) => themes.filter((item) => item.id !== id));
