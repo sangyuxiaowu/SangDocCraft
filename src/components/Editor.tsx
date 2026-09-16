@@ -77,6 +77,76 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, 
     });
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== 'Tab') return;
+    event.preventDefault();
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const scrollTop = textarea.scrollTop;
+    const beforeSelection = value.substring(0, start);
+    const afterSelection = value.substring(end);
+
+    if (start !== end) {
+      const lineStart = beforeSelection.lastIndexOf('\n') + 1;
+      const lines = value.substring(lineStart, end).split('\n');
+      let selectionLengthChange = 0;
+      const modifiedLines = lines.map((line) => {
+        if (!event.shiftKey) {
+          selectionLengthChange += 2;
+          return `  ${line}`;
+        }
+        if (line.startsWith('  ')) {
+          selectionLengthChange -= 2;
+          return line.slice(2);
+        }
+        if (line.startsWith(' ') || line.startsWith('\t')) {
+          selectionLengthChange -= 1;
+          return line.slice(1);
+        }
+        return line;
+      });
+      onChange(value.substring(0, lineStart) + modifiedLines.join('\n') + afterSelection);
+
+      requestAnimationFrame(() => {
+        if (!textareaRef.current) return;
+        const nextStart = Math.max(lineStart, start + (event.shiftKey ? -2 : 2));
+        const nextEnd = Math.max(nextStart, end + selectionLengthChange);
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(nextStart, nextEnd);
+        textareaRef.current.scrollTop = scrollTop;
+      });
+      return;
+    }
+
+    if (!event.shiftKey) {
+      onChange(`${beforeSelection}  ${afterSelection}`);
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+        textareaRef.current?.setSelectionRange(start + 2, start + 2);
+        if (textareaRef.current) textareaRef.current.scrollTop = scrollTop;
+      });
+      return;
+    }
+
+    const lineStart = beforeSelection.lastIndexOf('\n') + 1;
+    const currentLinePrefix = value.substring(lineStart, start);
+    const removedLength = currentLinePrefix.startsWith('  ')
+      ? 2
+      : currentLinePrefix.startsWith(' ') || currentLinePrefix.startsWith('\t') ? 1 : 0;
+    if (removedLength === 0) return;
+    onChange(value.substring(0, lineStart) + value.substring(lineStart + removedLength));
+    requestAnimationFrame(() => {
+      if (!textareaRef.current) return;
+      const nextPosition = Math.max(lineStart, start - removedLength);
+      textareaRef.current.focus();
+      textareaRef.current.setSelectionRange(nextPosition, nextPosition);
+      textareaRef.current.scrollTop = scrollTop;
+    });
+  };
+
   const insertTable = () => {
     const tableTemplate = `\n\n<!-- caption: 题注内容 -->\n| 表头1 | 表头2 | 表头3 |\n| :--- | :---: | ---: |\n| 内容数据A | 中心对齐 | 右对齐 |\n| 内容数据B | 中心对齐 | 右对齐 |\n\n`;
     insertText(tableTemplate, '', '');
@@ -237,6 +307,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, 
           ref={textareaRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder="在此处输入或粘贴您的 Markdown 文档内容..."
           className={`w-full h-full p-4 font-mono text-xs leading-relaxed resize-none focus:outline-none border-none select-text transition-colors duration-200 ${
             isDark 
