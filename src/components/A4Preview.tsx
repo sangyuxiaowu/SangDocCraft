@@ -6,7 +6,11 @@ import {
   Maximize2, 
   RotateCcw, 
   ChevronUp, 
-  Check 
+  Check,
+  ListTree,
+  X,
+  ArrowUpToLine,
+  ArrowDownToLine,
 } from 'lucide-react';
 import { DocumentTheme, TocItem, ViewMode } from '../types';
 import { getFooterSlots, getHeadingText, getTocChunks } from '../utils/documentStructure';
@@ -67,6 +71,9 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
   const [headerLogoSrc, setHeaderLogoSrc] = useState<string>('');
   const [overflowPageCount, setOverflowPageCount] = useState(0);
   const [mermaidHeights, setMermaidHeights] = useState<Record<string, number>>({});
+  const [isOutlineOpen, setIsOutlineOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageInput, setPageInput] = useState<string>('1');
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -131,13 +138,65 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
     ? parseTableOfContents(markdown, toc.maxDepth, meta, toc.show, style.h1PageBreak, rawContentPages, toc.headingNumbering)
     : [];
 
+  // Always compute outline headings regardless of whether printed TOC page is enabled
+  const outlineItems: TocItem[] = parseTableOfContents(
+    markdown,
+    4,
+    meta,
+    true,
+    style.h1PageBreak,
+    rawContentPages,
+    toc.headingNumbering
+  );
+
   useEffect(() => {
     const headings = containerRef.current?.querySelectorAll<HTMLElement>('.markdown-rendered-body h1, .markdown-rendered-body h2, .markdown-rendered-body h3, .markdown-rendered-body h4');
     headings?.forEach((heading, index) => {
-      const tocItem = tocItems[index];
-      if (tocItem) heading.id = tocItem.id;
+      const outlineItem = outlineItems[index];
+      if (outlineItem) heading.id = outlineItem.id;
     });
-  }, [markdown, tocItems]);
+  }, [markdown, outlineItems]);
+
+  // Scroll listener to update currently visible page number
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const pageEls = container.querySelectorAll<HTMLElement>('.a4-sheet-page');
+      if (pageEls.length === 0) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const probeY = containerRect.top + 120;
+
+      let activeNum = 1;
+      for (const el of pageEls) {
+        const rect = el.getBoundingClientRect();
+        if (rect.top <= probeY && rect.bottom >= containerRect.top) {
+          const num = Number(el.getAttribute('data-page-num'));
+          if (num) activeNum = num;
+        }
+      }
+      setCurrentPage(activeNum);
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    setPageInput(String(currentPage));
+  }, [currentPage]);
+
+  const scrollToPage = (pageNum: number) => {
+    const validPage = Math.min(totalPages, Math.max(1, pageNum));
+    const targetEl = document.getElementById(`a4-page-${validPage}`);
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setCurrentPage(validPage);
+      setPageInput(String(validPage));
+    }
+  };
 
   useEffect(() => {
     const container = containerRef.current;
@@ -236,6 +295,104 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden relative">
+      {/* Floating Document Outline (Collapsed by default in top-left) */}
+      <div className="absolute top-3 left-3 z-30 flex flex-col items-start select-none print-hide">
+        <button
+          onClick={() => setIsOutlineOpen(!isOutlineOpen)}
+          className={`h-7 px-2.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 shadow-md backdrop-blur-md transition ${
+            isOutlineOpen
+              ? 'bg-blue-600 border-blue-500 text-white shadow-blue-500/20'
+              : isDark
+                ? 'bg-[#181818]/90 border-[#333] text-zinc-300 hover:bg-[#222] hover:text-white'
+                : 'bg-white/95 border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-slate-200'
+          }`}
+          title={isOutlineOpen ? '收起文档大纲' : '展开文档大纲'}
+        >
+          <ListTree className="w-3.5 h-3.5 text-blue-400" />
+          <span>文档大纲</span>
+          {outlineItems.length > 0 && (
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+              isOutlineOpen
+                ? 'bg-white/20 text-white'
+                : isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-100 text-slate-600'
+            }`}>
+              {outlineItems.length}
+            </span>
+          )}
+        </button>
+
+        {/* Floating Outline Panel */}
+        {isOutlineOpen && (
+          <div
+            className={`mt-2 w-72 max-h-[72vh] rounded-xl border shadow-2xl flex flex-col overflow-hidden backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-150 ${
+              isDark
+                ? 'bg-[#181818]/95 border-[#333] text-zinc-200 shadow-black/60'
+                : 'bg-white/95 border-slate-200 text-slate-800 shadow-xl'
+            }`}
+          >
+            <div className={`px-3 py-2 border-b flex items-center justify-between shrink-0 ${
+              isDark ? 'border-[#2A2A2A] bg-[#1a1a1a]/80' : 'border-slate-200 bg-slate-50/80'
+            }`}>
+              <div className="flex items-center gap-1.5 text-xs font-bold">
+                <ListTree className="w-3.5 h-3.5 text-blue-500" />
+                <span>章节大纲</span>
+                <span className="text-[10px] font-mono opacity-60">({outlineItems.length})</span>
+              </div>
+              <button
+                onClick={() => setIsOutlineOpen(false)}
+                className="p-1 rounded hover:bg-slate-200 dark:hover:bg-zinc-800 text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 transition"
+                title="关闭大纲"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="p-1.5 overflow-y-auto flex-1 space-y-0.5 text-xs">
+              {outlineItems.length === 0 ? (
+                <div className={`py-6 text-center text-xs ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>
+                  正文中暂无标题结构
+                  <div className="text-[10px] mt-1 opacity-70">使用 #、##、### 标记各级章节</div>
+                </div>
+              ) : (
+                outlineItems.map((item) => {
+                  const paddingClass = item.level === 1 ? 'pl-2 font-bold text-blue-600 dark:text-blue-400' :
+                                       item.level === 2 ? 'pl-5 font-semibold text-slate-700 dark:text-zinc-200' :
+                                       item.level === 3 ? 'pl-8 font-normal text-slate-600 dark:text-zinc-300' :
+                                       'pl-10 font-normal text-slate-500 dark:text-zinc-400 text-[11px]';
+
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        const el = document.getElementById(item.id);
+                        if (el) {
+                          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        } else if (item.pageNumber) {
+                          scrollToPage(item.pageNumber);
+                        }
+                      }}
+                      className={`w-full text-left py-1.5 pr-2 rounded-md flex items-center justify-between gap-1.5 group transition ${paddingClass} ${
+                        isDark ? 'hover:bg-zinc-800/80' : 'hover:bg-blue-50/80'
+                      }`}
+                      title={`${item.text} (第 ${item.pageNumber} 页)`}
+                    >
+                      <span className="truncate flex-1">
+                        {item.text}
+                      </span>
+                      <span className={`text-[9px] font-mono px-1 py-0.2 rounded shrink-0 opacity-60 group-hover:opacity-100 ${
+                        isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        P.{item.pageNumber}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Scrollable Preview Workspace */}
       <div 
         ref={containerRef}
@@ -286,6 +443,8 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
 
             {/* Individual A4 White Paper Sheet */}
             <div 
+              id={`a4-page-${page.pageNum}`}
+              data-page-num={page.pageNum}
               className={`a4-sheet-page w-[210mm] h-[297mm] max-h-[297mm] bg-white text-slate-900 relative my-2 flex flex-col justify-between shrink-0 rounded-sm overflow-hidden transition-all duration-300 ${
                 isDark ? 'shadow-[0_10px_35px_rgba(0,0,0,0.6)]' : 'shadow-[0_10px_30px_rgba(0,0,0,0.12)] border border-slate-200'
               }`}
@@ -627,11 +786,61 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
       <div className={`h-8 shrink-0 border-t flex items-center justify-between px-3 md:px-4 text-xs select-none z-20 ${
         isDark ? 'bg-[#161616] border-[#2A2A2A] text-zinc-400' : 'bg-slate-100 border-slate-200 text-slate-600'
       }`}>
-        {/* Document Stats / Status */}
+        {/* Document Stats / Page Navigation Controls */}
         <div className="flex items-center gap-2 sm:gap-3 text-[11px] font-mono">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
             <span className="font-medium">共 {totalPages} 页</span>
+          </div>
+
+          <div className={`w-px h-3.5 ${isDark ? 'bg-zinc-800' : 'bg-slate-300'}`} />
+
+          {/* Quick Page Jump & Navigation */}
+          <div className="flex items-center gap-1 text-[11px] font-mono">
+            {/* Jump to first page */}
+            <button
+              onClick={() => scrollToPage(1)}
+              disabled={currentPage <= 1}
+              className="p-1 rounded hover:bg-blue-500/10 hover:text-blue-500 disabled:opacity-30 disabled:pointer-events-none transition"
+              title="直达首页 (第 1 页)"
+            >
+              <ArrowUpToLine className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Quick page jumper input */}
+            <div className="flex items-center gap-1 px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-zinc-700 transition">
+              <span className="text-[10px] opacity-70 hidden sm:inline">第</span>
+              <input
+                type="number"
+                min={1}
+                max={totalPages}
+                value={pageInput}
+                onChange={(e) => setPageInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    scrollToPage(parseInt(pageInput, 10) || 1);
+                  }
+                }}
+                onBlur={() => {
+                  scrollToPage(parseInt(pageInput, 10) || 1);
+                }}
+                className={`w-9 text-center font-bold text-[11px] rounded py-0.5 px-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                  isDark ? 'bg-zinc-800 text-zinc-100' : 'bg-white border border-slate-200 text-slate-800'
+                }`}
+                title="输入页码并按回车跳转"
+              />
+              <span className="text-[11px] opacity-70">/ {totalPages} 页</span>
+            </div>
+
+            {/* Jump to last page */}
+            <button
+              onClick={() => scrollToPage(totalPages)}
+              disabled={currentPage >= totalPages}
+              className="p-1 rounded hover:bg-blue-500/10 hover:text-blue-500 disabled:opacity-30 disabled:pointer-events-none transition"
+              title={`直达尾页 (第 ${totalPages} 页)`}
+            >
+              <ArrowDownToLine className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
