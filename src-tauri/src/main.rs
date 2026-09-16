@@ -138,6 +138,11 @@ async fn read_image_binary(source: String) -> Result<ImageBinary, String> {
     Ok(ImageBinary { bytes, content_type: None })
 }
 
+#[tauri::command]
+fn set_window_title(window: tauri::Window, title: String) -> Result<(), String> {
+    window.set_title(&title).map_err(|error| error.to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -146,6 +151,7 @@ fn main() {
             read_image_binary,
             resolve_image_path,
             save_sdc_document,
+            set_window_title,
             take_startup_document,
         ])
         .run(tauri::generate_context!())

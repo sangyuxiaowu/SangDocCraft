@@ -148,33 +148,56 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
     <div className={`fixed inset-0 z-50 overflow-y-auto flex flex-col select-none transition-colors duration-200 ${
       isDark ? 'bg-[#121212] text-zinc-100' : 'bg-slate-50 text-slate-900'
     }`}>
-      {/* ================= Top Word-Style Header ================= */}
-      <header className={`sticky top-0 z-20 border-b backdrop-blur-md px-6 py-3.5 flex items-center justify-between ${
-        isDark ? 'bg-[#181818]/90 border-zinc-800' : 'bg-white/90 border-slate-200 shadow-xs'
+      {/* ================= Top Header (Consistent with Editor HeaderBar) ================= */}
+      <header className={`sticky top-0 z-20 border-b backdrop-blur-md transition-colors duration-200 select-none ${
+        isDark 
+          ? 'bg-[#141414]/95 border-[#242424] text-zinc-100' 
+          : 'bg-white/95 border-slate-200/90 text-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.03)]'
       }`}>
-        <div className="flex items-center gap-3.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-sm">
-            S
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base font-bold tracking-tight">SangDocCraft</h1>
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                isTauri 
-                  ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20' 
-                  : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
-              }`}>
-                {isTauri ? '桌面端' : 'Web 在线端'}
-              </span>
+        <div className="h-14 px-4 md:px-6 flex items-center justify-between gap-3 max-w-full">
+          {/* ================= LEFT SECTION: Brand (Identical with Editor HeaderBar) ================= */}
+          <div className="flex items-center gap-3 md:gap-4 shrink-0">
+            <div 
+              onClick={onOpenAbout} 
+              className="flex items-center gap-2.5 cursor-pointer group select-none"
+              title="关于 SangDocCraft (点击查看开源信息)"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onOpenAbout();
+                }
+              }}
+            >
+              <div className="w-8 h-8 rounded-lg bg-blue-600 group-hover:bg-blue-500 transition-colors flex items-center justify-center font-mono font-black text-white text-xs shadow-sm ring-1 ring-blue-500/30 shrink-0">
+                SDC
+              </div>
+              <div className="leading-tight">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-extrabold tracking-tight text-sm group-hover:text-blue-500 transition-colors">
+                    SANG<span className="text-blue-500 font-black">DOCCRAFT</span>
+                  </span>
+                  <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20 shrink-0">
+                    V{__APP_VERSION__}
+                  </span>
+                  <span className={`text-[9px] font-semibold px-1.5 py-0.2 rounded-full border shrink-0 ${
+                    isTauri 
+                      ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20' 
+                      : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+                  }`}>
+                    {isTauri ? '桌面版' : 'Web 版'}
+                  </span>
+                </div>
+                <p className={`text-[10px] tracking-wider font-medium ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>
+                  智能 Markdown 排版工具
+                </p>
+              </div>
             </div>
-            <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
-              现代 A4 Markdown 文档排版交付系统
-            </p>
           </div>
-        </div>
 
-        {/* Right Header Controls */}
-        <div className="flex items-center gap-2">
+          {/* Right Header Controls */}
+          <div className="flex items-center gap-2 shrink-0">
           {/* Open Local .sdc Document */}
           <button
             type="button"
@@ -230,6 +253,7 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
               <X className="w-3.5 h-3.5" />
             </button>
           )}
+        </div>
         </div>
       </header>
 
@@ -361,7 +385,7 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-blue-500" />
                 <h2 className="text-base font-bold tracking-tight">
-                  {isTauri ? '最近打开的文档 (Recent Documents)' : '未保存的项目 (浏览器草稿)'}
+                  {isTauri ? '最近打开的文档' : '未保存的项目'}
                 </h2>
                 <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
                   isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-100 text-slate-600'

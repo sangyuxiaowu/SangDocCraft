@@ -14,6 +14,7 @@ import {
   isTauriEnvironment,
   resolveImageSrc,
   resolvePreviewImageSrc,
+  updateTauriWindowTitle,
 } from './tauriHelper';
 
 const tauriWindow = window as unknown as Record<string, unknown>;
@@ -74,5 +75,13 @@ describe('tauriHelper', () => {
     const result = await fetchImageBinary('C:/docs/a.png');
     expect(invoke).toHaveBeenCalledWith('read_image_binary', { source: 'C:/docs/a.png' });
     expect(Array.from(new Uint8Array(result.data))).toEqual([137, 80, 78, 71]);
+  });
+
+  it('updates Tauri window title via native command in Tauri environment', async () => {
+    tauriWindow.__TAURI_INTERNALS__ = {};
+    invoke.mockResolvedValue(undefined);
+
+    await updateTauriWindowTitle('设计文档 - SangDocCraft');
+    expect(invoke).toHaveBeenCalledWith('set_window_title', { title: '设计文档 - SangDocCraft' });
   });
 });

@@ -106,3 +106,25 @@ export async function fetchImageBinary(source: string): Promise<{ data: ArrayBuf
     };
   }
 }
+
+/**
+ * Updates the Tauri window title natively.
+ * Tries the custom native Tauri command 'set_window_title' first to bypass capability limitations,
+ * falling back to '@tauri-apps/api/window' if available.
+ */
+export async function updateTauriWindowTitle(title: string): Promise<void> {
+  if (!isTauriEnvironment()) return;
+
+  try {
+    await invoke('set_window_title', { title });
+    return;
+  } catch (nativeError) {
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      await getCurrentWindow().setTitle(title);
+    } catch (apiError) {
+      console.warn('Failed to update Tauri window title:', apiError, nativeError);
+    }
+  }
+}
+

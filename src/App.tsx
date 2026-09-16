@@ -17,7 +17,7 @@ import { SAMPLE_MARKDOWNS } from './data/defaultMarkdown';
 import { listDocumentAssets, listLibraryAssets } from './utils/imageRepository';
 import { registerAssetUrls } from './utils/assetUrlRegistry';
 import { clearDocumentAssetUrls } from './utils/assetUrlRegistry';
-import { isTauriEnvironment, resolveImageSrc } from './utils/tauriHelper';
+import { isTauriEnvironment, resolveImageSrc, updateTauriWindowTitle } from './utils/tauriHelper';
 import { putDocumentAsset, putLibraryAsset } from './utils/imageRepository';
 import { collectImageReferences } from './utils/imageReferences';
 import { downloadSangDocument, openSangDocument, openSangDocumentByPath, readSangDocumentFile, readStartupDocument, saveSangDocument } from './utils/documentFileOperations';
@@ -37,7 +37,7 @@ import {
 import { getRecentDocuments, addRecentDocument, removeRecentDocument, clearRecentDocuments, type RecentDocumentItem } from './utils/recentDocumentsStore';
 import { WelcomeDashboard } from './components/WelcomeDashboard';
 import { type DocumentTemplateItem } from './data/documentTemplates';
-import { formatApplicationTitle } from './utils/applicationTitle';
+import { formatApplicationTitle, resolveDocumentTitle } from './utils/applicationTitle';
 
 export default function App() {
   const builtinThemes = getRegisteredThemes();
@@ -147,18 +147,26 @@ export default function App() {
   }, [documentId]);
 
   useEffect(() => {
-    const title = formatApplicationTitle(theme.meta.title);
-    document.title = title;
-    let cancelled = false;
-
-    if (isTauriEnvironment()) {
-      void import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
-        if (!cancelled) return getCurrentWindow().setTitle(title);
-      }).catch((error) => console.error('Update window title failed:', error));
+    let title: string;
+    if (isWelcomeOpen) {
+      title = formatApplicationTitle(undefined, true);
+    } else {
+      const docTitle = resolveDocumentTitle({
+        themeTitle: theme.meta.title,
+        documentPath,
+        markdown,
+      });
+      title = formatApplicationTitle(docTitle, false);
     }
 
-    return () => { cancelled = true; };
-  }, [theme.meta.title]);
+    document.title = title;
+
+    if (isTauriEnvironment()) {
+      void updateTauriWindowTitle(title).catch((error) => {
+        console.error('Update Tauri window title failed:', error);
+      });
+    }
+  }, [isWelcomeOpen, theme.meta.title, documentPath, markdown]);
 
   const refreshUnsavedDrafts = async () => {
     try {
