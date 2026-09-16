@@ -32,6 +32,30 @@ interface PageItem {
   totalTocPages?: number;
 }
 
+export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
+  html,
+  primaryColor,
+  accentColor,
+  bulletChar,
+}: {
+  html: string;
+  primaryColor: string;
+  accentColor: string;
+  bulletChar: string;
+}) {
+  return (
+    <div
+      className="markdown-rendered-body flex-1 flow-root"
+      style={{
+        '--primary-color': primaryColor,
+        '--accent-color': accentColor,
+        '--bullet-char': `"${bulletChar}"`,
+      } as React.CSSProperties}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+});
+
 export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 'dark', viewMode = 'split' }) => {
   const { header, footer, toc, style } = theme;
   const meta = theme.meta;
@@ -371,14 +395,11 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
 
                 {/* 3. Markdown Content Page */}
                 {page.type === 'content' && page.contentHtml && (
-                  <div 
-                    className="markdown-rendered-body flex-1 flow-root"
-                    style={{
-                      '--primary-color': style.primaryColor,
-                      '--accent-color': style.accentColor,
-                      '--bullet-char': `"${bulletChar}"`,
-                    } as React.CSSProperties}
-                    dangerouslySetInnerHTML={{ __html: page.contentHtml }}
+                  <RenderedMarkdownPage
+                    html={page.contentHtml}
+                    primaryColor={style.primaryColor}
+                    accentColor={style.accentColor}
+                    bulletChar={bulletChar}
                   />
                 )}
 

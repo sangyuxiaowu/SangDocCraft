@@ -13,7 +13,6 @@ import { modal } from './utils/modalDialog';
 import { DocumentAsset, DocumentHistoryEntry, DocumentTheme, ThemeMode, ViewMode } from './types';
 import { getRegisteredThemes } from './themes/themeRegistry';
 import { loadCustomThemes, saveCustomThemes } from './themes/customThemeStore';
-import { SAMPLE_MARKDOWNS } from './data/defaultMarkdown';
 import { listDocumentAssets, listLibraryAssets } from './utils/imageRepository';
 import { registerAssetUrls } from './utils/assetUrlRegistry';
 import { clearDocumentAssetUrls } from './utils/assetUrlRegistry';
@@ -26,7 +25,6 @@ import { appendUniqueHistory, createHistoryEntry } from './utils/documentHistory
 import { 
   deleteDraft,
   deleteDraftWithAssets, 
-  getLatestDraft, 
   saveDraft, 
   getUnsavedDrafts, 
   markDraftSaved, 
@@ -66,16 +64,7 @@ export default function App() {
     return getRegisteredThemes()[0];
   });
 
-  // Load initial markdown from localStorage or fallback to sample
-  const [markdown, setMarkdown] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem('sangdoccraft_markdown') || localStorage.getItem('docucraft_markdown');
-      if (saved) return saved;
-    } catch (e) {
-      // ignore
-    }
-    return SAMPLE_MARKDOWNS.architectureDoc;
-  });
+  const [markdown, setMarkdown] = useState('');
 
   // UI Theme Mode: 'system' | 'light' | 'dark' (Default is 'system')
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
@@ -243,12 +232,6 @@ export default function App() {
   useEffect(() => {
     saveCustomThemes(customThemes);
   }, [customThemes]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('sangdoccraft_markdown', markdown);
-    } catch (e) {}
-  }, [markdown]);
 
   useEffect(() => {
     try {
@@ -753,10 +736,11 @@ export default function App() {
       />
 
       {/* Main Workspace Layout */}
-      <div 
-        ref={mainWorkspaceRef}
-        className={`flex-1 flex overflow-hidden relative ${isDragging ? 'select-none cursor-col-resize' : ''}`}
-      >
+      {hasActiveDocument && (
+        <div
+          ref={mainWorkspaceRef}
+          className={`flex-1 flex overflow-hidden relative ${isDragging ? 'select-none cursor-col-resize' : ''}`}
+        >
         
         {/* Left Column: Editor (Visible in 'split' and 'edit' mode) */}
         {(viewMode === 'split' || viewMode === 'edit') && (
@@ -835,7 +819,8 @@ export default function App() {
           </button>
         )}
 
-      </div>
+        </div>
+      )}
 
       {/* JSON Theme Import / Export Modal */}
       <DocumentHistoryModal
