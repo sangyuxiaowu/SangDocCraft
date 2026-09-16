@@ -231,6 +231,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
     sectionsChildren.push(
       new Paragraph({
         heading: HeadingLevel.HEADING_1,
+        alignment: toc.titleCenter ? AlignmentType.CENTER : undefined,
         spacing: { before: 200, after: 400 },
         border: titleStyle === 'underline'
           ? { bottom: { color: accentHex, style: BorderStyle.SINGLE, size: 12, space: 6 } }
@@ -317,6 +318,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
         sectionsChildren.push(
           new Paragraph({
             heading: headingLevel,
+            alignment: (level === 1 && style.h1Center) ? AlignmentType.CENTER : undefined,
             spacing: { before: headingConfig.marginBefore * 15, after: headingConfig.marginAfter * 15 },
             children: [
               ...(headingPrefix ? [new TextRun({

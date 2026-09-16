@@ -27,46 +27,61 @@ function renderThumbnail(): React.ReactNode {
 
 function renderPreview(context: CoverRenderContext): React.ReactNode {
   const { meta, style } = context;
+  const hasHeader = Boolean(meta.logo || meta.logoUrl || meta.organization);
+  const hasTitle = Boolean(meta.title || meta.subtitle);
   return (
     <div className="flex-1 flex flex-col items-center px-8 py-4 text-center">
-      <div className="w-full flex flex-col items-center gap-3 min-h-24">
-        {(meta.logo || meta.logoUrl) && (
-          <img src={meta.logo || meta.logoUrl} alt="Logo" style={{ height: meta.logoHeight }} className="h-16 max-w-[240px] w-auto object-contain" />
-        )}
-        <div className="text-xl font-bold tracking-[0.25em] leading-none" style={{ color: style.primaryColor }}>
-          {meta.organization || '某某大学'}
+      {hasHeader && (
+        <div className="w-full flex flex-col items-center gap-3 min-h-24">
+          {(meta.logo || meta.logoUrl) && (
+            <img src={meta.logo || meta.logoUrl} alt="Logo" style={{ height: meta.logoHeight }} className="h-16 max-w-[240px] w-auto object-contain" />
+          )}
+          {meta.organization && (
+            <div className="text-xl font-bold tracking-[0.25em] leading-none" style={{ color: style.primaryColor }}>
+              {meta.organization}
+            </div>
+          )}
         </div>
-      </div>
-      <div className="my-auto w-full space-y-4">
-        <h1 className="text-3xl font-bold tracking-wide leading-relaxed" style={{ color: style.primaryColor }}>
-          {meta.title || '论文题目'}
-        </h1>
-        {meta.subtitle && <p className="text-lg text-slate-600 leading-relaxed">{meta.subtitle}</p>}
-      </div>
-      <div className="w-full mb-14">
-        <CoverMetadata context={context} width="58%" />
-      </div>
-      <div className="text-sm tracking-[0.45em] text-slate-700">{meta.date || '年    月    日'}</div>
+      )}
+      {hasTitle && (
+        <div className="my-auto w-full space-y-4">
+          {meta.title && (
+            <h1 className="text-3xl font-bold tracking-wide leading-relaxed" style={{ color: style.primaryColor }}>
+              {meta.title}
+            </h1>
+          )}
+          {meta.subtitle && <p className="text-lg text-slate-600 leading-relaxed">{meta.subtitle}</p>}
+        </div>
+      )}
+      {Boolean(context.coverListItems?.length) && (
+        <div className="w-full mb-14">
+          <CoverMetadata context={context} width="58%" />
+        </div>
+      )}
+      {meta.date && <div className="text-sm tracking-[0.45em] text-slate-700">{meta.date}</div>}
     </div>
   );
 }
 
 function renderHtml(context: CoverRenderContext): string {
   const { meta } = context;
+  const hasHeader = Boolean(meta.logo || meta.logoUrl || meta.organization);
+  const hasTitle = Boolean(meta.title || meta.subtitle);
+  const hasMeta = Boolean(context.coverListItems?.length);
   return `
     <div class="academic-cover">
-      <div>
+      ${hasHeader ? `<div>
         ${(meta.logo || meta.logoUrl) ? `<img src="${meta.logo || meta.logoUrl}" class="academic-cover-logo"${meta.logoHeight === undefined ? '' : ` style="height:${meta.logoHeight}px;max-height:none;width:auto;"`} alt="Logo" />` : ''}
-        <div class="academic-cover-organization">${meta.organization || '某某大学'}</div>
-      </div>
-      <div class="academic-cover-title-block">
-        <div class="academic-cover-title">${meta.title || '论文题目'}</div>
+        ${meta.organization ? `<div class="academic-cover-organization">${meta.organization}</div>` : ''}
+      </div>` : ''}
+      ${hasTitle ? `<div class="academic-cover-title-block">
+        ${meta.title ? `<div class="academic-cover-title">${meta.title}</div>` : ''}
         ${meta.subtitle ? `<div class="academic-cover-subtitle">${meta.subtitle}</div>` : ''}
-      </div>
-      <div style="width:100%;margin-bottom:52px;">
+      </div>` : ''}
+      ${hasMeta ? `<div style="width:100%;margin-bottom:52px;">
         ${coverMetadataHtml(context, 1, '58%')}
-      </div>
-      <div class="academic-cover-date">${meta.date || '年    月    日'}</div>
+      </div>` : ''}
+      ${meta.date ? `<div class="academic-cover-date">${meta.date}</div>` : ''}
     </div>`;
 }
 
@@ -82,23 +97,31 @@ async function renderDocx(context: CoverDocxRenderContext): Promise<(Paragraph |
       children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 400, after: 160 }, children: [logoRun] }));
     }
   }
-  children.push(
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 180 },
-      children: [new TextRun({ text: meta.organization || '某某大学', bold: true, size: 32, color: primaryHex, characterSpacing: 80, font: fontName })],
-    }),
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { before: 1800, after: 400 },
-      children: [new TextRun({ text: meta.title || '论文题目', bold: true, size: 52, color: primaryHex, font: fontName })],
-    }),
-  );
+  if (meta.organization) {
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 180 },
+        children: [new TextRun({ text: meta.organization, bold: true, size: 32, color: primaryHex, characterSpacing: 80, font: fontName })],
+      }),
+    );
+  }
+  if (meta.title) {
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 1800, after: 400 },
+        children: [new TextRun({ text: meta.title, bold: true, size: 52, color: primaryHex, font: fontName })],
+      }),
+    );
+  }
   if (meta.subtitle) {
     children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 1200 }, children: [new TextRun({ text: meta.subtitle, size: 28, color: accentHex, font: fontName })] }));
   }
   children.push(...coverMetadataDocx(context, 1, 6000));
-  children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 1000 }, children: [new TextRun({ text: meta.date || '年    月    日', size: 22, color: textHex, font: docxFont })] }));
+  if (meta.date) {
+    children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 1000 }, children: [new TextRun({ text: meta.date, size: 22, color: textHex, font: docxFont })] }));
+  }
   return children;
 }
 

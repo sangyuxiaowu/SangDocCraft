@@ -320,7 +320,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                 {page.type === 'toc' && (
                   <div className="flex-1 flex flex-col py-4">
                     <h2 
-                      className="doc-toc-title text-xl font-bold mb-6 flex items-center justify-between"
+                      className={`doc-toc-title text-xl font-bold mb-6 flex items-center ${toc.titleCenter ? 'justify-center text-center' : 'justify-between'}`}
                     >
                       <span>
                         {toc.title || '目 录'}
@@ -420,6 +420,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
           background: ${style.h1Style === 'badge' ? `${style.accentColor}18` : 'transparent'};
           border-bottom: ${style.h1Style === 'underline' ? '2px solid var(--accent-color)' : 'none'};
           border-left: ${style.h1Style === 'accent-block' ? '5px solid var(--accent-color)' : 'none'};
+          ${style.h1Center ? 'text-align: center;' : ''}
         }
         .markdown-rendered-body h1:first-child {
           margin-top: 0;

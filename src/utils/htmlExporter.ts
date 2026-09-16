@@ -497,6 +497,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
       font-size: 22px;
       border-bottom: 2px solid var(--accent-color);
       padding-bottom: 6px;
+      ${style.h1Center ? 'text-align: center;' : ''}
     }
     h2 {
       font-size: 18px;

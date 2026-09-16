@@ -26,6 +26,14 @@ export function getHeadingText(
     return `${counters.slice(0, level).join('.')}. ${text}`;
   }
 
+  if (numbering === 'decimal-skip-h1') {
+    if (level === 1) {
+      return text;
+    }
+    const prefix = counters.slice(0, level).join('.');
+    return text ? `${prefix} ${text}` : prefix;
+  }
+
   const chineseNumerals = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
   const chineseNumber = (value: number) => value <= 10 ? chineseNumerals[value] : String(value);
   const prefixes = [

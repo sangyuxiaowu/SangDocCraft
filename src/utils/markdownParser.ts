@@ -35,6 +35,7 @@ export function getTocTitleCss(selector: string, toc: TocConfig, style: StyleCon
   const titleStyle = toc.titleStyle ?? 'underline';
   return `${selector} {
     color: ${style.primaryColor};
+    text-align: ${toc.titleCenter ? 'center' : 'left'};
     border-bottom: ${titleStyle === 'underline' ? `2px solid ${style.accentColor}` : 'none'};
     border-left: ${titleStyle === 'accent-block' ? `5px solid ${style.accentColor}` : 'none'};
     background: ${titleStyle === 'badge' ? `${style.accentColor}18` : 'transparent'};
@@ -73,6 +74,7 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
       background: ${style.h1Style === 'badge' ? `${style.accentColor}18` : 'transparent'};
       border-bottom: ${style.h1Style === 'underline' ? '2px solid var(--accent-color)' : 'none'};
       border-left: ${style.h1Style === 'accent-block' ? '5px solid var(--accent-color)' : 'none'};
+      ${style.h1Center ? 'text-align: center;' : ''}
     }
     ${selector} h2 {
       font-family: ${style.headingFonts.h2.fontFamily};

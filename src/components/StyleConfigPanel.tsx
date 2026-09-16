@@ -987,7 +987,18 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
             {theme.toc.show && (
               <div className="space-y-3">
                 <div>
-                  <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>目录页标题</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className={`block text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>目录页标题</label>
+                    <label className={`flex items-center gap-1.5 cursor-pointer font-bold text-[11px] ${textSubClass}`}>
+                      <input
+                        type="checkbox"
+                        checked={theme.toc.titleCenter === true}
+                        onChange={(e) => updateToc('titleCenter', e.target.checked)}
+                        className={`rounded text-blue-600 ${isDark ? 'bg-[#0A0A0A] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
+                      />
+                      <span>标题居中</span>
+                    </label>
+                  </div>
                   <input
                     type="text"
                     value={theme.toc.title}
@@ -1239,7 +1250,8 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                         className={`w-full min-w-0 rounded px-2.5 py-1.5 ${inputClass}`}
                       >
                         <option value="none">无</option>
-                        <option value="decimal">数字编号</option>
+                        <option value="decimal">数字编号 (1. / 1.1.)</option>
+                        <option value="decimal-skip-h1">数字编号 (一级不编号，二级 1.1)</option>
                         <option value="chinese">中文编号</option>
                       </select>
                     </div>
@@ -1280,16 +1292,27 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       </select>
                     </div>
                   </div>
-                  <label className={`flex items-center gap-2 cursor-pointer font-bold text-[11px] ${textSubClass}`}>
-                    <input
-                      type="checkbox"
-                      checked={theme.style.h1PageBreak === true}
-                      disabled={theme.style.paginationMode === 'manual'}
-                      onChange={(e) => updateStyle('h1PageBreak', e.target.checked)}
-                      className={`rounded text-blue-600 ${isDark ? 'bg-[#0A0A0A] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
-                    />
-                    <span>一级标题另起一页</span>
-                  </label>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <label className={`flex items-center gap-2 cursor-pointer font-bold text-[11px] ${textSubClass}`}>
+                      <input
+                        type="checkbox"
+                        checked={theme.style.h1PageBreak === true}
+                        disabled={theme.style.paginationMode === 'manual'}
+                        onChange={(e) => updateStyle('h1PageBreak', e.target.checked)}
+                        className={`rounded text-blue-600 ${isDark ? 'bg-[#0A0A0A] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
+                      />
+                      <span>一级标题另起一页</span>
+                    </label>
+                    <label className={`flex items-center gap-2 cursor-pointer font-bold text-[11px] ${textSubClass}`}>
+                      <input
+                        type="checkbox"
+                        checked={theme.style.h1Center === true}
+                        onChange={(e) => updateStyle('h1Center', e.target.checked)}
+                        className={`rounded text-blue-600 ${isDark ? 'bg-[#0A0A0A] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
+                      />
+                      <span>一级标题居中</span>
+                    </label>
+                  </div>
 
                   <div className={`text-[10px] font-bold uppercase tracking-widest pt-1 ${labelClass}`}>详细参数</div>
                   {renderHeadingDetails('h1', '一级标题')}

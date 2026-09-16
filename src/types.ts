@@ -73,8 +73,9 @@ export interface TocConfig {
   show: boolean;
   title: string;
   titleStyle?: 'underline' | 'accent-block' | 'badge' | 'minimal';
+  titleCenter?: boolean;
   maxDepth: 1 | 2 | 3 | 4;
-  headingNumbering?: 'none' | 'decimal' | 'chinese';
+  headingNumbering?: 'none' | 'decimal' | 'chinese' | 'decimal-skip-h1';
   leaderStyle: 'dots' | 'dashes' | 'line' | 'none';
   showPageNumbers: boolean;
   pageBreakAfter: boolean;
@@ -115,6 +116,7 @@ export interface StyleConfig {
     h4: HeadingFontStyle;
   };
   h1PageBreak?: boolean; // 一级标题另起一页 (默认 false)
+  h1Center?: boolean; // 一级标题居中 (默认 false)
   paginationMode?: 'auto' | 'manual';
   indentParagraph?: boolean; // 正文首行缩进2字符 (默认 false)
   
