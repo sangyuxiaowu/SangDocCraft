@@ -14,6 +14,8 @@ import {
   Trash2,
   Plus,
   RotateCcw,
+  ArrowUp,
+  ArrowDown,
   Bold,
   Italic,
   Underline,
@@ -97,6 +99,15 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
 
   const handleRemoveCoverListItem = (index: number) => {
     const newList = currentCoverList.filter((_, i) => i !== index);
+    handleUpdateCoverList(newList);
+  };
+
+  const handleMoveCoverListItem = (index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= currentCoverList.length) return;
+
+    const newList = [...currentCoverList];
+    [newList[index], newList[targetIndex]] = [newList[targetIndex], newList[index]];
     handleUpdateCoverList(newList);
   };
 
@@ -615,7 +626,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                               value={item.label}
                               onChange={(e) => handleEditCoverListItem(idx, 'label', e.target.value)}
                               placeholder="标签 (如: 项目名称)"
-                              className={`w-32 sm:w-36 shrink-0 rounded px-2 py-1 text-[11px] font-medium ${inputClass}`}
+                              className={`flex-1 min-w-0 rounded px-2 py-1 text-[11px] font-medium ${inputClass}`}
                             />
                             <span className={`${textMutedClass} shrink-0 font-bold`}>:</span>
                             <input
@@ -623,8 +634,28 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                               value={item.value}
                               onChange={(e) => handleEditCoverListItem(idx, 'value', e.target.value)}
                               placeholder="内容 (如: Project Hyperion)"
-                              className={`flex-1 min-w-0 rounded px-2 py-1 text-[11px] ${inputClass}`}
+                              className={`w-32 sm:w-36 shrink-0 rounded px-2 py-1 text-[11px] ${inputClass}`}
                             />
+                            <button
+                              type="button"
+                              onClick={() => handleMoveCoverListItem(idx, -1)}
+                              disabled={idx === 0}
+                              className={`p-1.5 transition shrink-0 rounded hover:bg-blue-500/10 ${textMutedClass} hover:text-blue-500 disabled:opacity-30 disabled:pointer-events-none`}
+                              title="上移"
+                              aria-label={`上移${item.label || '此字段'}`}
+                            >
+                              <ArrowUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveCoverListItem(idx, 1)}
+                              disabled={idx === currentCoverList.length - 1}
+                              className={`p-1.5 transition shrink-0 rounded hover:bg-blue-500/10 ${textMutedClass} hover:text-blue-500 disabled:opacity-30 disabled:pointer-events-none`}
+                              title="下移"
+                              aria-label={`下移${item.label || '此字段'}`}
+                            >
+                              <ArrowDown className="w-3.5 h-3.5" />
+                            </button>
                             <button
                               type="button"
                               onClick={() => handleRemoveCoverListItem(idx)}
