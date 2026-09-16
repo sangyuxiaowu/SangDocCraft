@@ -98,6 +98,8 @@ export default function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [assets, setAssets] = useState<DocumentAsset[]>([]);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 
   // Split View ratio state (%)
   const [splitRatio, setSplitRatio] = useState<number>(() => {
@@ -133,6 +135,11 @@ export default function App() {
 
   useEffect(() => {
     void refreshAssets();
+  }, [documentId]);
+
+  useEffect(() => {
+    setSaveStatus('saved');
+    setLastSavedAt(null);
   }, [documentId]);
 
   useEffect(() => {
@@ -539,6 +546,7 @@ export default function App() {
   };
 
   const handleSaveDocument = async () => {
+    setSaveStatus('saving');
     try {
       let nextHistory = history;
       if (documentSettings.historyEnabled) {
@@ -550,13 +558,20 @@ export default function App() {
         downloadSangDocument(buildCurrentDocument(nextHistory));
         await markDraftSaved(documentId, true);
         setIsDocumentDirty(false);
+        setSaveStatus('saved');
+        setLastSavedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
         await refreshUnsavedDrafts();
         return;
       }
       const savedPath = await saveSangDocument(buildCurrentDocument(nextHistory), documentPath);
-      if (!savedPath) return;
+      if (!savedPath) {
+        setSaveStatus(isDocumentDirty ? 'unsaved' : 'saved');
+        return;
+      }
       setDocumentPath(savedPath);
       setIsDocumentDirty(false);
+      setSaveStatus('saved');
+      setLastSavedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
       await deleteDraft(documentId);
       const updated = addRecentDocument({
         title: theme.meta.title || '未命名文档',
@@ -564,6 +579,7 @@ export default function App() {
       });
       setRecentDocuments(updated);
     } catch (error) {
+      setSaveStatus('unsaved');
       await modal.alert({
         title: '保存文档失败',
         message: error instanceof Error ? error.message : '保存文档失败',
@@ -594,13 +610,19 @@ export default function App() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       if (!isDocumentDirty) return;
+      setSaveStatus('saving');
       if (isTauriEnvironment() && documentPath) {
         void saveSangDocument(buildCurrentDocument(), documentPath).then((savedPath) => {
           if (savedPath) {
             setIsDocumentDirty(false);
+            setSaveStatus('saved');
+            setLastSavedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
             void deleteDraft(documentId);
           }
-        }).catch((error) => console.error('Auto-save failed:', error));
+        }).catch((error) => {
+          setSaveStatus('unsaved');
+          console.error('Auto-save failed:', error);
+        });
       } else {
         void saveDraft({
           documentId,
@@ -614,7 +636,12 @@ export default function App() {
           savedToSdc: false,
         }).then(() => {
           setIsDocumentDirty(false);
+          setSaveStatus('saved');
+          setLastSavedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
           void refreshUnsavedDrafts();
+        }).catch((error) => {
+          setSaveStatus('unsaved');
+          console.error('Auto-save failed:', error);
         });
       }
     }, 1500);
@@ -758,6 +785,8 @@ export default function App() {
               uiMode={uiMode}
               documentId={documentId}
               onAssetsChanged={() => refreshAssets()}
+              saveStatus={saveStatus === 'saving' ? 'saving' : isDocumentDirty ? 'unsaved' : 'saved'}
+              lastSavedAt={lastSavedAt}
             />
           </div>
         )}

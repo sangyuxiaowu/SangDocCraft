@@ -32,13 +32,15 @@ interface EditorProps {
   uiMode?: 'dark' | 'light';
   documentId: string;
   onAssetsChanged: () => Promise<void>;
+  saveStatus: 'saved' | 'saving' | 'unsaved';
+  lastSavedAt: string | null;
 }
 
 export interface EditorHandle {
   insertAtSelection: (text: string) => void;
 }
 
-export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, assets, uiMode = 'dark', documentId, onAssetsChanged }, ref) => {
+export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, assets, uiMode = 'dark', documentId, onAssetsChanged, saveStatus, lastSavedAt }, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [isPastingImage, setIsPastingImage] = useState(false);
@@ -371,9 +373,17 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, 
 
       {/* Editor Footer Status */}
       <div className={`h-8 shrink-0 ${isDark ? 'bg-[#121212] border-[#2A2A2A] text-zinc-500' : 'bg-slate-50 border-slate-200 text-slate-600'} border-t px-3 md:px-4 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest transition-colors duration-200`}>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
           <span>行数: <strong className={isDark ? 'text-zinc-200' : 'text-slate-800'}>{lineCount}</strong></span>
           <span>字符数: <strong className={isDark ? 'text-zinc-200' : 'text-slate-800'}>{wordCount}</strong></span>
+          <div className={`w-px h-3 ${isDark ? 'bg-[#2A2A2A]' : 'bg-slate-200'}`} />
+          {saveStatus === 'saving' && <span className="text-blue-500 normal-case tracking-normal animate-pulse">正在保存草稿...</span>}
+          {saveStatus === 'unsaved' && <span className="text-amber-500 normal-case tracking-normal">有未保存修改</span>}
+          {saveStatus === 'saved' && (
+            <span className="text-emerald-500 normal-case tracking-normal">
+              已自动保存{lastSavedAt ? ` ${lastSavedAt}` : ''}
+            </span>
+          )}
           {isPastingImage && <span className="text-indigo-500 normal-case tracking-normal animate-pulse">正在转存粘贴截图...</span>}
         </div>
         <div className="flex items-center gap-1">
