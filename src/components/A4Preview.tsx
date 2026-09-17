@@ -25,6 +25,43 @@ interface A4PreviewProps {
   theme: DocumentTheme;
   uiMode?: 'dark' | 'light';
   viewMode?: ViewMode;
+  navigationTarget?: PreviewNavigationTarget;
+}
+
+export interface PreviewNavigationTarget {
+  position: number;
+  requestId: number;
+}
+
+export interface PreviewPageLocation {
+  pageIndex: number;
+  pageProgress: number;
+}
+
+const PAGE_BREAK_PATTERN = /<!--\s*pagebreak\s*-->/gi;
+
+function getEffectiveSourceLength(source: string): number {
+  return source.replace(PAGE_BREAK_PATTERN, '').replace(/\s/g, '').length;
+}
+
+export function getPreviewPageLocation(markdown: string, pages: string[], position: number): PreviewPageLocation {
+  const safePosition = Math.min(markdown.length, Math.max(0, position));
+  const targetOffset = getEffectiveSourceLength(markdown.slice(0, safePosition));
+  let pageStart = 0;
+
+  for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
+    const pageLength = getEffectiveSourceLength(pages[pageIndex]);
+    const isLastPage = pageIndex === pages.length - 1;
+    if (targetOffset < pageStart + pageLength || isLastPage) {
+      return {
+        pageIndex,
+        pageProgress: Math.min(1, Math.max(0, (targetOffset - pageStart) / Math.max(1, pageLength))),
+      };
+    }
+    pageStart += pageLength;
+  }
+
+  return { pageIndex: 0, pageProgress: 0 };
 }
 
 interface PageItem {
@@ -34,6 +71,7 @@ interface PageItem {
   tocChunk?: TocItem[];
   tocChunkIdx?: number;
   totalTocPages?: number;
+  contentPageIndex?: number;
 }
 
 export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
@@ -60,7 +98,7 @@ export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
   );
 });
 
-export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 'dark', viewMode = 'split' }) => {
+export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 'dark', viewMode = 'split', navigationTarget }) => {
   const { header, footer, toc, style } = theme;
   const meta = theme.meta;
   const coverTemplate = getCoverTemplate(meta.coverStyle);
@@ -255,7 +293,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
   // 3. Markdown Content Pages
   const docCounters = { imgCount: 0, tableCount: 0 };
   const headingCounters = [0, 0, 0, 0];
-  rawContentPages.forEach((pageMd) => {
+  rawContentPages.forEach((pageMd, contentPageIndex) => {
     const trimmed = pageMd.trim();
     if (trimmed.length > 0 || rawContentPages.length === 1) {
       const preprocessedMd = preprocessMarkdownCaptions(trimmed || pageMd);
@@ -269,11 +307,34 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
         type: 'content',
         pageNum: pageCounter++,
         contentHtml: html,
+        contentPageIndex,
       });
     }
   });
 
   const totalPages = pages.length;
+
+  useEffect(() => {
+    if (!navigationTarget || rawContentPages.length === 0) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    const location = getPreviewPageLocation(markdown, rawContentPages, navigationTarget.position);
+    const page = pages.find((item) => item.contentPageIndex === location.pageIndex);
+    if (!page) return;
+
+    requestAnimationFrame(() => {
+      const body = container.querySelector<HTMLElement>(`#a4-page-${page.pageNum} .markdown-rendered-body`);
+      if (!body) return;
+      const containerRect = container.getBoundingClientRect();
+      const bodyRect = body.getBoundingClientRect();
+      const targetTop = container.scrollTop
+        + bodyRect.top - containerRect.top
+        + bodyRect.height * location.pageProgress
+        - container.clientHeight / 2;
+      container.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+    });
+  }, [navigationTarget]);
 
   useEffect(() => {
     const sheets = containerRef.current?.querySelectorAll<HTMLElement>('.a4-sheet-page');

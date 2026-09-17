@@ -28,6 +28,7 @@ import { registerAssetUrl } from '../utils/assetUrlRegistry';
 interface EditorProps {
   value: string;
   onChange: (val: string) => void;
+  onNavigateToPreview?: (position: number) => void;
   assets: DocumentAsset[];
   uiMode?: 'dark' | 'light';
   documentId: string;
@@ -40,7 +41,7 @@ export interface EditorHandle {
   insertAtSelection: (text: string) => void;
 }
 
-export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, assets, uiMode = 'dark', documentId, onAssetsChanged, saveStatus, lastSavedAt }, ref) => {
+export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, onNavigateToPreview, assets, uiMode = 'dark', documentId, onAssetsChanged, saveStatus, lastSavedAt }, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [isPastingImage, setIsPastingImage] = useState(false);
@@ -359,6 +360,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, 
           ref={textareaRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onDoubleClick={(event) => onNavigateToPreview?.(event.currentTarget.selectionStart)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder="在此处输入或粘贴您的 Markdown 文档内容..."

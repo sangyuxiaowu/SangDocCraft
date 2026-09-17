@@ -3,7 +3,33 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it } from 'vitest';
-import { RenderedMarkdownPage } from './A4Preview';
+import { getPreviewPageLocation, RenderedMarkdownPage } from './A4Preview';
+
+describe('getPreviewPageLocation', () => {
+  it('maps a cursor offset to its preview page and relative position', () => {
+    const markdown = 'first paragraph\n\nsecond paragraph\n\nthird paragraph';
+    const pages = ['first paragraph\n\nsecond paragraph', 'third paragraph'];
+
+    expect(getPreviewPageLocation(markdown, pages, markdown.indexOf('second'))).toEqual({
+      pageIndex: 0,
+      pageProgress: 14 / 29,
+    });
+    expect(getPreviewPageLocation(markdown, pages, markdown.indexOf('third'))).toEqual({
+      pageIndex: 1,
+      pageProgress: 0,
+    });
+  });
+
+  it('does not count explicit page-break markers as preview content', () => {
+    const markdown = 'first\n\n<!-- pagebreak -->\n\nsecond';
+    const pages = ['first', 'second'];
+
+    expect(getPreviewPageLocation(markdown, pages, markdown.indexOf('second'))).toEqual({
+      pageIndex: 1,
+      pageProgress: 0,
+    });
+  });
+});
 
 describe('RenderedMarkdownPage', () => {
   const roots: ReturnType<typeof createRoot>[] = [];

@@ -5,7 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Editor } from './Editor';
 
-function renderEditor(value: string) {
+function renderEditor(value: string, onNavigateToPreview = vi.fn()) {
   const container = document.createElement('div');
   document.body.append(container);
   const root = createRoot(container);
@@ -14,6 +14,7 @@ function renderEditor(value: string) {
     <Editor
       value={value}
       onChange={onChange}
+      onNavigateToPreview={onNavigateToPreview}
       assets={[]}
       documentId="test-document"
       onAssetsChanged={async () => {}}
@@ -21,7 +22,7 @@ function renderEditor(value: string) {
       lastSavedAt={null}
     />,
   ));
-  return { root, onChange, textarea: container.querySelector('textarea')! };
+  return { root, onChange, onNavigateToPreview, textarea: container.querySelector('textarea')! };
 }
 
 function pressTab(textarea: HTMLTextAreaElement, shiftKey = false) {
@@ -57,5 +58,15 @@ describe('Editor keyboard indentation', () => {
     rendered.textarea.setSelectionRange(0, 14);
     pressTab(rendered.textarea, true);
     expect(rendered.onChange).toHaveBeenCalledWith('alpha\nbeta');
+  });
+
+  it('reports the cursor position when the editor is double-clicked', () => {
+    const rendered = renderEditor('alpha beta');
+    roots.push(rendered.root);
+    rendered.textarea.setSelectionRange(6, 10);
+
+    act(() => rendered.textarea.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
+
+    expect(rendered.onNavigateToPreview).toHaveBeenCalledWith(6);
   });
 });

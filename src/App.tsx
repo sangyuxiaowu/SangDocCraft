@@ -5,7 +5,7 @@ import { Editor, type EditorHandle } from './components/Editor';
 import { ImageManager } from './components/ImageManager';
 import { DocumentHistoryModal } from './components/DocumentHistoryModal';
 import { StyleConfigPanel } from './components/StyleConfigPanel';
-import { A4Preview } from './components/A4Preview';
+import { A4Preview, type PreviewNavigationTarget } from './components/A4Preview';
 import { JsonThemeModal } from './components/JsonThemeModal';
 import { AboutModal } from './components/AboutModal';
 import { PrintPdfModal } from './components/PrintPdfModal';
@@ -102,6 +102,8 @@ export default function App() {
   const [assets, setAssets] = useState<DocumentAsset[]>([]);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [previewNavigationTarget, setPreviewNavigationTarget] = useState<PreviewNavigationTarget>();
+  const previewNavigationRequestRef = useRef(0);
 
   // Split View ratio state (%)
   const [splitRatio, setSplitRatio] = useState<number>(() => {
@@ -787,6 +789,10 @@ export default function App() {
               ref={editorRef}
               value={markdown}
               onChange={handleMarkdownChange}
+              onNavigateToPreview={(position) => setPreviewNavigationTarget({
+                position,
+                requestId: ++previewNavigationRequestRef.current,
+              })}
               assets={assets}
               uiMode={uiMode}
               documentId={documentId}
@@ -822,7 +828,13 @@ export default function App() {
           <div className={`flex-1 min-w-[240px] h-full flex flex-col overflow-hidden ${
             isDark ? 'bg-[#1E1E1E]' : 'bg-slate-200/80'
           }`}>
-            <A4Preview markdown={markdown} theme={previewTheme} uiMode={uiMode} viewMode={viewMode} />
+            <A4Preview
+              markdown={markdown}
+              theme={previewTheme}
+              uiMode={uiMode}
+              viewMode={viewMode}
+              navigationTarget={previewNavigationTarget}
+            />
           </div>
         )}
 
