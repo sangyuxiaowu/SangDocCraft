@@ -10,6 +10,8 @@ import {
   FileText, 
   Download, 
   Layers, 
+  Images,
+  Target,
   Heart
 } from 'lucide-react';
 
@@ -183,6 +185,30 @@ export const AboutModal: React.FC<AboutModalProps> = ({
                 isDark ? 'bg-zinc-900/30 border-zinc-800/80' : 'bg-white border-slate-200/80'
               }`}>
                 <div className="flex items-center gap-2 font-semibold text-xs mb-1">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>AI 辅助编辑</span>
+                </div>
+                <p className={`text-[11px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+                  多端点模型配置、文档级会话记忆与差异审查式改稿。
+                </p>
+              </div>
+
+              <div className={`p-3 rounded-xl border ${
+                isDark ? 'bg-zinc-900/30 border-zinc-800/80' : 'bg-white border-slate-200/80'
+              }`}>
+                <div className="flex items-center gap-2 font-semibold text-xs mb-1">
+                  <Target className="w-3.5 h-3.5 text-sky-500" />
+                  <span>智能预览定位</span>
+                </div>
+                <p className={`text-[11px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+                  编辑与预览双向双击定位、滚动同步与超页高度提醒。
+                </p>
+              </div>
+
+              <div className={`p-3 rounded-xl border ${
+                isDark ? 'bg-zinc-900/30 border-zinc-800/80' : 'bg-white border-slate-200/80'
+              }`}>
+                <div className="flex items-center gap-2 font-semibold text-xs mb-1">
                   <Download className="w-3.5 h-3.5 text-emerald-500" />
                   <span>多格式高质量导出</span>
                 </div>
@@ -195,7 +221,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
                 isDark ? 'bg-zinc-900/30 border-zinc-800/80' : 'bg-white border-slate-200/80'
               }`}>
                 <div className="flex items-center gap-2 font-semibold text-xs mb-1">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <Images className="w-3.5 h-3.5 text-rose-500" />
                   <span>图片与资产工坊</span>
                 </div>
                 <p className={`text-[11px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
