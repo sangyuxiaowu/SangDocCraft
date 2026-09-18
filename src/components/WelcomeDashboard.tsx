@@ -385,12 +385,12 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-blue-500" />
                 <h2 className="text-base font-bold tracking-tight">
-                  {isTauri ? '最近打开的文档' : '未保存的项目'}
+                  {isTauri ? '最近打开的文档' : '本地草稿文档'}
                 </h2>
                 <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
                   isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-100 text-slate-600'
                 }`}>
-                  {isTauri ? `${recentDocuments.length} 个历史记录` : `${drafts.length} 个未保存草稿`}
+                  {isTauri ? `${recentDocuments.length} 个历史记录` : `${drafts.length} 个本地草稿`}
                 </span>
               </div>
               {isTauri && (
@@ -499,9 +499,9 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
                 isDark ? 'border-zinc-800 text-zinc-500' : 'border-slate-200 text-slate-400'
               }`}>
                 <Check className="w-7 h-7 text-emerald-500 opacity-80" />
-                <div className="text-xs font-medium">当前没有未保存的草稿</div>
+                <div className="text-xs font-medium">当前没有本地草稿</div>
                 <div className="text-[11px] opacity-70">
-                  所有项目已保持清洁或已导出为 .sdc 文件。您可以直接从上方选择模板开始创建。
+                  所有项目已导出为 .sdc 文件或已清空。您可以直接从上方选择模板开始创建。
                 </div>
               </div>
             ) : (

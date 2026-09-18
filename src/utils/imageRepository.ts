@@ -1,9 +1,11 @@
 import type { DocumentAsset } from '../types';
+import type { DocumentChatSession } from '../types/ai';
 
 const DATABASE_NAME = 'sangdoccraft-assets';
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 const DOCUMENT_STORE = 'document-assets';
 const LIBRARY_STORE = 'library-assets';
+const CHAT_STORE = 'document-chat-sessions';
 
 interface StoredDocumentAsset extends DocumentAsset {
   key: string;
@@ -39,6 +41,11 @@ function openDatabase(): Promise<IDBDatabase> {
       }
       if (!database.objectStoreNames.contains(LIBRARY_STORE)) {
         database.createObjectStore(LIBRARY_STORE, { keyPath: 'id' });
+      }
+      if (!database.objectStoreNames.contains(CHAT_STORE)) {
+        const chatStore = database.createObjectStore(CHAT_STORE, { keyPath: 'id' });
+        chatStore.createIndex('documentId', 'documentId');
+        chatStore.createIndex('updatedAt', 'updatedAt');
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -94,6 +101,61 @@ export async function clearDocumentAssets(documentId: string): Promise<void> {
   const keys = await requestResult(store.index('documentId').getAllKeys(documentId));
   keys.forEach((key) => store.delete(key));
   await transactionDone(transaction);
+}
+
+export async function putChatSession(session: DocumentChatSession): Promise<void> {
+  const database = await openDatabase();
+  const transaction = database.transaction(CHAT_STORE, 'readwrite');
+  transaction.objectStore(CHAT_STORE).put(session);
+  await transactionDone(transaction);
+}
+
+export async function getChatSession(sessionId: string): Promise<DocumentChatSession | null> {
+  const database = await openDatabase();
+  const transaction = database.transaction(CHAT_STORE, 'readonly');
+  const record = await requestResult(transaction.objectStore(CHAT_STORE).get(sessionId));
+  return (record as DocumentChatSession) || null;
+}
+
+export async function listChatSessions(documentId: string): Promise<DocumentChatSession[]> {
+  const database = await openDatabase();
+  const transaction = database.transaction(CHAT_STORE, 'readonly');
+  const records = (await requestResult(
+    transaction.objectStore(CHAT_STORE).index('documentId').getAll(documentId)
+  )) as DocumentChatSession[];
+  return (records || []).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+}
+
+export async function deleteChatSession(sessionId: string): Promise<void> {
+  const database = await openDatabase();
+  const transaction = database.transaction(CHAT_STORE, 'readwrite');
+  transaction.objectStore(CHAT_STORE).delete(sessionId);
+  await transactionDone(transaction);
+}
+
+export async function clearDocumentChatSessions(documentId: string): Promise<void> {
+  const database = await openDatabase();
+  const transaction = database.transaction(CHAT_STORE, 'readwrite');
+  const store = transaction.objectStore(CHAT_STORE);
+  const keys = await requestResult(store.index('documentId').getAllKeys(documentId));
+  keys.forEach((key) => store.delete(key));
+  await transactionDone(transaction);
+}
+
+export async function cleanupOrphanChatSessions(validDocumentIds: Set<string>): Promise<number> {
+  const database = await openDatabase();
+  const transaction = database.transaction(CHAT_STORE, 'readwrite');
+  const store = transaction.objectStore(CHAT_STORE);
+  const allRecords = (await requestResult(store.getAll())) as DocumentChatSession[];
+  let deletedCount = 0;
+  for (const record of allRecords) {
+    if (!validDocumentIds.has(record.documentId)) {
+      store.delete(record.id);
+      deletedCount++;
+    }
+  }
+  await transactionDone(transaction);
+  return deletedCount;
 }
 
 /**

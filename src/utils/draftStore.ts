@@ -1,5 +1,10 @@
 import type { DocumentHistoryEntry, DocumentSettings, DocumentTheme } from '../types';
-import { clearDocumentAssets, cleanupOrphanDocumentAssets } from './imageRepository';
+import {
+  clearDocumentAssets,
+  cleanupOrphanDocumentAssets,
+  clearDocumentChatSessions,
+  cleanupOrphanChatSessions,
+} from './imageRepository';
 
 const DATABASE_NAME = 'sangdoccraft-drafts';
 const STORE_NAME = 'drafts';
@@ -77,15 +82,16 @@ export async function clearAllDrafts(): Promise<void> {
 }
 
 /**
- * 彻底删除草稿以及其归属的所有图片资产，不留任何孤立垃圾
+ * 彻底删除草稿以及其归属的所有图片资产与对话记录，不留任何孤立垃圾
  */
 export async function deleteDraftWithAssets(documentId: string): Promise<void> {
   await deleteDraft(documentId);
   await clearDocumentAssets(documentId);
+  await clearDocumentChatSessions(documentId);
 }
 
 /**
- * 清空草稿及关联图片（可选择保留当前正在编辑的 activeDocumentId）
+ * 清空草稿及关联图片与对话（可选择保留当前正在编辑的 activeDocumentId）
  */
 export async function clearAllDraftsWithAssets(preserveDocumentId?: string): Promise<void> {
   const drafts = await getAllDrafts();
@@ -93,6 +99,7 @@ export async function clearAllDraftsWithAssets(preserveDocumentId?: string): Pro
     if (draft.documentId !== preserveDocumentId) {
       await deleteDraft(draft.documentId);
       await clearDocumentAssets(draft.documentId);
+      await clearDocumentChatSessions(draft.documentId);
     }
   }
   if (!preserveDocumentId) {
@@ -103,7 +110,7 @@ export async function clearAllDraftsWithAssets(preserveDocumentId?: string): Pro
 /**
  * 全局存储垃圾回收 (GC):
  * 收集当前所有未删除的草稿 IDs 以及当前活跃文档 ID
- * 清理图片库中所有属于未知/已删文档的孤立残留数据
+ * 清理图片库与对话库中所有属于未知/已删文档的孤立残留数据
  */
 export async function runStorageGC(activeDocumentId?: string): Promise<number> {
   const drafts = await getAllDrafts();
@@ -111,7 +118,11 @@ export async function runStorageGC(activeDocumentId?: string): Promise<number> {
   if (activeDocumentId) {
     validIds.add(activeDocumentId);
   }
-  return cleanupOrphanDocumentAssets(validIds);
+  const [cleanedAssets, cleanedChats] = await Promise.all([
+    cleanupOrphanDocumentAssets(validIds),
+    cleanupOrphanChatSessions(validIds),
+  ]);
+  return cleanedAssets + cleanedChats;
 }
 
 export async function getLatestDraft(): Promise<DocumentDraft | undefined> {

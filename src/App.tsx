@@ -14,11 +14,11 @@ import { modal } from './utils/modalDialog';
 import { DocumentAsset, DocumentHistoryEntry, DocumentTheme, ThemeMode, ViewMode } from './types';
 import { getRegisteredThemes } from './themes/themeRegistry';
 import { loadCustomThemes, saveCustomThemes } from './themes/customThemeStore';
-import { listDocumentAssets, listLibraryAssets } from './utils/imageRepository';
+import { clearDocumentAssets, clearDocumentChatSessions, listChatSessions, listDocumentAssets, listLibraryAssets } from './utils/imageRepository';
 import { registerAssetUrls } from './utils/assetUrlRegistry';
 import { clearDocumentAssetUrls } from './utils/assetUrlRegistry';
 import { isTauriEnvironment, resolveImageSrc, updateTauriWindowTitle } from './utils/tauriHelper';
-import { putDocumentAsset, putLibraryAsset } from './utils/imageRepository';
+import { putChatSession, putDocumentAsset, putLibraryAsset } from './utils/imageRepository';
 import { collectImageReferences } from './utils/imageReferences';
 import { downloadSangDocument, openSangDocument, openSangDocumentByPath, readSangDocumentFile, readStartupDocument, saveSangDocument } from './utils/documentFileOperations';
 import type { SangDocument } from './types';
@@ -37,6 +37,12 @@ import { getRecentDocuments, addRecentDocument, removeRecentDocument, clearRecen
 import { WelcomeDashboard } from './components/WelcomeDashboard';
 import { type DocumentTemplateItem } from './data/documentTemplates';
 import { formatApplicationTitle, resolveDocumentTitle } from './utils/applicationTitle';
+import { loadAiConfig, loadAiConfigWithSecrets, saveAiConfig } from './lib/aiConfig';
+import { AiConfig, DiffReviewSession } from './types/ai';
+import { AiAssistantFloat } from './components/ai/AiAssistantFloat';
+import { AiSettingsModal } from './components/ai/AiSettingsModal';
+import { acceptHunk, rejectHunk, acceptAllHunks, rejectAllHunks, reconstructFromHunks } from './utils/diffUtils';
+import { AiToolContext, type DiffReviewResult } from './utils/aiAssistantService';
 
 export default function App() {
   const builtinThemes = getRegisteredThemes();
@@ -47,6 +53,77 @@ export default function App() {
   const [isDocumentDirty, setIsDocumentDirty] = useState(false);
   const [history, setHistory] = useState<DocumentHistoryEntry[]>([]);
   const [customThemes, setCustomThemes] = useState<DocumentTheme[]>(loadCustomThemes);
+
+  // AI Assistant State
+  const [aiConfig, setAiConfig] = useState<AiConfig>(loadAiConfig);
+  const [isAiFloatOpen, setIsAiFloatOpen] = useState(false);
+  const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false);
+  const [diffReviewSession, setDiffReviewSession] = useState<DiffReviewSession | null>(null);
+  const diffReviewResolverRef = useRef<((result: DiffReviewResult) => void) | null>(null);
+
+  useEffect(() => {
+    void loadAiConfigWithSecrets().then(setAiConfig);
+  }, []);
+
+  const handleAcceptHunk = (hunkId: string) => {
+    if (!diffReviewSession) return;
+    setDiffReviewSession(prev => prev ? {
+      ...prev,
+      hunks: acceptHunk(prev.hunks, hunkId)
+    } : null);
+  };
+
+  const handleRejectHunk = (hunkId: string) => {
+    if (!diffReviewSession) return;
+    setDiffReviewSession(prev => prev ? {
+      ...prev,
+      hunks: rejectHunk(prev.hunks, hunkId)
+    } : null);
+  };
+
+  const handleAcceptAllHunks = () => {
+    if (!diffReviewSession) return;
+    setDiffReviewSession(prev => prev ? {
+      ...prev,
+      hunks: acceptAllHunks(prev.hunks)
+    } : null);
+  };
+
+  const handleRejectAllHunks = () => {
+    if (!diffReviewSession) return;
+    setDiffReviewSession(prev => prev ? {
+      ...prev,
+      hunks: rejectAllHunks(prev.hunks)
+    } : null);
+  };
+
+  const handleApplyResolution = () => {
+    if (!diffReviewSession) return;
+    const finalMarkdown = reconstructFromHunks(diffReviewSession.hunks);
+    const changeHunks = diffReviewSession.hunks.filter(hunk => hunk.type === 'change');
+    setMarkdown(finalMarkdown);
+    setIsDocumentDirty(true);
+    setDiffReviewSession(null);
+    diffReviewResolverRef.current?.({
+      markdown: finalMarkdown,
+      acceptedCount: changeHunks.filter(hunk => hunk.status !== 'rejected').length,
+      rejectedCount: changeHunks.filter(hunk => hunk.status === 'rejected').length,
+      cancelled: false
+    });
+    diffReviewResolverRef.current = null;
+  };
+
+  const handleCancelReview = () => {
+    if (!diffReviewSession) return;
+    setDiffReviewSession(null);
+    diffReviewResolverRef.current?.({
+      markdown: diffReviewSession.originalText,
+      acceptedCount: 0,
+      rejectedCount: diffReviewSession.hunks.filter(hunk => hunk.type === 'change').length,
+      cancelled: true
+    });
+    diffReviewResolverRef.current = null;
+  };
 
   // Welcome Dashboard State
   const [isWelcomeOpen, setIsWelcomeOpen] = useState(true);
@@ -194,6 +271,8 @@ export default function App() {
       if (asset.scope === 'library') await putLibraryAsset(asset);
       else await putDocumentAsset(opened.document.id, asset);
     }
+    await clearDocumentChatSessions(opened.document.id);
+    await Promise.all(opened.document.chatSessions.map(putChatSession));
     setDocumentId(opened.document.id);
     setDocumentCreatedAt(opened.document.createdAt);
     setDocumentPath(opened.path);
@@ -533,7 +612,7 @@ export default function App() {
     }
   };
 
-  const buildCurrentDocument = (documentHistory = history): SangDocument => {
+  const buildCurrentDocument = async (documentHistory = history): Promise<SangDocument> => {
     const references = collectImageReferences(markdown, theme);
     const packageAssets = assets.filter((asset) => asset.scope === 'document' || references.has(`@library/${asset.id}`));
     return {
@@ -545,6 +624,7 @@ export default function App() {
       theme,
       settings: documentSettings,
       history: documentHistory,
+      chatSessions: await listChatSessions(documentId),
       assets: packageAssets,
     };
   };
@@ -558,16 +638,25 @@ export default function App() {
         setHistory(nextHistory);
       }
       if (!isTauriEnvironment()) {
-        // Web 模式：即用即走，下载导出 .sdc 文件落盘，并标记已保存
-        downloadSangDocument(buildCurrentDocument(nextHistory));
-        await markDraftSaved(documentId, true);
+        // Web 模式：仅保存内容至本地数据库 (IndexedDB 草稿)，不触发文件下载（导出时才会下载）
+        await saveDraft({
+          documentId,
+          createdAt: documentCreatedAt,
+          updatedAt: new Date().toISOString(),
+          path: undefined,
+          markdown,
+          theme,
+          settings: documentSettings,
+          history: nextHistory,
+          savedToSdc: false,
+        });
         setIsDocumentDirty(false);
         setSaveStatus('saved');
         setLastSavedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
         await refreshUnsavedDrafts();
         return;
       }
-      const savedPath = await saveSangDocument(buildCurrentDocument(nextHistory), documentPath);
+      const savedPath = await saveSangDocument(await buildCurrentDocument(nextHistory), documentPath);
       if (!savedPath) {
         setSaveStatus(isDocumentDirty ? 'unsaved' : 'saved');
         return;
@@ -594,7 +683,7 @@ export default function App() {
 
   const handleExportSdc = async () => {
     try {
-      const doc = buildCurrentDocument();
+      const doc = await buildCurrentDocument();
       downloadSangDocument(doc);
       if (!isTauriEnvironment()) {
         // Web 模式：已下载保存为 sdc，无需再保留为未保存草稿
@@ -616,7 +705,7 @@ export default function App() {
       if (!isDocumentDirty) return;
       setSaveStatus('saving');
       if (isTauriEnvironment() && documentPath) {
-        void saveSangDocument(buildCurrentDocument(), documentPath).then((savedPath) => {
+        void buildCurrentDocument().then(doc => saveSangDocument(doc, documentPath)).then((savedPath) => {
           if (savedPath) {
             setIsDocumentDirty(false);
             setSaveStatus('saved');
@@ -659,7 +748,7 @@ export default function App() {
         const nextHistory = appendUniqueHistory(history, entry);
         setHistory(nextHistory);
         if (isTauriEnvironment() && documentPath && nextHistory !== history) {
-          void saveSangDocument(buildCurrentDocument(nextHistory), documentPath);
+          void buildCurrentDocument(nextHistory).then(doc => saveSangDocument(doc, documentPath));
         } else if (nextHistory !== history) {
           void saveDraft({
             documentId,
@@ -731,6 +820,29 @@ export default function App() {
   if (previewTheme.meta.logoUrl) previewTheme.meta.logoUrl = resolveImageSrc(previewTheme.meta.logoUrl);
   if (previewTheme.header.logoUrl) previewTheme.header.logoUrl = resolveImageSrc(previewTheme.header.logoUrl);
 
+  const aiToolContext: AiToolContext = {
+    markdown,
+    theme,
+    settings: documentSettings,
+    onUpdateMarkdown: (newMd) => {
+      setMarkdown(newMd);
+      setIsDocumentDirty(true);
+    },
+    onUpdateTheme: (update) => {
+      setTheme(update);
+      setIsDocumentDirty(true);
+    },
+    onUpdateSettings: (update) => {
+      setDocumentSettings(update);
+    },
+    onSetHistory: setHistory,
+    onStartDiffReview: (session) => new Promise(resolve => {
+      diffReviewResolverRef.current = resolve;
+      setDiffReviewSession(session);
+    }),
+    onCancelDiffReview: handleCancelReview
+  };
+
   return (
     <div className={`flex flex-col h-screen w-screen overflow-hidden font-sans transition-colors duration-200 ${
       isDark ? 'dark-ui bg-[#121212] text-white' : 'light-ui bg-slate-100 text-slate-900'
@@ -755,6 +867,8 @@ export default function App() {
         onThemeModeChange={setThemeMode}
         effectiveUiMode={effectiveUiMode}
         isDocumentDirty={isDocumentDirty}
+        saveStatus={saveStatus}
+        lastSavedAt={lastSavedAt}
         onOpenWelcome={() => {
           void refreshUnsavedDrafts();
           refreshRecentDocs();
@@ -765,6 +879,8 @@ export default function App() {
         onSaveDocument={() => void handleSaveDocument()}
         onOpenHistory={() => setShowHistory(true)}
         onOpenAbout={() => setShowAboutModal(true)}
+        onToggleAiAssistant={() => setIsAiFloatOpen(prev => !prev)}
+        isAiAssistantOpen={isAiFloatOpen}
       />
 
       {/* Main Workspace Layout */}
@@ -799,6 +915,14 @@ export default function App() {
               onAssetsChanged={() => refreshAssets()}
               saveStatus={saveStatus === 'saving' ? 'saving' : isDocumentDirty ? 'unsaved' : 'saved'}
               lastSavedAt={lastSavedAt}
+              reviewSession={diffReviewSession}
+              onAcceptHunk={handleAcceptHunk}
+              onRejectHunk={handleRejectHunk}
+              onAcceptAllHunks={handleAcceptAllHunks}
+              onRejectAllHunks={handleRejectAllHunks}
+              onApplyResolution={handleApplyResolution}
+              onCancelReview={handleCancelReview}
+              onOpenAiAssistant={() => setIsAiFloatOpen(true)}
             />
           </div>
         )}
@@ -983,6 +1107,33 @@ export default function App() {
 
       {/* Modal Dialog System (replaces native alert and confirm) */}
       <ModalDialogContainer isDark={isDark} />
+
+      {/* Global Draggable & Expandable AI Assistant Float */}
+      <AiAssistantFloat
+        isOpen={isAiFloatOpen}
+        onClose={() => setIsAiFloatOpen(false)}
+        config={aiConfig}
+        onConfigChange={(newCfg) => {
+          setAiConfig(newCfg);
+          void saveAiConfig(newCfg);
+        }}
+        onOpenSettings={() => setIsAiSettingsOpen(true)}
+        toolContext={aiToolContext}
+        documentId={documentId}
+        isDark={isDark}
+      />
+
+      {/* AI Endpoints and Models Settings Modal */}
+      <AiSettingsModal
+        isOpen={isAiSettingsOpen}
+        onClose={() => setIsAiSettingsOpen(false)}
+        config={aiConfig}
+        onConfigChange={(newCfg) => {
+          setAiConfig(newCfg);
+          void saveAiConfig(newCfg);
+        }}
+        isDark={isDark}
+      />
 
     </div>
   );

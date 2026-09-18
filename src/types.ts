@@ -1,3 +1,5 @@
+import type { DocumentChatSession } from './types/ai';
+
 export type ViewMode = 'split' | 'edit' | 'preview';
 export type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -185,6 +187,7 @@ export interface SangDocument {
   theme: DocumentTheme;
   settings: DocumentSettings;
   history: DocumentHistoryEntry[];
+  chatSessions: DocumentChatSession[];
   assets: DocumentAsset[];
 }
 

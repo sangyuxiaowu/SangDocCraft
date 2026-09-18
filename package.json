@@ -19,6 +19,7 @@
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",
     "docx": "^9.7.1",
+    "dompurify": "^3.4.15",
     "fflate": "^0.8.3",
     "lucide-react": "^0.546.0",
     "marked": "^18.0.9",

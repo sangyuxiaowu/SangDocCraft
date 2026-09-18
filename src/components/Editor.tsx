@@ -16,6 +16,8 @@ import {
   FileCode,
   Type,
   Image as ImageIcon,
+  Sparkles,
+  GitPullRequest
 } from 'lucide-react';
 import { getPageBreakInsertion } from '../utils/pageBreaks';
 import type { DocumentAsset } from '../types';
@@ -24,6 +26,8 @@ import { formatImageDimensionSuffix } from '../utils/imageDimensions';
 import { createDocumentAsset } from '../utils/documentPackage';
 import { putDocumentAsset } from '../utils/imageRepository';
 import { registerAssetUrl } from '../utils/assetUrlRegistry';
+import { DiffReviewSession } from '../types/ai';
+import { AiDiffReviewPanel } from './ai/AiDiffReviewPanel';
 
 interface EditorProps {
   value: string;
@@ -35,13 +39,39 @@ interface EditorProps {
   onAssetsChanged: () => Promise<void>;
   saveStatus: 'saved' | 'saving' | 'unsaved';
   lastSavedAt: string | null;
+  reviewSession?: DiffReviewSession | null;
+  onAcceptHunk?: (hunkId: string) => void;
+  onRejectHunk?: (hunkId: string) => void;
+  onAcceptAllHunks?: () => void;
+  onRejectAllHunks?: () => void;
+  onApplyResolution?: () => void;
+  onCancelReview?: () => void;
+  onOpenAiAssistant?: () => void;
 }
 
 export interface EditorHandle {
   insertAtSelection: (text: string) => void;
 }
 
-export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, onNavigateToPreview, assets, uiMode = 'dark', documentId, onAssetsChanged, saveStatus, lastSavedAt }, ref) => {
+export const Editor = forwardRef<EditorHandle, EditorProps>(({ 
+  value, 
+  onChange, 
+  onNavigateToPreview, 
+  assets, 
+  uiMode = 'dark', 
+  documentId, 
+  onAssetsChanged, 
+  saveStatus, 
+  lastSavedAt,
+  reviewSession,
+  onAcceptHunk,
+  onRejectHunk,
+  onAcceptAllHunks,
+  onRejectAllHunks,
+  onApplyResolution,
+  onCancelReview,
+  onOpenAiAssistant
+}, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [isPastingImage, setIsPastingImage] = useState(false);
@@ -352,25 +382,65 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, 
           <FilePlus className="w-4 h-4" />
         </button>
 
+        {/* AI Assistant Quick Trigger */}
+        {onOpenAiAssistant && (
+          <>
+            <div className={`w-px h-4 mx-1 ${dividerClass}`} />
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={onOpenAiAssistant}
+              className={`p-1.5 rounded transition flex items-center gap-1.5 text-blue-500 hover:bg-blue-500/10 font-medium ${
+                reviewSession ? 'bg-blue-500/10 ring-1 ring-blue-500/30' : ''
+              }`}
+              title="打开 AI 辅助写作浮窗"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span className="text-xs hidden sm:inline">AI 辅助</span>
+            </button>
+          </>
+        )}
+
+        {reviewSession && (
+          <div className="ml-auto flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[11px] font-semibold">
+            <GitPullRequest className="w-3 h-3" />
+            <span>对比审查中</span>
+          </div>
+        )}
+
       </div>
 
       {/* Editor Content Area */}
-      <div className={`flex-1 relative flex ${isDark ? 'bg-[#0A0A0A]' : 'bg-white'}`}>
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onDoubleClick={(event) => onNavigateToPreview?.(event.currentTarget.selectionStart)}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          placeholder="在此处输入或粘贴您的 Markdown 文档内容..."
-          className={`w-full h-full p-4 font-mono text-xs leading-relaxed resize-none focus:outline-none border-none select-text transition-colors duration-200 ${
-            isDark 
-              ? 'bg-[#0A0A0A] text-blue-400/90 selection:bg-blue-600 selection:text-white' 
-              : 'bg-white text-slate-800 selection:bg-blue-200 selection:text-blue-900'
-          }`}
-          spellCheck={false}
-        />
+      <div className={`flex-1 relative flex overflow-hidden ${isDark ? 'bg-[#0A0A0A]' : 'bg-white'}`}>
+        {reviewSession ? (
+          <AiDiffReviewPanel
+            sessionId={reviewSession.id}
+            hunks={reviewSession.hunks}
+            onAcceptHunk={onAcceptHunk || (() => {})}
+            onRejectHunk={onRejectHunk || (() => {})}
+            onAcceptAll={onAcceptAllHunks || (() => {})}
+            onRejectAll={onRejectAllHunks || (() => {})}
+            onApplyResolution={onApplyResolution || (() => {})}
+            onCancelReview={onCancelReview || (() => {})}
+            isDark={isDark}
+            description={reviewSession.description}
+          />
+        ) : (
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onDoubleClick={(event) => onNavigateToPreview?.(event.currentTarget.selectionStart)}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            placeholder="在此处输入或粘贴您的 Markdown 文档内容..."
+            className={`w-full h-full p-4 font-mono text-xs leading-relaxed resize-none focus:outline-none border-none select-text transition-colors duration-200 ${
+              isDark 
+                ? 'bg-[#0A0A0A] text-blue-400/90 selection:bg-blue-600 selection:text-white' 
+                : 'bg-white text-slate-800 selection:bg-blue-200 selection:text-blue-900'
+            }`}
+            spellCheck={false}
+          />
+        )}
       </div>
 
       {/* Editor Footer Status */}
@@ -385,7 +455,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({ value, onChange, 
           {saveStatus === 'unsaved' && <span className="text-amber-500 normal-case tracking-normal">有未保存修改</span>}
           {saveStatus === 'saved' && (
             <span className="text-emerald-500 normal-case tracking-normal">
-              已自动保存{lastSavedAt ? ` ${lastSavedAt}` : ''}
+              已保存{lastSavedAt ? ` ${lastSavedAt}` : ''}
             </span>
           )}
           <div className={`w-px h-3 ${isDark ? 'bg-[#2A2A2A]' : 'bg-slate-200'}`} />

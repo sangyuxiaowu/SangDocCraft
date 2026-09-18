@@ -111,6 +111,10 @@ describe('mermaidRenderer', () => {
       }
     }
     vi.stubGlobal('Image', LoadedImage);
+    const origCreateObjectURL = URL.createObjectURL;
+    const origRevokeObjectURL = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn().mockReturnValue('blob:mock');
+    URL.revokeObjectURL = vi.fn();
     const { renderMermaidPng } = await loadRenderer();
 
     const result = await renderMermaidPng('flowchart TD\nA --> B');
@@ -118,6 +122,8 @@ describe('mermaidRenderer', () => {
     expect(result.width).toBe(560);
     expect(result.height).toBe(640);
     expect(drawImage).toHaveBeenCalledWith(expect.any(LoadedImage), 0, 0, 1120, 1280);
+    URL.createObjectURL = origCreateObjectURL;
+    URL.revokeObjectURL = origRevokeObjectURL;
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });

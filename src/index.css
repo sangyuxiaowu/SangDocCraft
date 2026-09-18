@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+.ai-chat-markdown > :first-child { margin-top: 0; }
+.ai-chat-markdown > :last-child { margin-bottom: 0; }
+.ai-chat-markdown p, .ai-chat-markdown ul, .ai-chat-markdown ol, .ai-chat-markdown pre, .ai-chat-markdown blockquote { margin-block: 0.55em; }
+.ai-chat-markdown ul, .ai-chat-markdown ol { padding-left: 1.4em; }
+.ai-chat-markdown ul { list-style: disc; }
+.ai-chat-markdown ol { list-style: decimal; }
+.ai-chat-markdown pre { overflow-x: auto; border-radius: 6px; background: rgb(0 0 0 / 18%); padding: 8px; }
+.ai-chat-markdown code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.ai-chat-markdown :not(pre) > code { border-radius: 4px; background: rgb(0 0 0 / 12%); padding: 1px 4px; }
+.ai-chat-markdown a { color: #3b82f6; text-decoration: underline; }
+.ai-chat-markdown blockquote { border-left: 2px solid #64748b; padding-left: 8px; opacity: 0.8; }
+
 .a4-preview-shell {
   container-name: a4-preview;
   container-type: inline-size;

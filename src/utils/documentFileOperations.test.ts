@@ -29,6 +29,7 @@ function createDocument(): SangDocument {
     theme: getRegisteredThemes()[0],
     settings: { historyEnabled: false, historyIdleMinutes: 10 },
     history: [],
+    chatSessions: [],
     assets: [],
   };
 }

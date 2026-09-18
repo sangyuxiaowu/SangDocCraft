@@ -8,6 +8,7 @@ import type {
   DocumentTheme,
   SangDocument,
 } from '../types';
+import type { DocumentChatSession } from '../types/ai';
 
 export const SANG_DOCUMENT_EXTENSION = 'sdc';
 export const SANG_DOCUMENT_MIME_TYPE = 'application/vnd.sangdoccraft.document+zip';
@@ -103,6 +104,7 @@ export function packSangDocument(document: SangDocument): Uint8Array {
     'images.json': strToU8(JSON.stringify({ images: assets.map(({ data: _, ...metadata }) => metadata) }, null, 2)),
     'settings.json': strToU8(JSON.stringify(document.settings, null, 2)),
     'history.json': strToU8(JSON.stringify(document.history, null, 2)),
+    'chats.json': strToU8(JSON.stringify(document.chatSessions, null, 2)),
   };
   for (const asset of assets) files[assetPath(asset)] = asset.data;
   return zipSync(files, { level: 6 });
@@ -139,6 +141,7 @@ export async function unpackSangDocument(data: Uint8Array): Promise<SangDocument
     theme: parseJson<DocumentTheme>(files, 'theme.json'),
     settings: parseJson<DocumentSettings>(files, 'settings.json'),
     history: files['history.json'] ? parseJson<DocumentHistoryEntry[]>(files, 'history.json') : [],
+    chatSessions: files['chats.json'] ? parseJson<DocumentChatSession[]>(files, 'chats.json') : [],
     assets,
   };
 }

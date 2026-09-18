@@ -431,6 +431,30 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                     />
                   </div>
 
+                  {/* Author & Version */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>作者</label>
+                      <input
+                        type="text"
+                        value={theme.meta.author || ''}
+                        onChange={(e) => updateMeta('author', e.target.value)}
+                        placeholder="如：张三"
+                        className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
+                      />
+                    </div>
+                    <div>
+                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>版本</label>
+                      <input
+                        type="text"
+                        value={theme.meta.version || ''}
+                        onChange={(e) => updateMeta('version', e.target.value)}
+                        placeholder="如：v1.0.0"
+                        className={`w-full rounded px-2.5 py-1.5 font-mono text-[11px] ${inputClass}`}
+                      />
+                    </div>
+                  </div>
+
                   {/* Document Number & Date */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
