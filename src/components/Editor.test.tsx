@@ -4,7 +4,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Editor, type EditorHandle } from './Editor';
+import { Editor, getSelectionStats, type EditorHandle } from './Editor';
 
 function renderEditor(value: string, onNavigateToPreview = vi.fn(), scrollSyncEnabled = false) {
   const container = document.createElement('div');
@@ -100,5 +100,27 @@ describe('Editor keyboard indentation', () => {
     expect(rendered.textarea.selectionStart).toBe(position);
     expect(rendered.textarea.selectionEnd).toBe(position);
     expect(rendered.textarea.scrollTop).toBe(300);
+  });
+
+  it('counts selected text with punctuation, whitespace, and empty lines', () => {
+    expect(getSelectionStats('你好， world!\n\n第二行')).toEqual({
+      characters: 15,
+      textCharacters: 10,
+      charactersWithoutLineBreaks: 13,
+      charactersWithoutSpacesAndLineBreaks: 12,
+      lines: 3,
+      nonEmptyLines: 2,
+    });
+  });
+
+  it('shows statistics for the current text selection', () => {
+    const rendered = renderEditor('alpha beta');
+    roots.push(rendered.root);
+    rendered.textarea.setSelectionRange(0, 5);
+
+    act(() => rendered.textarea.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })));
+
+    expect(rendered.textarea.closest('.flex.flex-col')?.textContent).toContain('已选择 5 字符');
+    expect(rendered.textarea.closest('.flex.flex-col')?.textContent).toContain('文字数（不含标点符号）5');
   });
 });

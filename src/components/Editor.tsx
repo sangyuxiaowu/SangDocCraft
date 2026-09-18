@@ -17,7 +17,9 @@ import {
   Type,
   Image as ImageIcon,
   Sparkles,
-  GitPullRequest
+  GitPullRequest,
+  Settings,
+  RotateCcw
 } from 'lucide-react';
 import { getPageBreakInsertion } from '../utils/pageBreaks';
 import type { DocumentAsset } from '../types';
@@ -56,6 +58,43 @@ export interface EditorHandle {
   insertAtSelection: (text: string) => void;
   navigateToPosition: (position: number) => void;
   scrollToPosition: (position: number) => void;
+}
+
+interface EditorTypography {
+  fontFamily: string;
+  fontSize: number;
+  lineHeight: number;
+}
+
+const DEFAULT_EDITOR_TYPOGRAPHY: EditorTypography = {
+  fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',
+  fontSize: 12,
+  lineHeight: 1.625,
+};
+
+const EDITOR_TYPOGRAPHY_STORAGE_KEY = 'sangdoccraft_editor_typography';
+
+export function getSelectionStats(text: string) {
+  const characters = Array.from(text).length;
+  const lines = text === '' ? 0 : text.split(/\r\n|\r|\n/).length;
+  return {
+    characters,
+    textCharacters: Array.from(text.replace(/[\p{P}\s]/gu, '')).length,
+    charactersWithoutLineBreaks: Array.from(text.replace(/[\r\n]/g, '')).length,
+    charactersWithoutSpacesAndLineBreaks: Array.from(text.replace(/[\s]/gu, '')).length,
+    lines,
+    nonEmptyLines: text === '' ? 0 : text.split(/\r\n|\r|\n/).filter((line) => line.trim().length > 0).length,
+  };
+}
+
+function loadEditorTypography(): EditorTypography {
+  try {
+    const saved = localStorage.getItem(EDITOR_TYPOGRAPHY_STORAGE_KEY);
+    if (!saved) return DEFAULT_EDITOR_TYPOGRAPHY;
+    return { ...DEFAULT_EDITOR_TYPOGRAPHY, ...JSON.parse(saved) };
+  } catch {
+    return DEFAULT_EDITOR_TYPOGRAPHY;
+  }
 }
 
 function createTextareaMirror(textarea: HTMLTextAreaElement, value: string) {
@@ -153,7 +192,13 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
   const expectedScrollTopRef = useRef<number | null>(null);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [isPastingImage, setIsPastingImage] = useState(false);
+  const [editorTypography, setEditorTypography] = useState(loadEditorTypography);
+  const [selectedText, setSelectedText] = useState('');
   const isDark = uiMode === 'dark';
+
+  useEffect(() => {
+    localStorage.setItem(EDITOR_TYPOGRAPHY_STORAGE_KEY, JSON.stringify(editorTypography));
+  }, [editorTypography]);
 
   // Insert helper for formatting buttons
   const insertText = (before: string, after: string = '', defaultText: string = '') => {
@@ -369,8 +414,13 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
     });
   };
 
+  const updateSelectedText = (textarea: HTMLTextAreaElement) => {
+    setSelectedText(textarea.value.substring(textarea.selectionStart, textarea.selectionEnd));
+  };
+
   const lineCount = value.split('\n').length;
   const wordCount = value.length;
+  const selectionStats = getSelectionStats(selectedText);
 
   const btnHoverClass = isDark
     ? 'hover:bg-[#2A2A2A] text-zinc-300 hover:text-white'
@@ -529,6 +579,74 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
           </div>
         )}
 
+        <details className={`${reviewSession ? '' : 'ml-auto'} relative group`}>
+          <summary
+            className={`list-none p-1.5 rounded transition cursor-pointer [&::-webkit-details-marker]:hidden ${btnHoverClass}`}
+            title="编辑器字体设置"
+            aria-label="编辑器字体设置"
+          >
+            <Settings className="w-4 h-4" />
+          </summary>
+          <div className={`absolute right-0 top-9 z-30 w-64 border rounded-md shadow-xl p-3 normal-case tracking-normal ${
+            isDark ? 'bg-[#181818] border-zinc-700 text-zinc-200' : 'bg-white border-slate-200 text-slate-700'
+          }`}>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-bold">编辑器字体</span>
+              <button
+                type="button"
+                onClick={() => setEditorTypography(DEFAULT_EDITOR_TYPOGRAPHY)}
+                className={`p-1 rounded transition ${btnHoverClass}`}
+                title="恢复默认字体设置"
+                aria-label="恢复默认字体设置"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <label className="block mb-3">
+              <span className="block text-[11px] mb-1">字体</span>
+              <select
+                aria-label="编辑器字体"
+                value={editorTypography.fontFamily}
+                onChange={(event) => setEditorTypography((current) => ({ ...current, fontFamily: event.target.value }))}
+                className={`w-full h-8 px-2 rounded border text-xs outline-none focus:border-blue-500 ${
+                  isDark ? 'bg-[#121212] border-zinc-700' : 'bg-white border-slate-300'
+                }`}
+              >
+                <option value="ui-monospace, SFMono-Regular, Consolas, monospace">等宽字体</option>
+                <option value="'Microsoft YaHei', sans-serif">微软雅黑</option>
+                <option value="SimSun, serif">宋体</option>
+                <option value="KaiTi, serif">楷体</option>
+              </select>
+            </label>
+            <label className="block mb-3">
+              <span className="flex justify-between text-[11px] mb-1"><span>字号</span><strong>{editorTypography.fontSize}px</strong></span>
+              <input
+                type="range"
+                aria-label="编辑器字号"
+                min="10"
+                max="32"
+                step="1"
+                value={editorTypography.fontSize}
+                onChange={(event) => setEditorTypography((current) => ({ ...current, fontSize: Number(event.target.value) }))}
+                className="w-full accent-blue-500"
+              />
+            </label>
+            <label className="block">
+              <span className="flex justify-between text-[11px] mb-1"><span>行距</span><strong>{editorTypography.lineHeight.toFixed(1)}</strong></span>
+              <input
+                type="range"
+                aria-label="编辑器行距"
+                min="1.2"
+                max="2.4"
+                step="0.1"
+                value={editorTypography.lineHeight}
+                onChange={(event) => setEditorTypography((current) => ({ ...current, lineHeight: Number(event.target.value) }))}
+                className="w-full accent-blue-500"
+              />
+            </label>
+          </div>
+        </details>
+
       </div>
 
       {/* Editor Content Area */}
@@ -551,6 +669,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
             ref={textareaRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onSelect={(event) => updateSelectedText(event.currentTarget)}
+            onMouseUp={(event) => updateSelectedText(event.currentTarget)}
+            onKeyUp={(event) => updateSelectedText(event.currentTarget)}
             onScroll={handleScroll}
             onDoubleClick={scrollSyncEnabled
               ? undefined
@@ -558,11 +679,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
             placeholder="在此处输入或粘贴您的 Markdown 文档内容..."
-            className={`w-full h-full p-4 font-mono text-xs leading-relaxed resize-none focus:outline-none border-none select-text transition-colors duration-200 ${
+            className={`w-full h-full p-4 resize-none focus:outline-none border-none select-text transition-colors duration-200 ${
               isDark 
                 ? 'bg-[#0A0A0A] text-blue-400/90 selection:bg-blue-600 selection:text-white' 
                 : 'bg-white text-slate-800 selection:bg-blue-200 selection:text-blue-900'
             }`}
+            style={editorTypography}
             spellCheck={false}
           />
         )}
@@ -570,7 +692,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
 
       {/* Editor Footer Status */}
       <div className={`h-8 shrink-0 ${isDark ? 'bg-[#121212] border-[#2A2A2A] text-zinc-500' : 'bg-slate-50 border-slate-200 text-slate-600'} border-t px-3 md:px-4 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest transition-colors duration-200`}>
-        <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <label className={`flex items-center gap-1.5 shrink-0 normal-case tracking-normal cursor-pointer ${scrollSyncEnabled ? 'text-blue-500' : ''}`}>
             <input
               type="checkbox"
@@ -589,6 +711,21 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
           </label>
           <span>行数: <strong className={isDark ? 'text-zinc-200' : 'text-slate-800'}>{lineCount}</strong></span>
           <span>字符数: <strong className={isDark ? 'text-zinc-200' : 'text-slate-800'}>{wordCount}</strong></span>
+          {selectedText && (
+            <span className="relative group normal-case tracking-normal cursor-default text-blue-500" tabIndex={0}>
+              已选择 <strong>{selectionStats.characters}</strong> 字符
+              <span className={`absolute hidden group-hover:block group-focus:block left-0 bottom-6 z-30 w-52 rounded-md border p-3 shadow-xl text-[11px] leading-5 font-normal ${
+                isDark ? 'bg-[#181818] border-zinc-700 text-zinc-200' : 'bg-white border-slate-200 text-slate-700'
+              }`} role="tooltip">
+                <span className="flex justify-between"><span>字符数</span><strong>{selectionStats.characters}</strong></span>
+                <span className="flex justify-between"><span>文字数（不含标点符号）</span><strong>{selectionStats.textCharacters}</strong></span>
+                <span className="flex justify-between"><span>字符数（不含换行）</span><strong>{selectionStats.charactersWithoutLineBreaks}</strong></span>
+                <span className="flex justify-between"><span>字符数（不含空格和换行）</span><strong>{selectionStats.charactersWithoutSpacesAndLineBreaks}</strong></span>
+                <span className="flex justify-between"><span>行数</span><strong>{selectionStats.lines}</strong></span>
+                <span className="flex justify-between"><span>非空行数</span><strong>{selectionStats.nonEmptyLines}</strong></span>
+              </span>
+            </span>
+          )}
           {isPastingImage && <span className="text-indigo-500 normal-case tracking-normal animate-pulse">正在转存粘贴截图...</span>}
         </div>
         <div className="flex items-center gap-3 shrink-0">
