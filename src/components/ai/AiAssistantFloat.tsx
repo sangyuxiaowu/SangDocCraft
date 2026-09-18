@@ -967,7 +967,7 @@ export const AiAssistantFloat: React.FC<AiAssistantFloatProps> = ({
       <div className={`p-3 border-t shrink-0 ${
         isDark ? 'bg-[#181818] border-[#262626]' : 'bg-white border-slate-200'
       }`}>
-        <div className={`relative rounded-xl border focus-within:ring-1 focus-within:ring-blue-500 ${
+        <div className={`relative rounded-xl border transition-colors focus-within:border-blue-500 ${
           isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'
         }`}>
           <textarea
@@ -981,7 +981,7 @@ export const AiAssistantFloat: React.FC<AiAssistantFloatProps> = ({
                 ? '请先重试未完成的工具调用'
                 : '向 AI 助手描述修改意图，Ctrl+Enter 发送'}
             rows={3}
-            className={`w-full p-2.5 pb-9 text-xs resize-none focus:outline-hidden leading-normal ${
+            className={`block w-full rounded-[11px] border-0 p-2.5 pb-9 text-xs resize-none focus:outline-hidden leading-normal ${
               isDark 
                 ? 'bg-zinc-950 text-zinc-100 placeholder:text-zinc-500' 
                 : 'bg-slate-50 text-slate-900 placeholder:text-slate-400'
