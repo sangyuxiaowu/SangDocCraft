@@ -3,7 +3,7 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it } from 'vitest';
-import { getPreviewPageLocation, RenderedMarkdownPage } from './A4Preview';
+import { getOverflowPageNumbers, getPreviewPageLocation, RenderedMarkdownPage } from './A4Preview';
 
 describe('getPreviewPageLocation', () => {
   it('maps a cursor offset to its preview page and relative position', () => {
@@ -28,6 +28,18 @@ describe('getPreviewPageLocation', () => {
       pageIndex: 1,
       pageProgress: 0,
     });
+  });
+});
+
+describe('getOverflowPageNumbers', () => {
+  it('returns only the page numbers whose rendered height exceeds A4', () => {
+    const sheets = [
+      { offsetHeight: 1124, dataset: { pageNum: '1' } },
+      { offsetHeight: 1125, dataset: { pageNum: '2' } },
+      { offsetHeight: 1280, dataset: { pageNum: '4' } },
+    ] as unknown as HTMLElement[];
+
+    expect(getOverflowPageNumbers(sheets)).toEqual([2, 4]);
   });
 });
 

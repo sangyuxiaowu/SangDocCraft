@@ -20,6 +20,7 @@ import {
   Layers,
   Info,
   Printer,
+  AlertTriangle,
 } from 'lucide-react';
 import { DocumentTheme, ThemeMode, ViewMode } from '../types';
 import { SAMPLE_MARKDOWNS } from '../data/defaultMarkdown';
@@ -35,6 +36,7 @@ interface HeaderBarProps {
   onExportDocx: () => void;
   onExportHtml: () => void;
   onExportSdc: () => void;
+  overflowPageNumbers?: number[];
   onOpenPrintPdf?: () => void;
   onOpenJsonModal: () => void;
   onOpenImageManager: () => void;
@@ -65,6 +67,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onExportDocx,
   onExportHtml,
   onExportSdc,
+  overflowPageNumbers = [],
   onOpenPrintPdf,
   onOpenJsonModal,
   onOpenImageManager,
@@ -600,6 +603,17 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     <div className={`text-[10px] truncate ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>打包正文、主题、图片与历史</div>
                   </div>
                 </button>
+                {overflowPageNumbers.length > 0 && (
+                  <div className={`mx-1 mt-1.5 border-t pt-2 ${isDark ? 'border-zinc-800' : 'border-slate-200'}`}>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                      <span>检测到 {overflowPageNumbers.length} 页超出 A4 高度</span>
+                    </div>
+                    <p className={`mt-1 text-[10px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+                      建议在导出前调整第 {overflowPageNumbers.join('、')} 页内容或分页
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>

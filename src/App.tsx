@@ -180,6 +180,7 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [previewNavigationTarget, setPreviewNavigationTarget] = useState<PreviewNavigationTarget>();
+  const [overflowPageNumbers, setOverflowPageNumbers] = useState<number[]>([]);
   const previewNavigationRequestRef = useRef(0);
 
   // Split View ratio state (%)
@@ -860,6 +861,7 @@ export default function App() {
         onExportDocx={handleExportDocx}
         onExportHtml={handleExportHtml}
         onExportSdc={handleExportSdc}
+        overflowPageNumbers={overflowPageNumbers}
         onOpenPrintPdf={() => setShowPrintPdfModal(true)}
         onOpenJsonModal={() => setShowJsonModal(true)}
         onOpenImageManager={() => setShowImageManager(true)}
@@ -958,6 +960,11 @@ export default function App() {
               uiMode={uiMode}
               viewMode={viewMode}
               navigationTarget={previewNavigationTarget}
+              onOverflowPageNumbersChange={(pageNumbers) => setOverflowPageNumbers((current) => (
+                current.length === pageNumbers.length && current.every((pageNumber, index) => pageNumber === pageNumbers[index])
+                  ? current
+                  : pageNumbers
+              ))}
             />
           </div>
         )}

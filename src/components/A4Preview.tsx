@@ -26,6 +26,7 @@ interface A4PreviewProps {
   uiMode?: 'dark' | 'light';
   viewMode?: ViewMode;
   navigationTarget?: PreviewNavigationTarget;
+  onOverflowPageNumbersChange?: (pageNumbers: number[]) => void;
 }
 
 export interface PreviewNavigationTarget {
@@ -39,6 +40,14 @@ export interface PreviewPageLocation {
 }
 
 const PAGE_BREAK_PATTERN = /<!--\s*pagebreak\s*-->/gi;
+const A4_PAGE_HEIGHT_PX = 1124;
+
+export function getOverflowPageNumbers(sheets: Iterable<HTMLElement>): number[] {
+  return Array.from(sheets)
+    .filter(sheet => sheet.offsetHeight > A4_PAGE_HEIGHT_PX)
+    .map(sheet => Number(sheet.dataset.pageNum))
+    .filter(Number.isInteger);
+}
 
 function getEffectiveSourceLength(source: string): number {
   return source.replace(PAGE_BREAK_PATTERN, '').replace(/\s/g, '').length;
@@ -98,7 +107,7 @@ export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
   );
 });
 
-export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 'dark', viewMode = 'split', navigationTarget }) => {
+export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 'dark', viewMode = 'split', navigationTarget, onOverflowPageNumbersChange }) => {
   const { header, footer, toc, style } = theme;
   const meta = theme.meta;
   const coverTemplate = getCoverTemplate(meta.coverStyle);
@@ -107,7 +116,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
   const [zoom, setZoom] = useState<number>(85);
   const [showZoomPresets, setShowZoomPresets] = useState<boolean>(false);
   const [headerLogoSrc, setHeaderLogoSrc] = useState<string>('');
-  const [overflowPageCount, setOverflowPageCount] = useState(0);
+  const [overflowPageNumbers, setOverflowPageNumbers] = useState<number[]>([]);
   const [mermaidHeights, setMermaidHeights] = useState<Record<string, number>>({});
   const [isOutlineOpen, setIsOutlineOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -339,12 +348,16 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
   useEffect(() => {
     const sheets = containerRef.current?.querySelectorAll<HTMLElement>('.a4-sheet-page');
     if (!sheets) return;
-    const checkOverflow = () => setOverflowPageCount(Array.from<HTMLElement>(sheets).filter(sheet => sheet.offsetHeight > 1124).length);
+    const checkOverflow = () => setOverflowPageNumbers(getOverflowPageNumbers(sheets));
     const observer = new ResizeObserver(checkOverflow);
     sheets.forEach((sheet: HTMLElement) => observer.observe(sheet));
     checkOverflow();
     return () => observer.disconnect();
   }, [markdown, theme, totalPages]);
+
+  useEffect(() => {
+    onOverflowPageNumbersChange?.(overflowPageNumbers);
+  }, [onOverflowPageNumbersChange, overflowPageNumbers]);
 
   // Dynamic cover list items
   const coverListItems = (meta.coverlist && meta.coverlist.length > 0)
@@ -460,15 +473,10 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
         onWheel={handleWheel}
         className={`flex-1 overflow-auto p-4 md:p-8 select-text transition-colors duration-200 relative ${isDark ? 'bg-[#1E1E1E]' : 'bg-slate-200/80'}`}
       >
-        <div 
-          className="min-w-fit flex flex-col items-center mx-auto pb-16 transition-transform duration-150 origin-top"
-          style={{
-            zoom: `${zoom / 100}`,
-          }}
+        <div
+          className={`mx-auto flex items-center justify-between mb-3 select-none print-hide ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}
+          style={{ width: `${210 * zoom / 100}mm` }}
         >
-        
-        {/* Top Status Bar */}
-        <div className={`w-[210mm] flex items-center justify-between mb-3 select-none print-hide ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
             <span className="text-[10px] font-bold uppercase tracking-widest">
@@ -476,7 +484,22 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
             </span>
           </div>
           <div className="flex items-center gap-3">
-            {overflowPageCount > 0 && <span role="status" className="text-xs text-amber-600">{overflowPageCount} 页超出 A4 高度</span>}
+            {overflowPageNumbers.length > 0 && (
+              <span role="status" className="flex items-center gap-1 text-xs text-amber-600">
+                <span>{overflowPageNumbers.length} 页超出 A4 高度：</span>
+                {overflowPageNumbers.map((pageNumber) => (
+                  <button
+                    key={pageNumber}
+                    type="button"
+                    onClick={() => scrollToPage(pageNumber)}
+                    className="font-semibold underline underline-offset-2 hover:text-amber-700"
+                    title={`跳转到超高的第 ${pageNumber} 页`}
+                  >
+                    P{pageNumber}
+                  </button>
+                ))}
+              </span>
+            )}
             <span className="text-[10px] font-bold uppercase tracking-widest font-mono">
               共 {totalPages} 页 A4 文档
             </span>
@@ -485,7 +508,12 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
             </span>
           </div>
         </div>
-
+        <div 
+          className="min-w-fit flex flex-col items-center mx-auto pb-16 transition-transform duration-150 origin-top"
+          style={{
+            zoom: `${zoom / 100}`,
+          }}
+        >
         {/* Pages Render Loop */}
         {pages.map((page, index) => (
           <React.Fragment key={page.pageNum}>
