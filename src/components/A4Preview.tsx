@@ -812,8 +812,9 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
           margin-top: ${style.headingFonts.h4.marginBefore}px;
           margin-bottom: ${style.headingFonts.h4.marginAfter}px;
         }
-        .markdown-rendered-body p {
-          margin-bottom: 0.9em;
+        .markdown-rendered-body > p {
+          margin-top: ${style.paragraphMarginBefore ?? 0}px;
+          margin-bottom: ${style.paragraphMarginAfter ?? 6}px;
           line-height: inherit;
           text-indent: ${style.indentParagraph ? '2em' : '0'};
         }

@@ -57,6 +57,23 @@ describe('Markdown pagination and numbering', () => {
     expect(document.querySelector('.pagination-measurer')).toBeNull();
   });
 
+  it('reserves the rendered header, footer and one reflowed text line', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.querySelectorAll('p').length * 435;
+    });
+    try {
+      const pages = paginateContentByDom('First paragraph\n\nSecond paragraph', {
+        style: theme.style,
+        headerShow: true,
+        footerShow: true,
+      });
+
+      expect(pages).toEqual(['First paragraph', 'Second paragraph']);
+    } finally {
+      height.mockRestore();
+    }
+  });
+
   it('keeps an image markdown expression intact when it overflows the remaining page space', () => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       return this.querySelectorAll('h2').length * 900 + this.querySelectorAll('img').length * 200;
@@ -270,6 +287,18 @@ describe('Rendered Markdown post-processing', () => {
     });
 
     expect(css).toContain('.body { font-family: Microsoft YaHei; }');
+  });
+
+  it('applies default and custom paragraph spacing to top-level paragraphs', () => {
+    const defaultCss = getMarkdownBodyCss('.body', theme.style);
+    const customCss = getMarkdownBodyCss('.body', {
+      ...theme.style,
+      paragraphMarginBefore: 8,
+      paragraphMarginAfter: 12,
+    });
+
+    expect(defaultCss).toContain('.body > p { margin-top: 0px; margin-bottom: 6px;');
+    expect(customCss).toContain('.body > p { margin-top: 8px; margin-bottom: 12px;');
   });
 
   it.each([

@@ -1388,6 +1388,30 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                         />
                       </div>
                     </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={`block text-[10px] font-bold mb-1 ${labelClass}`}>段前 (px)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={120}
+                          value={theme.style.paragraphMarginBefore ?? 0}
+                          onChange={(e) => updateStyle('paragraphMarginBefore', Number(e.target.value))}
+                          className={`w-full rounded px-2 py-1 ${inputClass}`}
+                        />
+                      </div>
+                      <div>
+                        <label className={`block text-[10px] font-bold mb-1 ${labelClass}`}>段后 (px)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={120}
+                          value={theme.style.paragraphMarginAfter ?? 6}
+                          onChange={(e) => updateStyle('paragraphMarginAfter', Number(e.target.value))}
+                          className={`w-full rounded px-2 py-1 ${inputClass}`}
+                        />
+                      </div>
+                    </div>
                     <label className={`flex items-center gap-2 cursor-pointer font-bold text-[11px] ${textSubClass}`}>
                       <input
                         type="checkbox"

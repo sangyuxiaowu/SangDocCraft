@@ -111,7 +111,7 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
       margin-top: ${style.headingFonts.h4.marginBefore}px;
       margin-bottom: ${style.headingFonts.h4.marginAfter}px;
     }
-    ${selector} p { margin-bottom: 0.9em; line-height: inherit; text-indent: ${style.indentParagraph ? '2em' : '0'}; }
+    ${selector} > p { margin-top: ${style.paragraphMarginBefore ?? 0}px; margin-bottom: ${style.paragraphMarginAfter ?? 6}px; line-height: inherit; text-indent: ${style.indentParagraph ? '2em' : '0'}; }
     ${selector} p.p-continuation, ${selector} .p-continuation p, ${selector} blockquote p, ${selector} li p, ${selector} table p { text-indent: 0 !important; }
     ${selector} blockquote { border-left: 4px solid var(--accent-color); background: #f8fafc; padding: 10px 16px; margin: 1.2em 0; border-radius: 0 6px 6px 0; color: #475569; font-style: italic; }
     ${selector} pre { background: ${style.codeTheme === 'light' ? '#f1f5f9' : '#0f172a'}; color: ${style.codeTheme === 'light' ? '#0f172a' : '#f8fafc'}; padding: 12px 16px; border-radius: 6px; overflow-x: auto; font-family: Consolas, monospace; font-size: 0.85em; margin: 1em 0; white-space: pre-wrap; word-break: break-all; overflow-wrap: break-word; }
@@ -404,12 +404,13 @@ export function paginateContentByDom(
   document.head.appendChild(measurerStyles);
   document.body.appendChild(measurer);
 
-  // Height available inside A4 sheet body area:
-  // A4 total height at 96dpi = 1122.5px
-  // Top padding (20mm = ~75.6px) + Bottom padding (20mm = ~75.6px) = 151.2px
-  const headerHeight = options.headerShow ? 38 : 0;
-  const footerHeight = options.footerShow ? 38 : 0;
-  const maxHeight = 1122.5 - 151.2 - headerHeight - footerHeight - 6;
+  // Match the rendered sheet's outer header/footer boxes, including their 16px margins.
+  // Reserve one text line because closing inline Markdown after a paragraph split can reflow
+  // the final HTML, plus a small allowance for browser font rounding.
+  const headerHeight = options.headerShow ? 42 : 0;
+  const footerHeight = options.footerShow ? 42 : 0;
+  const renderingTolerance = Math.ceil((options.fontSize || 14) * (options.lineHeight || 1.6)) + 8;
+  const maxHeight = 1122.5 - 151.2 - headerHeight - footerHeight - renderingTolerance;
 
   try {
     initialChunks.forEach((chunk) => {

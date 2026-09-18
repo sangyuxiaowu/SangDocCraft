@@ -525,6 +525,8 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
               textColor: { type: 'string', description: '正文文字颜色 hex (如 #0f172a, #334155)' },
               fontSize: { type: 'number', description: '正文基础字号，单位 px (如 13, 14, 15)' },
               lineHeight: { type: 'number', description: '行高比例 (如 1.6, 1.8)' },
+              paragraphMarginBefore: { type: 'number', description: '正文段前间距，单位 px，默认 0' },
+              paragraphMarginAfter: { type: 'number', description: '正文段后间距，单位 px，默认 6' },
               backgroundColor: { type: 'string', description: '正文页面背景色 hex' },
               coverBgColor: { type: 'string', description: '封面背景色 hex' },
               fontFamily: { 

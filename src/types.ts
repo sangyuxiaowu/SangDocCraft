@@ -106,6 +106,8 @@ export interface StyleConfig {
   bodyFontFamily: string;
   fontSize: number; // base font size in px (e.g., 14)
   lineHeight: number; // e.g. 1.6
+  paragraphMarginBefore?: number; // 正文段前间距 px (默认 0)
+  paragraphMarginAfter?: number; // 正文段后间距 px (默认 6)
   
   // Heading styles
   h1Style: 'underline' | 'accent-block' | 'badge' | 'minimal';
