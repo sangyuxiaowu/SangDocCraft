@@ -89,6 +89,39 @@ describe('mermaidRenderer', () => {
     expect(element?.textContent).toContain('not a diagram');
   });
 
+  it('treats Mermaid error SVGs as invalid syntax', async () => {
+    render.mockResolvedValue({
+      svg: '<svg aria-roledescription="error"><text>Syntax error in text</text></svg>',
+    });
+    const { renderMermaidElements } = await loadRenderer();
+    document.body.innerHTML = '<div class="mermaid">not a diagram</div>';
+
+    await renderMermaidElements(document.body);
+
+    const element = document.querySelector<HTMLElement>('.mermaid');
+    expect(element?.dataset.mermaidRendered).toBe('error');
+    expect(element?.querySelector('svg')).toBeNull();
+    expect(element?.textContent).toContain('not a diagram');
+  });
+
+  it('removes Mermaid error artifacts left in the document body', async () => {
+    const errorSvg = '<svg aria-roledescription="error"><text>Syntax error in text</text></svg>';
+    render.mockImplementation(async (renderId: string) => {
+      const artifact = document.createElement('div');
+      artifact.id = `d${renderId}`;
+      artifact.innerHTML = errorSvg;
+      document.body.append(artifact);
+      return { svg: errorSvg };
+    });
+    const { renderMermaidElements } = await loadRenderer();
+    document.body.insertAdjacentHTML('afterbegin', '<div class="mermaid">not a diagram</div>');
+
+    await renderMermaidElements(document.body);
+
+    expect(document.querySelector('[id^="dsangdoccraft-mermaid-"]')).toBeNull();
+    expect(document.querySelector('svg[aria-roledescription="error"]')).toBeNull();
+  });
+
   it('caps a tall DOCX diagram at 560 by 640 pixels', async () => {
     render.mockResolvedValue({
       svg: '<svg viewBox="0 0 800 1600" xmlns="http://www.w3.org/2000/svg"></svg>',

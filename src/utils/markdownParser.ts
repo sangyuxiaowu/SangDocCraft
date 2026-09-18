@@ -117,6 +117,7 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
     ${selector} code { background: #f1f5f9; color: #0f172a; padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 0.88em; }
     ${selector} pre code { background: transparent; color: inherit; padding: 0; }
     ${selector} .mermaid { display: flex; align-items: center; justify-content: center; min-height: 180px; max-height: 720px; margin: 1.2em 0; overflow: hidden; text-indent: 0; }
+    ${selector} .mermaid-error { display: block; min-height: 0; }
     ${selector} .mermaid svg { width: auto; height: auto; max-width: 100%; max-height: 720px; }
     ${selector} ul { margin: 0.8em 0; padding-left: 20px; list-style: none; }
     ${selector} ul li { position: relative; padding-left: 14px; margin-bottom: 0.3em; }

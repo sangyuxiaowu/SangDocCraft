@@ -746,6 +746,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
         }
         .markdown-rendered-body .mermaid-error {
           display: block;
+          min-height: 0;
           padding: 12px 16px;
           white-space: pre-wrap;
           color: #b91c1c;

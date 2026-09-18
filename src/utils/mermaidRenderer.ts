@@ -20,7 +20,16 @@ async function getMermaid(): Promise<typeof import('mermaid').default> {
 async function renderMermaidSvg(source: string): Promise<string> {
   const mermaid = await getMermaid();
   renderCounter += 1;
-  const { svg } = await mermaid.render(`sangdoccraft-mermaid-${renderCounter}`, source);
+  const renderId = `sangdoccraft-mermaid-${renderCounter}`;
+  let svg: string;
+  try {
+    ({ svg } = await mermaid.render(renderId, source));
+  } finally {
+    document.getElementById(`d${renderId}`)?.remove();
+  }
+  if (/\baria-roledescription=(['"])error\1/i.test(svg)) {
+    throw new Error('Mermaid diagram syntax error');
+  }
   return svg;
 }
 
