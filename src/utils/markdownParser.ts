@@ -61,6 +61,7 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
     ${selector} { font-family: ${style.bodyFontFamily || 'inherit'}; }
     ${selector} > :first-child { margin-top: 0 !important; }
     ${selector} > :last-child { margin-bottom: 0 !important; }
+    ${selector} h1, ${selector} h2, ${selector} h3, ${selector} h4, ${selector} h5, ${selector} h6 { line-height: 1.3; }
     ${selector} h1 {
       font-family: ${style.headingFonts.h1.fontFamily};
       font-size: ${style.headingFonts.h1.fontSize}px;

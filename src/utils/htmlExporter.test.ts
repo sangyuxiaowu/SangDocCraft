@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PRESET_THEMES } from '../data/presetThemes';
 import { generateStandaloneHtml } from './htmlExporter';
 
@@ -136,5 +136,27 @@ describe('generateStandaloneHtml', () => {
 
     expect(html).toContain('class="mermaid"');
     expect(html).not.toContain('language-mermaid');
+  });
+
+  it('repaginates the export with the measured Mermaid height', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      const listHeight = this.querySelectorAll('li').length * 180;
+      const headingHeight = this.querySelectorAll('h2').length * 24;
+      const mermaid = this.querySelector<HTMLElement>('.mermaid');
+      return listHeight + headingHeight + (mermaid ? Number.parseFloat(mermaid.style.height) || 180 : 0);
+    });
+    const source = '- One\n- Two\n- Three\n\n## Diagram\n\n```mermaid\nflowchart LR\nA --> B\n```';
+    const theme = {
+      ...PRESET_THEMES[0],
+      meta: { ...PRESET_THEMES[0].meta, showCover: false },
+      toc: { ...PRESET_THEMES[0].toc, show: false },
+    };
+
+    try {
+      expect(generateStandaloneHtml(source, theme).match(/class="a4-page content-page-wrapper"/g)).toHaveLength(1);
+      expect(generateStandaloneHtml(source, theme, { 'flowchart LR\nA --> B': 500 }).match(/class="a4-page content-page-wrapper"/g)).toHaveLength(2);
+    } finally {
+      height.mockRestore();
+    }
   });
 });

@@ -62,7 +62,11 @@ async function inlineImagesAsDataUris(html: string): Promise<string> {
   });
 }
 
-export function generateStandaloneHtml(markdownText: string, theme: DocumentTheme): string {
+export function generateStandaloneHtml(
+  markdownText: string,
+  theme: DocumentTheme,
+  mermaidHeights: Record<string, number> = {},
+): string {
   const { header, footer, toc, style } = theme;
   const meta = theme.meta;
   const coverTemplate = getCoverTemplate(meta.coverStyle);
@@ -85,6 +89,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
     headerShow: header.show,
     footerShow: footer.show,
     style,
+    mermaidHeights,
   });
 
   // Build TOC page numbers from the exact pages used by the export.
@@ -437,7 +442,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
         header.lineStyle === 'double' ? `3px double ${style.accentColor}` :
         header.lineStyle === 'accent' ? `2px solid ${style.accentColor}` :
         '1px solid #cbd5e1'};
-      shrink: 0;
+      flex-shrink: 0;
     }
     .doc-header-left {
       transition: margin-left 0.1s ease;
@@ -452,7 +457,7 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
       padding-top: 6px;
       margin-top: 16px;
       border-top: 1px solid #e2e8f0;
-      shrink: 0;
+      flex-shrink: 0;
     }
     .doc-footer .footer-left {
       text-align: left;
@@ -854,8 +859,50 @@ export function generateStandaloneHtml(markdownText: string, theme: DocumentThem
 </html>`;
 }
 
+async function measureMermaidHeights(html: string, sources: string[]): Promise<Record<string, number>> {
+  if (sources.length === 0 || typeof document === 'undefined') return {};
+
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('aria-hidden', 'true');
+  iframe.style.position = 'fixed';
+  iframe.style.left = '-10000px';
+  iframe.style.top = '0';
+  iframe.style.width = '210mm';
+  iframe.style.height = '1px';
+  iframe.style.visibility = 'hidden';
+  iframe.style.pointerEvents = 'none';
+
+  try {
+    const loaded = new Promise<void>((resolve) => {
+      iframe.addEventListener('load', () => resolve(), { once: true });
+    });
+    iframe.srcdoc = html;
+    document.body.appendChild(iframe);
+    await loaded;
+    await iframe.contentDocument?.fonts?.ready;
+
+    const frameWindow = iframe.contentWindow;
+    if (frameWindow) {
+      await new Promise<void>((resolve) => frameWindow.requestAnimationFrame(() => resolve()));
+    }
+
+    const elements = Array.from(iframe.contentDocument?.querySelectorAll<HTMLElement>('.mermaid') || []);
+    return Object.fromEntries(sources.map((source, index) => [source, elements[index]?.offsetHeight || 180]));
+  } finally {
+    iframe.remove();
+  }
+}
+
 export async function generatePreparedHtml(markdownText: string, theme: DocumentTheme): Promise<string> {
-  const renderedHtml = await renderMermaidInHtml(generateStandaloneHtml(markdownText, theme));
+  const initialHtml = generateStandaloneHtml(markdownText, theme);
+  const parsed = new DOMParser().parseFromString(initialHtml, 'text/html');
+  const mermaidSources = Array.from(parsed.querySelectorAll<HTMLElement>('.mermaid'))
+    .map((element) => element.textContent?.trim() || '');
+  const initiallyRenderedHtml = await renderMermaidInHtml(initialHtml);
+  const mermaidHeights = await measureMermaidHeights(initiallyRenderedHtml, mermaidSources);
+  const renderedHtml = mermaidSources.length > 0
+    ? await renderMermaidInHtml(generateStandaloneHtml(markdownText, theme, mermaidHeights))
+    : initiallyRenderedHtml;
   return inlineImagesAsDataUris(renderedHtml);
 }
 
