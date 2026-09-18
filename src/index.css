@@ -11,6 +11,15 @@
 .ai-chat-markdown :not(pre) > code { border-radius: 4px; background: rgb(0 0 0 / 12%); padding: 1px 4px; }
 .ai-chat-markdown a { color: #3b82f6; text-decoration: underline; }
 .ai-chat-markdown blockquote { border-left: 2px solid #64748b; padding-left: 8px; opacity: 0.8; }
+.ai-chat-markdown table {border-collapse: collapse;}
+.ai-chat-markdown th,
+.ai-chat-markdown td {
+  border: 0.5px solid color-mix(in srgb, currentColor 25%, transparent);
+  padding: 2px 5px;
+}
+.ai-chat-markdown th{
+  background: rgb(0 0 0 / 12%)
+}
 
 .a4-preview-shell {
   container-name: a4-preview;

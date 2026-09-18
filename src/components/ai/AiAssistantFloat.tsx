@@ -600,7 +600,7 @@ export const AiAssistantFloat: React.FC<AiAssistantFloatProps> = ({
   return (
     <div
       style={{ left: `${position.x}px`, top: `${position.y}px` }}
-      className={`fixed z-[65] w-[520px] max-w-[calc(100vw-20px)] h-[620px] max-h-[calc(100vh-30px)] flex flex-col rounded-2xl border shadow-2xl overflow-hidden backdrop-blur-md animate-in zoom-in-95 duration-150 ${
+      className={`fixed z-[65] w-[480px] max-w-[calc(100vw-20px)] h-[620px] max-h-[calc(100vh-30px)] flex flex-col rounded-2xl border shadow-2xl overflow-hidden backdrop-blur-md animate-in zoom-in-95 duration-150 ${
         isDark ? 'bg-[#141414]/95 border-[#2E2E2E] text-zinc-100' : 'bg-white/95 border-slate-200/90 text-slate-800'
       }`}
     >
