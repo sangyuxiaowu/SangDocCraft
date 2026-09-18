@@ -11,6 +11,7 @@ import {
   X,
   ArrowUpToLine,
   ArrowDownToLine,
+  TriangleAlert,
 } from 'lucide-react';
 import { DocumentTheme, TocItem, ViewMode } from '../types';
 import { getFooterSlots, getHeadingText, getTocChunks } from '../utils/documentStructure';
@@ -541,39 +542,51 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
         className={`flex-1 overflow-auto p-4 md:p-8 select-text transition-colors duration-200 relative ${isDark ? 'bg-[#1E1E1E]' : 'bg-slate-200/80'}`}
       >
         <div
-          className={`mx-auto flex items-center justify-between mb-3 select-none print-hide ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}
+          className={`mx-auto flex flex-col gap-2 mb-3 select-none print-hide ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}
           style={{ width: `${210 * zoom / 100}mm` }}
         >
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
-            <span className="text-[10px] font-bold uppercase tracking-widest">
-              A4 Live Stage Preview
-            </span>
+          <div className="flex items-center justify-between gap-3 min-h-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
+              <span className="text-[10px] font-bold uppercase tracking-widest">
+                A4 Preview
+              </span>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="text-[10px] font-bold uppercase tracking-widest font-mono">
+                共 {totalPages} 页
+              </span>
+              <span className={`text-[10px] font-bold uppercase tracking-widest font-mono ${isDark ? 'text-zinc-500' : 'text-slate-500'}`}>
+                210 × 297 mm
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            {overflowPageNumbers.length > 0 && (
-              <span role="status" className="flex items-center gap-1 text-xs text-amber-600">
-                <span>{overflowPageNumbers.length} 页超出 A4 高度：</span>
+          {overflowPageNumbers.length > 0 && (
+            <div
+              role="status"
+              className={`flex items-start gap-2 w-full px-3 py-2 rounded-md border text-xs font-semibold ${
+                isDark
+                  ? 'bg-amber-950/70 border-amber-700 text-amber-300'
+                  : 'bg-amber-100 border-amber-400 text-amber-900'
+              }`}
+            >
+              <TriangleAlert className="w-4 h-4 mt-px shrink-0" />
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 min-w-0">
+                <span>{overflowPageNumbers.length} 页内容超出 A4 高度，请检查：</span>
                 {overflowPageNumbers.map((pageNumber) => (
                   <button
                     key={pageNumber}
                     type="button"
                     onClick={() => scrollToPage(pageNumber)}
-                    className="font-semibold underline underline-offset-2 hover:text-amber-700"
+                    className={`font-bold underline underline-offset-2 ${isDark ? 'hover:text-amber-100' : 'hover:text-amber-700'}`}
                     title={`跳转到超高的第 ${pageNumber} 页`}
                   >
                     P{pageNumber}
                   </button>
                 ))}
-              </span>
-            )}
-            <span className="text-[10px] font-bold uppercase tracking-widest font-mono">
-              共 {totalPages} 页 A4 文档
-            </span>
-            <span className={`text-[10px] font-bold uppercase tracking-widest font-mono ${isDark ? 'text-zinc-500' : 'text-slate-500'}`}>
-              210 × 297 mm
-            </span>
-          </div>
+              </div>
+            </div>
+          )}
         </div>
         <div 
           className="min-w-fit flex flex-col items-center mx-auto pb-16 transition-transform duration-150 origin-top"
