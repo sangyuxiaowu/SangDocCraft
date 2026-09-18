@@ -180,6 +180,7 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [previewNavigationTarget, setPreviewNavigationTarget] = useState<PreviewNavigationTarget>();
+  const [scrollSyncEnabled, setScrollSyncEnabled] = useState(false);
   const [overflowPageNumbers, setOverflowPageNumbers] = useState<number[]>([]);
   const previewNavigationRequestRef = useRef(0);
 
@@ -911,6 +912,16 @@ export default function App() {
                 position,
                 requestId: ++previewNavigationRequestRef.current,
               })}
+              scrollSyncEnabled={scrollSyncEnabled}
+              onScrollSyncEnabledChange={setScrollSyncEnabled}
+              onScrollPositionChange={(position) => {
+                if (!scrollSyncEnabled) return;
+                setPreviewNavigationTarget({
+                  position,
+                  requestId: ++previewNavigationRequestRef.current,
+                  behavior: 'auto',
+                });
+              }}
               assets={assets}
               uiMode={uiMode}
               documentId={documentId}
@@ -960,6 +971,11 @@ export default function App() {
               uiMode={uiMode}
               viewMode={viewMode}
               navigationTarget={previewNavigationTarget}
+              onNavigateToEditor={(position) => editorRef.current?.navigateToPosition(position)}
+              scrollSyncEnabled={scrollSyncEnabled}
+              onScrollPositionChange={(position) => {
+                if (scrollSyncEnabled) editorRef.current?.scrollToPosition(position);
+              }}
               onOverflowPageNumbersChange={(pageNumbers) => setOverflowPageNumbers((current) => (
                 current.length === pageNumbers.length && current.every((pageNumber, index) => pageNumber === pageNumbers[index])
                   ? current

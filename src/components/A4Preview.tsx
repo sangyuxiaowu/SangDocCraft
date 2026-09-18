@@ -26,12 +26,16 @@ interface A4PreviewProps {
   uiMode?: 'dark' | 'light';
   viewMode?: ViewMode;
   navigationTarget?: PreviewNavigationTarget;
+  onNavigateToEditor?: (position: number) => void;
+  scrollSyncEnabled?: boolean;
+  onScrollPositionChange?: (position: number) => void;
   onOverflowPageNumbersChange?: (pageNumbers: number[]) => void;
 }
 
 export interface PreviewNavigationTarget {
   position: number;
   requestId: number;
+  behavior?: ScrollBehavior;
 }
 
 export interface PreviewPageLocation {
@@ -51,6 +55,29 @@ export function getOverflowPageNumbers(sheets: Iterable<HTMLElement>): number[] 
 
 function getEffectiveSourceLength(source: string): number {
   return source.replace(PAGE_BREAK_PATTERN, '').replace(/\s/g, '').length;
+}
+
+export function getMarkdownPositionForPreviewPage(markdown: string, pages: string[], pageIndex: number): number {
+  return getMarkdownPositionForPreviewLocation(markdown, pages, pageIndex, 0);
+}
+
+export function getMarkdownPositionForPreviewLocation(markdown: string, pages: string[], pageIndex: number, pageProgress: number): number {
+  const safePageIndex = Math.min(pages.length - 1, Math.max(0, pageIndex));
+  const pageStart = pages
+    .slice(0, safePageIndex)
+    .reduce((total, page) => total + getEffectiveSourceLength(page), 0);
+  const pageLength = getEffectiveSourceLength(pages[safePageIndex] ?? '');
+  const targetOffset = pageStart + Math.round(pageLength * Math.min(1, Math.max(0, pageProgress)));
+  const source = markdown.replace(PAGE_BREAK_PATTERN, (marker) => ' '.repeat(marker.length));
+  let effectiveOffset = 0;
+
+  for (let position = 0; position < source.length; position++) {
+    if (/\s/.test(source[position])) continue;
+    if (effectiveOffset === targetOffset) return position;
+    effectiveOffset++;
+  }
+
+  return markdown.length;
 }
 
 export function getPreviewPageLocation(markdown: string, pages: string[], position: number): PreviewPageLocation {
@@ -107,7 +134,7 @@ export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
   );
 });
 
-export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 'dark', viewMode = 'split', navigationTarget, onOverflowPageNumbersChange }) => {
+export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 'dark', viewMode = 'split', navigationTarget, onNavigateToEditor, scrollSyncEnabled = false, onScrollPositionChange, onOverflowPageNumbersChange }) => {
   const { header, footer, toc, style } = theme;
   const meta = theme.meta;
   const coverTemplate = getCoverTemplate(meta.coverStyle);
@@ -122,6 +149,8 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageInput, setPageInput] = useState<string>('1');
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollFrameRef = useRef(0);
+  const expectedScrollTopRef = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -210,6 +239,15 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
     if (!container) return;
 
     const handleScroll = () => {
+      const expectedScrollTop = expectedScrollTopRef.current;
+      const suppressScrollSync = expectedScrollTop !== null && Math.abs(container.scrollTop - expectedScrollTop) <= 1;
+      if (suppressScrollSync) {
+        expectedScrollTopRef.current = null;
+      } else {
+        expectedScrollTopRef.current = null;
+      }
+      cancelAnimationFrame(scrollFrameRef.current);
+      scrollFrameRef.current = requestAnimationFrame(() => {
       const pageEls = container.querySelectorAll<HTMLElement>('.a4-sheet-page');
       if (pageEls.length === 0) return;
 
@@ -225,11 +263,38 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
         }
       }
       setCurrentPage(activeNum);
+      if (!suppressScrollSync && scrollSyncEnabled && onScrollPositionChange) {
+        const contentPages = container.querySelectorAll<HTMLElement>('[data-content-page-index]');
+        const syncProbeY = containerRect.top + container.clientHeight / 3;
+        let closestPage: HTMLElement | undefined;
+        let closestDistance = Number.POSITIVE_INFINITY;
+        for (const element of contentPages) {
+          const rect = element.getBoundingClientRect();
+          const distance = syncProbeY < rect.top ? rect.top - syncProbeY : syncProbeY > rect.bottom ? syncProbeY - rect.bottom : 0;
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            closestPage = element;
+          }
+        }
+        if (closestPage) {
+          const body = closestPage.querySelector<HTMLElement>('.markdown-rendered-body');
+          const contentPageIndex = Number(closestPage.dataset.contentPageIndex);
+          if (body && Number.isInteger(contentPageIndex)) {
+            const bodyRect = body.getBoundingClientRect();
+            const pageProgress = (syncProbeY - bodyRect.top) / Math.max(1, bodyRect.height);
+            onScrollPositionChange(getMarkdownPositionForPreviewLocation(markdown, rawContentPages, contentPageIndex, pageProgress));
+          }
+        }
+      }
+      });
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, []);
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      cancelAnimationFrame(scrollFrameRef.current);
+    };
+  }, [markdown, onScrollPositionChange, rawContentPages, scrollSyncEnabled]);
 
   useEffect(() => {
     setPageInput(String(currentPage));
@@ -341,7 +406,9 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
         + bodyRect.top - containerRect.top
         + bodyRect.height * location.pageProgress
         - container.clientHeight / 2;
-      container.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+      const nextScrollTop = Math.max(0, targetTop);
+      if (navigationTarget.behavior === 'auto') expectedScrollTopRef.current = nextScrollTop;
+      container.scrollTo({ top: nextScrollTop, behavior: navigationTarget.behavior ?? 'smooth' });
     });
   }, [navigationTarget]);
 
@@ -534,6 +601,10 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
             <div 
               id={`a4-page-${page.pageNum}`}
               data-page-num={page.pageNum}
+              data-content-page-index={page.contentPageIndex}
+              onDoubleClick={!scrollSyncEnabled && page.type === 'content' && page.contentPageIndex !== undefined
+                ? () => onNavigateToEditor?.(getMarkdownPositionForPreviewPage(markdown, rawContentPages, page.contentPageIndex!))
+                : undefined}
               className={`a4-sheet-page w-[210mm] h-[297mm] max-h-[297mm] bg-white text-slate-900 relative my-2 flex flex-col justify-between shrink-0 rounded-sm overflow-hidden transition-all duration-300 ${
                 isDark ? 'shadow-[0_10px_35px_rgba(0,0,0,0.6)]' : 'shadow-[0_10px_30px_rgba(0,0,0,0.12)] border border-slate-200'
               }`}

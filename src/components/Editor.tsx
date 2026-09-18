@@ -1,4 +1,4 @@
-import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { 
   Heading1, 
   Heading2, 
@@ -33,6 +33,9 @@ interface EditorProps {
   value: string;
   onChange: (val: string) => void;
   onNavigateToPreview?: (position: number) => void;
+  scrollSyncEnabled?: boolean;
+  onScrollSyncEnabledChange?: (enabled: boolean) => void;
+  onScrollPositionChange?: (position: number) => void;
   assets: DocumentAsset[];
   uiMode?: 'dark' | 'light';
   documentId: string;
@@ -51,12 +54,85 @@ interface EditorProps {
 
 export interface EditorHandle {
   insertAtSelection: (text: string) => void;
+  navigateToPosition: (position: number) => void;
+  scrollToPosition: (position: number) => void;
+}
+
+function createTextareaMirror(textarea: HTMLTextAreaElement, value: string) {
+  const computedStyle = window.getComputedStyle(textarea);
+  const mirror = document.createElement('div');
+  const marker = document.createElement('span');
+  const copiedProperties = [
+    'fontFamily',
+    'fontSize',
+    'fontStyle',
+    'fontWeight',
+    'letterSpacing',
+    'lineHeight',
+    'paddingTop',
+    'paddingRight',
+    'paddingBottom',
+    'paddingLeft',
+    'textIndent',
+    'textTransform',
+    'wordSpacing',
+  ] as const;
+
+  copiedProperties.forEach((property) => {
+    mirror.style[property] = computedStyle[property];
+  });
+  Object.assign(mirror.style, {
+    position: 'absolute',
+    left: '-9999px',
+    top: '0',
+    visibility: 'hidden',
+    boxSizing: 'border-box',
+    width: `${textarea.clientWidth}px`,
+    whiteSpace: 'pre-wrap',
+    overflowWrap: 'break-word',
+    wordBreak: computedStyle.wordBreak,
+  });
+  marker.textContent = '\u200b';
+  document.body.append(mirror);
+  return {
+    measure(position: number) {
+      mirror.textContent = value.slice(0, position);
+      mirror.append(marker);
+      return marker.offsetTop;
+    },
+    remove() {
+      mirror.remove();
+    },
+  };
+}
+
+function getCaretContentTop(textarea: HTMLTextAreaElement, value: string, position: number): number {
+  const mirror = createTextareaMirror(textarea, value);
+  const caretTop = mirror.measure(position);
+  mirror.remove();
+  return caretTop;
+}
+
+function getTextareaPositionAtContentTop(textarea: HTMLTextAreaElement, value: string, targetTop: number): number {
+  const mirror = createTextareaMirror(textarea, value);
+  let low = 0;
+  let high = value.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (mirror.measure(middle) < targetTop) low = middle + 1;
+    else high = middle;
+  }
+  mirror.remove();
+  return low;
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(({ 
   value, 
   onChange, 
   onNavigateToPreview, 
+  scrollSyncEnabled = false,
+  onScrollSyncEnabledChange,
+  onScrollPositionChange,
   assets, 
   uiMode = 'dark', 
   documentId, 
@@ -73,6 +149,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
   onOpenAiAssistant
 }, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const scrollFrameRef = useRef(0);
+  const expectedScrollTopRef = useRef<number | null>(null);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [isPastingImage, setIsPastingImage] = useState(false);
   const isDark = uiMode === 'dark';
@@ -243,9 +321,53 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
     insertText(insertion.text);
   };
 
+  const scrollTextareaToPosition = (position: number) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const safePosition = Math.min(value.length, Math.max(0, position));
+    const caretTop = getCaretContentTop(textarea, value, safePosition);
+    const targetScrollTop = caretTop - textarea.clientHeight / 3;
+    const maxScrollTop = textarea.scrollHeight - textarea.clientHeight;
+    const nextScrollTop = Math.max(
+      0,
+      maxScrollTop > 0 ? Math.min(targetScrollTop, maxScrollTop) : targetScrollTop,
+    );
+    if (Math.abs(textarea.scrollTop - nextScrollTop) > 1) {
+      expectedScrollTopRef.current = nextScrollTop;
+      textarea.scrollTop = nextScrollTop;
+    }
+  };
+
+  useEffect(() => () => cancelAnimationFrame(scrollFrameRef.current), []);
+
   useImperativeHandle(ref, () => ({
     insertAtSelection: (text: string) => insertText(text),
+    navigateToPosition: (position: number) => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      const safePosition = Math.min(value.length, Math.max(0, position));
+      textarea.focus();
+      textarea.setSelectionRange(safePosition, safePosition);
+      scrollTextareaToPosition(safePosition);
+    },
+    scrollToPosition: scrollTextareaToPosition,
   }));
+
+  const handleScroll = (event: React.UIEvent<HTMLTextAreaElement>) => {
+    if (!scrollSyncEnabled || !onScrollPositionChange) return;
+    const textarea = event.currentTarget;
+    const expectedScrollTop = expectedScrollTopRef.current;
+    if (expectedScrollTop !== null && Math.abs(textarea.scrollTop - expectedScrollTop) <= 1) {
+      expectedScrollTopRef.current = null;
+      return;
+    }
+    expectedScrollTopRef.current = null;
+    cancelAnimationFrame(scrollFrameRef.current);
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      const targetTop = textarea.scrollTop + textarea.clientHeight / 3;
+      onScrollPositionChange(getTextareaPositionAtContentTop(textarea, value, targetTop));
+    });
+  };
 
   const lineCount = value.split('\n').length;
   const wordCount = value.length;
@@ -429,7 +551,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
             ref={textareaRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            onDoubleClick={(event) => onNavigateToPreview?.(event.currentTarget.selectionStart)}
+            onScroll={handleScroll}
+            onDoubleClick={scrollSyncEnabled
+              ? undefined
+              : (event) => onNavigateToPreview?.(event.currentTarget.selectionStart)}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
             placeholder="在此处输入或粘贴您的 Markdown 文档内容..."
@@ -446,6 +571,22 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
       {/* Editor Footer Status */}
       <div className={`h-8 shrink-0 ${isDark ? 'bg-[#121212] border-[#2A2A2A] text-zinc-500' : 'bg-slate-50 border-slate-200 text-slate-600'} border-t px-3 md:px-4 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest transition-colors duration-200`}>
         <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
+          <label className={`flex items-center gap-1.5 shrink-0 normal-case tracking-normal cursor-pointer ${scrollSyncEnabled ? 'text-blue-500' : ''}`}>
+            <input
+              type="checkbox"
+              role="switch"
+              aria-label="滚动同步"
+              checked={scrollSyncEnabled}
+              onChange={(event) => onScrollSyncEnabledChange?.(event.target.checked)}
+              className="peer sr-only"
+            />
+            <span className={`relative w-7 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-1 ${
+              scrollSyncEnabled ? 'bg-blue-600' : isDark ? 'bg-zinc-700' : 'bg-slate-300'
+            }`}>
+              <span className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform ${scrollSyncEnabled ? 'translate-x-3' : ''}`} />
+            </span>
+            <span>滚动同步</span>
+          </label>
           <span>行数: <strong className={isDark ? 'text-zinc-200' : 'text-slate-800'}>{lineCount}</strong></span>
           <span>字符数: <strong className={isDark ? 'text-zinc-200' : 'text-slate-800'}>{wordCount}</strong></span>
           {isPastingImage && <span className="text-indigo-500 normal-case tracking-normal animate-pulse">正在转存粘贴截图...</span>}

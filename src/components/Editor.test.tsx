@@ -2,19 +2,23 @@
 
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
+import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Editor } from './Editor';
+import { Editor, type EditorHandle } from './Editor';
 
-function renderEditor(value: string, onNavigateToPreview = vi.fn()) {
+function renderEditor(value: string, onNavigateToPreview = vi.fn(), scrollSyncEnabled = false) {
   const container = document.createElement('div');
   document.body.append(container);
   const root = createRoot(container);
   const onChange = vi.fn();
+  const editorRef = createRef<EditorHandle>();
   act(() => root.render(
     <Editor
+      ref={editorRef}
       value={value}
       onChange={onChange}
       onNavigateToPreview={onNavigateToPreview}
+      scrollSyncEnabled={scrollSyncEnabled}
       assets={[]}
       documentId="test-document"
       onAssetsChanged={async () => {}}
@@ -22,7 +26,7 @@ function renderEditor(value: string, onNavigateToPreview = vi.fn()) {
       lastSavedAt={null}
     />,
   ));
-  return { root, onChange, onNavigateToPreview, textarea: container.querySelector('textarea')! };
+  return { root, editorRef, onChange, onNavigateToPreview, textarea: container.querySelector('textarea')! };
 }
 
 function pressTab(textarea: HTMLTextAreaElement, shiftKey = false) {
@@ -68,5 +72,33 @@ describe('Editor keyboard indentation', () => {
     act(() => rendered.textarea.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
 
     expect(rendered.onNavigateToPreview).toHaveBeenCalledWith(6);
+  });
+
+  it('does not navigate on double click while scroll sync is enabled', () => {
+    const onNavigateToPreview = vi.fn();
+    const rendered = renderEditor('alpha beta', onNavigateToPreview, true);
+    roots.push(rendered.root);
+
+    act(() => rendered.textarea.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
+
+    expect(onNavigateToPreview).not.toHaveBeenCalled();
+  });
+
+  it('moves the cursor and scrolls to a requested source position', () => {
+    const value = Array.from({ length: 40 }, (_, index) => `line ${index + 1}`).join('\n');
+    const rendered = renderEditor(value);
+    roots.push(rendered.root);
+    const position = value.indexOf('line 21');
+    Object.defineProperties(rendered.textarea, {
+      clientHeight: { configurable: true, value: 300 },
+      scrollHeight: { configurable: true, value: 800 },
+    });
+    vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockReturnValue(400);
+
+    act(() => rendered.editorRef.current?.navigateToPosition(position));
+
+    expect(rendered.textarea.selectionStart).toBe(position);
+    expect(rendered.textarea.selectionEnd).toBe(position);
+    expect(rendered.textarea.scrollTop).toBe(300);
   });
 });

@@ -3,7 +3,30 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it } from 'vitest';
-import { getOverflowPageNumbers, getPreviewPageLocation, RenderedMarkdownPage } from './A4Preview';
+import { getMarkdownPositionForPreviewLocation, getMarkdownPositionForPreviewPage, getOverflowPageNumbers, getPreviewPageLocation, RenderedMarkdownPage } from './A4Preview';
+
+describe('getMarkdownPositionForPreviewPage', () => {
+  it('maps a preview page to the first source character on that page', () => {
+    const markdown = 'first paragraph\n\nsecond paragraph\n\nthird paragraph';
+    const pages = ['first paragraph\n\nsecond paragraph', 'third paragraph'];
+
+    expect(getMarkdownPositionForPreviewPage(markdown, pages, 1)).toBe(markdown.indexOf('third'));
+  });
+
+  it('skips explicit page-break markers when locating a page start', () => {
+    const markdown = 'first\n\n<!-- pagebreak -->\n\nsecond';
+    const pages = ['first', 'second'];
+
+    expect(getMarkdownPositionForPreviewPage(markdown, pages, 1)).toBe(markdown.indexOf('second'));
+  });
+
+  it('maps progress within a preview page back to the source', () => {
+    const markdown = 'first\nsecond\nthird';
+    const pages = ['first', 'second\nthird'];
+
+    expect(getMarkdownPositionForPreviewLocation(markdown, pages, 1, 0.5)).toBe(markdown.indexOf('third'));
+  });
+});
 
 describe('getPreviewPageLocation', () => {
   it('maps a cursor offset to its preview page and relative position', () => {
