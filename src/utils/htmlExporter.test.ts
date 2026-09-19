@@ -113,6 +113,18 @@ describe('generateStandaloneHtml', () => {
     expect(html).not.toContain('<!-- pagebreak -->');
   });
 
+  it('keeps exported content pages constrained to a single A4 sheet', () => {
+    const html = generateStandaloneHtml('# Body', {
+      ...PRESET_THEMES[0],
+      meta: { ...PRESET_THEMES[0].meta, showCover: false },
+      toc: { ...PRESET_THEMES[0].toc, show: false },
+    });
+
+    expect(html).not.toContain('.a4-page.content-page-wrapper {');
+    expect(html).toContain('height: 297mm;');
+    expect(html).toContain('overflow: hidden;');
+  });
+
   it('does not treat YAML-like document prefixes as metadata', () => {
     const base = PRESET_THEMES[0];
     const html = generateStandaloneHtml(

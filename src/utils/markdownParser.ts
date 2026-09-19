@@ -449,8 +449,15 @@ export function paginateContentByDom(
         if (token.type === 'space') return;
         const isH1 = token.type === 'heading' && token.depth === 1;
         const isHeading = token.type === 'heading';
+        const isImageParagraph = token.type === 'paragraph' && paragraphContainsImage(token);
 
         if (options.h1PageBreak && isH1 && currentPageTokens.length > 0) {
+          flushPage();
+        }
+
+        // Image dimensions can be unavailable while the hidden measurer loads remote or data URI assets.
+        // Start image blocks on a fresh sheet so late image layout cannot overflow into the following page.
+        if (isImageParagraph && currentPageTokens.length > 0) {
           flushPage();
         }
 

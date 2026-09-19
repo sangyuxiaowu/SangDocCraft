@@ -757,12 +757,6 @@ export function generateStandaloneHtml(
         display: flex !important;
       }
     }
-    .a4-page.content-page-wrapper {
-      height: auto !important;
-      min-height: 297mm;
-      max-height: none !important;
-      overflow: visible !important;
-    }
   </style>
 </head>
 <body>

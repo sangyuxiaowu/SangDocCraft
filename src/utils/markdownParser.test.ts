@@ -74,6 +74,18 @@ describe('Markdown pagination and numbering', () => {
     }
   });
 
+  it('starts image paragraphs on a fresh page before their dimensions are available', () => {
+    const pages = paginateContentByDom(
+      'Introductory content\n\n![Example](https://example.test/example.png)',
+      { style: theme.style },
+    );
+
+    expect(pages).toEqual([
+      'Introductory content',
+      '![Example](https://example.test/example.png)',
+    ]);
+  });
+
   it('keeps an image markdown expression intact when it overflows the remaining page space', () => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       return this.querySelectorAll('h2').length * 900 + this.querySelectorAll('img').length * 200;
