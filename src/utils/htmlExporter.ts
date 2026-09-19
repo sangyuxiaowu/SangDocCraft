@@ -1,7 +1,7 @@
 import { marked } from 'marked';
 import { DocumentTheme, FooterConfig, DocumentMeta } from '../types';
-import { getFooterSlots, getHeadingText, getTocChunks } from './documentStructure';
-import { parseTableOfContents, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss } from './markdownParser';
+import { getFooterSlots, getHeadingText, getTocTitleStyleObject, styleObjectToCss } from './documentStructure';
+import { extractTocHeadings, assignTocPageNumbers, paginateTocItemsByDom, buildTocItemHtml, buildTocTitleHtml, buildTocPageIndicator, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss } from './markdownParser';
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidInHtml } from './mermaidRenderer';
@@ -93,20 +93,28 @@ export function generateStandaloneHtml(
   });
 
   // Build TOC page numbers from the exact pages used by the export.
-  const tocItems = parseTableOfContents(
-    markdownText,
-    toc.maxDepth || 3,
-    meta,
-    toc.show,
-    style.h1PageBreak,
-    rawContentPages,
-    toc.headingNumbering,
-  );
-  const tocChunks = toc.show ? getTocChunks(tocItems) : [];
+  // 目录分页与预览共用同一套「真实高度自适应」测量，保证页码一致。
+  const tocHeadings = toc.show
+    ? extractTocHeadings(rawContentPages, toc.maxDepth || 3, toc.headingNumbering)
+    : [];
+  const tocChunks = toc.show
+    ? paginateTocItemsByDom(tocHeadings, {
+        toc,
+        style,
+        headerShow: header.show,
+        footerShow: footer.show,
+        fontFamily: fontStack,
+        coverPageCount: meta.showCover ? 1 : 0,
+        contentPageCount: rawContentPages.length,
+      })
+    : [];
+  const tocPageCount = tocChunks.length;
+  const firstContentPageNum = (meta.showCover ? 1 : 0) + (toc.show ? tocPageCount : 0) + 1;
+  const tocPages = tocChunks.map((chunk) => assignTocPageNumbers(chunk, firstContentPageNum));
 
   // Calculate total pages
   const coverCount = meta.showCover ? 1 : 0;
-  const tocCount = tocChunks.length;
+  const tocCount = tocPages.length;
   const contentCount = rawContentPages.length;
   const totalPages = coverCount + tocCount + contentCount;
 
@@ -604,24 +612,14 @@ export function generateStandaloneHtml(
       display: flex;
       flex-direction: column;
       flex: 1;
-      padding: 10px 0;
-    }
-    .toc-title {
-      font-size: 22px;
-      font-weight: 800;
-      margin-bottom: 24px;
+      padding: 16px 0;
     }
     ${getTocTitleCss('.toc-title', toc, style)}
     .toc-list {
       display: flex;
       flex-direction: column;
-      gap: 12px;
     }
     .toc-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 13px;
       text-decoration: none;
       color: inherit;
       transition: color 0.15s ease;
@@ -629,43 +627,7 @@ export function generateStandaloneHtml(
     .toc-item:hover {
       color: var(--accent-color);
     }
-    .toc-item.level-1 {
-      font-weight: bold;
-      font-size: 14px;
-      color: var(--primary-color);
-    }
-    .toc-item.level-2 {
-      padding-left: 20px;
-      color: var(--text-color);
-    }
-    .toc-item.level-3 {
-      padding-left: 40px;
-      color: #64748b;
-    }
-    .toc-text {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 80%;
-    }
-    .toc-leader {
-      flex: 1;
-      margin: 0 10px;
-      height: 1px;
-      border-bottom: 1px dotted #cbd5e1;
-    }
-    .toc-leader.dashes {
-      border-bottom-style: dashed;
-    }
-    .toc-leader.none {
-      border-bottom: none;
-    }
-    .toc-page-num {
-      font-family: monospace;
-      color: #475569;
-      font-weight: 700;
-      font-size: 12px;
-    }
+    /* 目录项字体、字号、字形、段前段后与缩进均由分级内联样式驱动，与预览保持完全一致 */
 
     /* Figures, Captions & Image Borders */
     .doc-image-figure {
@@ -777,7 +739,7 @@ export function generateStandaloneHtml(
   </div>
   ` : ''}
 
-  ${toc.show ? tocChunks.map((chunk, chunkIdx) => {
+  ${toc.show ? tocPages.map((chunk, chunkIdx) => {
     const tocPageNum = (meta.showCover ? 1 : 0) + chunkIdx + 1;
     return `
   <div class="a4-page toc-page-wrapper">
@@ -792,21 +754,14 @@ export function generateStandaloneHtml(
     ` : ''}
 
     <div class="toc-page">
-      <h2 class="toc-title">
-        ${toc.title || '目 录'}
-        ${tocChunks.length > 1 ? `<span style="font-size: 13px; font-weight: normal; color: #64748b; margin-left: 8px;">(${chunkIdx + 1}/${tocChunks.length})</span>` : ''}
-      </h2>
+      ${chunkIdx === 0 || toc.titleOnEveryPage
+        ? buildTocTitleHtml(toc, 'toc-title', toc.titleOnEveryPage ? buildTocPageIndicator(chunkIdx, tocPages.length) : '')
+        : ''}
       ${chunk.length === 0 ? `
         <p style="color: #94a3b8; font-style: italic; font-size: 13px;">尚未在文档中发现标题项...</p>
       ` : `
         <div class="toc-list">
-          ${chunk.map((item) => `
-            <a href="#${item.id}" class="toc-item level-${item.level}">
-              <span class="toc-text">${item.text}</span>
-              <span class="toc-leader ${toc.leaderStyle || 'dots'}"></span>
-              <span class="toc-page-num">${item.pageNumber ?? 1}</span>
-            </a>
-          `).join('')}
+          ${chunk.map((item) => buildTocItemHtml(item, toc, String(item.pageNumber ?? 1), { href: `#${item.id}`, className: 'toc-item' })).join('')}
         </div>
       `}
     </div>
@@ -821,7 +776,7 @@ export function generateStandaloneHtml(
     const headingCounters = [0, 0, 0, 0];
     const tocAnchorIndex = { value: 0 };
     return rawContentPages.map((pageMd, idx) => {
-      const pageNum = (meta.showCover ? 1 : 0) + (toc.show ? tocChunks.length : 0) + idx + 1;
+      const pageNum = (meta.showCover ? 1 : 0) + (toc.show ? tocPages.length : 0) + idx + 1;
       const preprocessed = preprocessMarkdownCaptions(pageMd || '');
       const rawHtml = marked.parse(preprocessed) as string;
       const numberedHtml = addHeadingNumbers(rawHtml, toc.headingNumbering, headingCounters);

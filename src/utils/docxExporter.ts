@@ -20,7 +20,7 @@ import {
 } from 'docx';
 import { marked } from 'marked';
 import { DocumentTheme } from '../types';
-import { getHeadingText } from './documentStructure';
+import { getHeadingText, getTocLevelStyles, getTocTitleFont } from './documentStructure';
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidPng } from './mermaidRenderer';
@@ -228,11 +228,11 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
   // 2. Table of Contents Page
   if (toc.show) {
     const titleStyle = toc.titleStyle ?? 'underline';
+    const titleFont = getTocTitleFont(toc);
     sectionsChildren.push(
       new Paragraph({
-        heading: HeadingLevel.HEADING_1,
         alignment: toc.titleCenter ? AlignmentType.CENTER : undefined,
-        spacing: { before: 200, after: 400 },
+        spacing: { before: titleFont.marginBefore * 15, after: titleFont.marginAfter * 15 },
         border: titleStyle === 'underline'
           ? { bottom: { color: accentHex, style: BorderStyle.SINGLE, size: 12, space: 6 } }
           : titleStyle === 'accent-block'
@@ -242,10 +242,12 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
         children: [
           new TextRun({
             text: toc.title || '目 录',
-            bold: true,
-            size: 36,
+            bold: titleFont.bold,
+            italics: titleFont.italic,
+            underline: titleFont.underline ? {} : undefined,
+            size: titleFont.fontSize * 2,
             color: primaryHex,
-            font: fontName,
+            font: titleFont.fontFamily && titleFont.fontFamily !== 'inherit' ? titleFont.fontFamily : fontName,
           }),
         ],
       })
@@ -596,9 +598,29 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
     );
   }
 
+  const tocStyles = getTocLevelStyles(toc).map((level, index) => ({
+    id: `TOC${index + 1}`,
+    name: `TOC ${index + 1}`,
+    basedOn: 'Normal',
+    next: 'Normal',
+    quickFormat: true,
+    paragraph: {
+      spacing: { before: level.marginBefore * 15, after: level.marginAfter * 15 },
+      indent: { left: level.paddingLeft * 15 },
+    },
+    run: {
+      bold: level.bold,
+      italics: level.italic,
+      underline: level.underline ? {} : undefined,
+      size: level.fontSize * 2,
+      font: level.fontFamily && level.fontFamily !== 'inherit' ? level.fontFamily : fontName,
+    },
+  }));
+
   // Create docx Document
   const doc = new Document({
     features: { updateFields: true },
+    styles: { paragraphStyles: tocStyles },
     sections: [
       {
         properties: {

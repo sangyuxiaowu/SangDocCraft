@@ -71,16 +71,36 @@ export interface FooterConfig {
   hideOnCover: boolean;
 }
 
+export interface TocTitleFont {
+  fontFamily: string;
+  fontSize: number;
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  marginBefore: number;
+  marginAfter: number;
+}
+
+export interface TocLevelStyle extends TocTitleFont {
+  paddingLeft: number;
+}
+
 export interface TocConfig {
   show: boolean;
   title: string;
   titleStyle?: 'underline' | 'accent-block' | 'badge' | 'minimal';
   titleCenter?: boolean;
+  /** 目录页标题字体/字号/字形/段前段后 */
+  titleFont?: TocTitleFont;
+  /** 各级目录项样式（索引 0..3 对应 1..4 级） */
+  levelStyles?: TocLevelStyle[];
   maxDepth: 1 | 2 | 3 | 4;
   headingNumbering?: 'none' | 'decimal' | 'chinese' | 'decimal-skip-h1';
   leaderStyle: 'dots' | 'dashes' | 'line' | 'none';
   showPageNumbers: boolean;
   pageBreakAfter: boolean;
+  /** 目录分页时是否每一页都显示目录标题（默认 false：仅第一页显示） */
+  titleOnEveryPage?: boolean;
 }
 
 export type FontChoice = 'sans' | 'serif' | 'kaiti' | 'heiti' | 'mono';

@@ -10,6 +10,7 @@ import {
   getMarkdownBodyCss,
   getTocChunks,
   paginateContentByDom,
+  paginateTocItemsByDom,
   parseTableOfContents,
   postProcessRenderedHtml,
   splitContentByPages,
@@ -246,6 +247,76 @@ describe('Markdown pagination and numbering', () => {
     ]);
     expect(getTocChunks(Array.from({ length: 23 }, (_, index) => ({ id: `${index}`, text: '', level: 1 }))))
       .toHaveLength(2);
+  });
+
+  it('uses the measured TOC page count when assigning content page numbers', () => {
+    const pages = ['# One\n## Child'];
+    const auto = parseTableOfContents('# One\n## Child', 2, { showCover: true }, true, false, pages);
+    const measured = parseTableOfContents('# One\n## Child', 2, { showCover: true }, true, false, pages, 'none', 3);
+
+    expect(auto[0].pageNumber).toBe(3);
+    expect(measured[0].pageNumber).toBe(5);
+    expect(measured[1].pageNumber).toBe(5);
+  });
+
+  it('omits leading empty levels for decimal-skip-h1 without an h1', () => {
+    const noH1 = [0, 0, 0, 0];
+    expect(getHeadingText('Alpha', 2, noH1, 'decimal-skip-h1')).toBe('1 Alpha');
+    expect(getHeadingText('Beta', 2, noH1, 'decimal-skip-h1')).toBe('2 Beta');
+
+    const withH1 = [0, 0, 0, 0];
+    expect(getHeadingText('Root', 1, withH1, 'decimal-skip-h1')).toBe('Root');
+    expect(getHeadingText('Child', 2, withH1, 'decimal-skip-h1')).toBe('1.1 Child');
+  });
+
+  it('splits long TOC items by measured height instead of a fixed count', () => {
+    const { toc, style } = theme;
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      const titleHeight = this.querySelector('.doc-toc-title') ? 100 : 0;
+      return titleHeight + this.querySelectorAll(':scope > div').length * 200;
+    });
+    const items = Array.from({ length: 10 }, (_, index) => ({
+      id: `heading-${index + 1}`,
+      text: `章节标题 ${index + 1}`,
+      level: 1,
+    }));
+    try {
+      const chunks = paginateTocItemsByDom(items, { toc: { ...toc, maxDepth: 3 }, style });
+      // 可用高度约 907px：首页预留 100px 标题后每页 4 项，后续页无标题每页 4 项
+      expect(chunks.length).toBeGreaterThan(1);
+      expect(chunks.flat().map((item) => item.id)).toEqual(items.map((item) => item.id));
+      expect(chunks[0]).toHaveLength(4);
+    } finally {
+      height.mockRestore();
+    }
+    expect(document.querySelector('.toc-pagination-measurer')).toBeNull();
+  });
+
+  it('re-measures TOC rows when the final page indicator changes', () => {
+    const { toc, style } = theme;
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      const hasMultiPageIndicator = this.querySelector('.doc-toc-title span') !== null;
+      return 700 + this.querySelectorAll(':scope > div').length * 100 + (hasMultiPageIndicator ? 100 : 0);
+    });
+    const items = Array.from({ length: 5 }, (_, index) => ({
+      id: `heading-${index + 1}`,
+      text: `章节标题 ${index + 1}`,
+      level: 1,
+    }));
+    try {
+      const chunks = paginateTocItemsByDom(items, {
+        toc: { ...toc, titleOnEveryPage: true },
+        style,
+        headerShow: false,
+        footerShow: false,
+        coverPageCount: 1,
+        contentPageCount: 9,
+      });
+      expect(chunks).toHaveLength(5);
+      expect(chunks.every((chunk) => chunk.length === 1)).toBe(true);
+    } finally {
+      height.mockRestore();
+    }
   });
 
   it.each([

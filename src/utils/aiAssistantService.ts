@@ -1,6 +1,8 @@
 import { 
   DocumentSettings, 
-  DocumentTheme
+  DocumentTheme,
+  TocLevelStyle,
+  TocTitleFont
 } from '../types';
 import { 
   AiToolRuntime, 
@@ -10,6 +12,7 @@ import {
 import type { SetStateAction } from 'react';
 import { createDiffHunks } from './diffUtils';
 import { appendUniqueHistory, createHistoryEntry } from './documentHistory';
+import { getTocLevelStyles, getTocTitleFont } from './documentStructure';
 
 export const DEFAULT_SYSTEM_PROMPT = `你是 SangDocCraft 智能交付文档排版工具的 AI 助手。
 你的主要职责是协助用户撰写、润色与编辑专业级 A4 交付文档、技术方案书与规格说明，并根据需求调整文档样式和配置参数。
@@ -93,6 +96,22 @@ function readInteger(value: unknown, name: string, minimum: number): number | un
   return Number(value);
 }
 
+/** 仅提取目录字体/层级样式的已知字段，避免上游多余键污染主题配置 */
+function pickTocFontFields(value: unknown): Partial<TocLevelStyle> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
+  const source = value as Record<string, unknown>;
+  const picked: Partial<TocLevelStyle> = {};
+  if (typeof source.fontFamily === 'string') picked.fontFamily = source.fontFamily;
+  if (typeof source.fontSize === 'number') picked.fontSize = source.fontSize;
+  if (typeof source.bold === 'boolean') picked.bold = source.bold;
+  if (typeof source.italic === 'boolean') picked.italic = source.italic;
+  if (typeof source.underline === 'boolean') picked.underline = source.underline;
+  if (typeof source.marginBefore === 'number') picked.marginBefore = source.marginBefore;
+  if (typeof source.marginAfter === 'number') picked.marginAfter = source.marginAfter;
+  if (typeof source.paddingLeft === 'number') picked.paddingLeft = source.paddingLeft;
+  return picked;
+}
+
 export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
   let currentMarkdown = context.markdown;
   let currentTheme = context.theme;
@@ -165,7 +184,11 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
           h1PageBreak: currentTheme.style.h1PageBreak,
           header: currentTheme.header,
           footer: currentTheme.footer,
-          toc: currentTheme.toc,
+          toc: {
+            ...currentTheme.toc,
+            titleFont: getTocTitleFont(currentTheme.toc),
+            levelStyles: getTocLevelStyles(currentTheme.toc)
+          },
           meta: currentTheme.meta,
           style: currentTheme.style,
           historyEnabled: currentSettings.historyEnabled,
@@ -730,7 +753,7 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
         type: 'function',
         function: {
           name: 'update_toc_config',
-          description: '配置交付文档的独立目录页参数（是否展示目录、标题、最大深度、引导线样式、目录后分页等）。',
+          description: '配置交付文档的独立目录页参数（是否展示目录、标题文本与字体、1~4 级目录项字体与样式、最大深度、引导线样式、目录后分页等）。',
           parameters: {
             type: 'object',
             properties: {
@@ -741,6 +764,36 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
                 type: 'string',
                 enum: ['underline', 'accent-block', 'badge', 'minimal'],
                 description: '目录标题表达形式'
+              },
+              titleFont: {
+                type: 'object',
+                description: '目录页标题的字体、字号、字形与段前段后，可仅提供需要修改的字段',
+                properties: {
+                  fontFamily: { type: 'string', description: '字体名称，inherit 表示跟随文档字体' },
+                  fontSize: { type: 'number', description: '字号 px' },
+                  bold: { type: 'boolean', description: '是否加粗' },
+                  italic: { type: 'boolean', description: '是否倾斜' },
+                  underline: { type: 'boolean', description: '是否加下划线' },
+                  marginBefore: { type: 'number', description: '段前间距 px' },
+                  marginAfter: { type: 'number', description: '段后间距 px' }
+                }
+              },
+              levelStyles: {
+                type: 'array',
+                description: '1~4 级目录项的字体与样式，数组第 0~3 项分别对应 1~4 级目录项，可仅提供需要修改的级别与字段',
+                items: {
+                  type: 'object',
+                  properties: {
+                    fontFamily: { type: 'string', description: '字体名称，inherit 表示跟随文档字体' },
+                    fontSize: { type: 'number', description: '字号 px' },
+                    bold: { type: 'boolean', description: '是否加粗' },
+                    italic: { type: 'boolean', description: '是否倾斜' },
+                    underline: { type: 'boolean', description: '是否加下划线' },
+                    marginBefore: { type: 'number', description: '段前间距 px' },
+                    marginAfter: { type: 'number', description: '段后间距 px' },
+                    paddingLeft: { type: 'number', description: '左缩进 px' }
+                  }
+                }
               },
               maxDepth: { type: 'number', enum: [1, 2, 3, 4], description: '目录提取的最大标题深度' },
               headingNumbering: {
@@ -754,7 +807,8 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
                 description: '目录项与页码之间的连接引导线样式'
               },
               showPageNumbers: { type: 'boolean', description: '是否显示目录项页码' },
-              pageBreakAfter: { type: 'boolean', description: '目录页结束后是否强制分页另起一页' }
+              pageBreakAfter: { type: 'boolean', description: '目录页结束后是否强制分页另起一页' },
+              titleOnEveryPage: { type: 'boolean', description: '目录分成多页时是否每页都显示目录标题（默认 false，仅第一页显示）' }
             }
           }
         }
@@ -766,19 +820,43 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
           if (args.title !== undefined) nextToc.title = String(args.title);
           if (args.titleCenter !== undefined) nextToc.titleCenter = Boolean(args.titleCenter);
           if (args.titleStyle) nextToc.titleStyle = args.titleStyle as any;
+          if (typeof args.titleFont === 'object' && args.titleFont !== null) {
+            nextToc.titleFont = {
+              ...getTocTitleFont(theme.toc),
+              ...pickTocFontFields(args.titleFont)
+            } as TocTitleFont;
+          }
+          if (Array.isArray(args.levelStyles)) {
+            const levelStyles = getTocLevelStyles(theme.toc);
+            args.levelStyles.forEach((update: unknown, index: number) => {
+              if (index >= levelStyles.length) return;
+              const fields = pickTocFontFields(update);
+              if (Object.keys(fields).length > 0) {
+                levelStyles[index] = { ...levelStyles[index], ...fields };
+              }
+            });
+            nextToc.levelStyles = levelStyles;
+          }
           if (typeof args.maxDepth === 'number') nextToc.maxDepth = args.maxDepth as any;
           if (args.headingNumbering) nextToc.headingNumbering = args.headingNumbering as any;
           if (args.leaderStyle) nextToc.leaderStyle = args.leaderStyle as any;
           if (args.showPageNumbers !== undefined) nextToc.showPageNumbers = Boolean(args.showPageNumbers);
           if (args.pageBreakAfter !== undefined) nextToc.pageBreakAfter = Boolean(args.pageBreakAfter);
+          if (args.titleOnEveryPage !== undefined) nextToc.titleOnEveryPage = Boolean(args.titleOnEveryPage);
           return { ...theme, toc: nextToc };
         };
 
         currentTheme = applyUpdate(currentTheme);
         context.onUpdateTheme(applyUpdate);
         const nextToc = currentTheme.toc;
+        const titleFont = getTocTitleFont(nextToc);
+        const levelStyles = getTocLevelStyles(nextToc);
+        const levelSummary = levelStyles
+          .slice(0, nextToc.maxDepth)
+          .map((style, index) => `${index + 1}级(${style.fontSize}px${style.bold ? '/粗' : ''}${style.italic ? '/斜' : ''}${style.underline ? '/下划线' : ''},缩进${style.paddingLeft})`)
+          .join('，');
 
-        return `目录配置已更新：目录展示「${nextToc.show ? '开启' : '关闭'}」，最大层级「${nextToc.maxDepth}」，编号样式「${nextToc.headingNumbering}」，目录后分页「${nextToc.pageBreakAfter ? '是' : '否'}」，标题「${nextToc.title}」，标题居中「${nextToc.titleCenter ? '是' : '否'}」，标题样式「${nextToc.titleStyle}」，目录项引导线样式「${nextToc.leaderStyle}」，是否显示页码「${nextToc.showPageNumbers ? '是' : '否'}」。`;
+        return `目录配置已更新：目录展示「${nextToc.show ? '开启' : '关闭'}」，最大层级「${nextToc.maxDepth}」，编号样式「${nextToc.headingNumbering}」，目录后分页「${nextToc.pageBreakAfter ? '是' : '否'}」，分页后每页显示标题「${nextToc.titleOnEveryPage ? '是' : '否'}」，标题「${nextToc.title}」，标题居中「${nextToc.titleCenter ? '是' : '否'}」，标题样式「${nextToc.titleStyle}」，标题字体「${titleFont.fontFamily} / ${titleFont.fontSize}px / 段前${titleFont.marginBefore} / 段后${titleFont.marginAfter}」，目录项样式：${levelSummary}，目录项引导线样式「${nextToc.leaderStyle}」，是否显示页码「${nextToc.showPageNumbers ? '是' : '否'}」。`;
       }
     }
   ];

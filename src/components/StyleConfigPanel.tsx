@@ -21,8 +21,9 @@ import {
   Underline,
   Image as ImageIcon
 } from 'lucide-react';
-import { DocumentAsset, DocumentTheme, CoverStyle, FontChoice, CoverListItem, HeadingFontStyle } from '../types';
+import { DocumentAsset, DocumentTheme, CoverStyle, FontChoice, CoverListItem, HeadingFontStyle, TocLevelStyle, TocTitleFont } from '../types';
 import { getCoverTemplate, getCoverTemplates } from '../themes/themeRegistry';
+import { getTocLevelStyles, getTocTitleFont } from '../utils/documentStructure';
 import { resolveImageSrc } from '../utils/tauriHelper';
 import { ImagePicker } from './ImagePicker';
 
@@ -140,6 +141,118 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
       toc: { ...theme.toc, [field]: val },
     });
   };
+
+  const updateTocTitleFont = (field: keyof TocTitleFont, value: string | number | boolean) => {
+    updateToc('titleFont', { ...getTocTitleFont(theme.toc), [field]: value });
+  };
+
+  const updateTocLevelStyle = (index: number, field: keyof TocLevelStyle, value: string | number | boolean) => {
+    const styles = getTocLevelStyles(theme.toc);
+    styles[index] = { ...styles[index], [field]: value };
+    updateToc('levelStyles', styles);
+  };
+
+  /** 目录标题 / 各级目录项的统一折叠设置卡片 */
+  const renderTocFontDetails = (
+    label: string,
+    config: TocTitleFont,
+    onUpdate: (field: keyof TocTitleFont, value: string | number | boolean) => void,
+    indent?: { value: number; onChange: (value: number) => void },
+  ) => (
+    <details className={`group rounded-lg border ${subCardBgClass}`}>
+      <summary className={`flex cursor-pointer list-none items-center justify-between px-3 py-2 text-[11px] font-bold [&::-webkit-details-marker]:hidden ${textSubClass}`}>
+        <span>{label}</span>
+        <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+      </summary>
+      <div className={`border-t p-3 space-y-3 ${sectionBorderClass}`}>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+          <div className="min-w-0">
+            <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>字体</label>
+            <input
+              type="text"
+              value={config.fontFamily}
+              onChange={(e) => onUpdate('fontFamily', e.target.value)}
+              placeholder="inherit"
+              className={`w-full min-w-0 rounded px-2.5 py-1.5 ${inputClass}`}
+            />
+          </div>
+          <div>
+            <span className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>字形</span>
+            <div role="group" aria-label={`${label}字形`} className="flex gap-1">
+              {([
+                ['bold', '加粗', Bold],
+                ['italic', '倾斜', Italic],
+                ['underline', '下划线', Underline],
+              ] as const).map(([field, text, Icon]) => {
+                const selected = Boolean(config[field]);
+                return (
+                  <button
+                    key={field}
+                    type="button"
+                    aria-pressed={selected}
+                    aria-label={text}
+                    title={text}
+                    onClick={() => onUpdate(field, !selected)}
+                    className={`flex h-8 w-8 items-center justify-center rounded border transition ${selected ? 'border-blue-500 bg-blue-600 text-white' : `${subCardBgClass} ${tabInactiveClass}`}`}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        <div className={`grid gap-2 ${indent ? 'grid-cols-4' : 'grid-cols-3'}`}>
+          <div>
+            <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>字号 (px)</label>
+            <input
+              type="number"
+              min={8}
+              max={72}
+              value={config.fontSize}
+              onChange={(e) => onUpdate('fontSize', Number(e.target.value))}
+              className={`w-full rounded px-2 py-1 ${inputClass}`}
+            />
+          </div>
+          <div>
+            <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>段前 (px)</label>
+            <input
+              type="number"
+              min={0}
+              max={120}
+              value={config.marginBefore}
+              onChange={(e) => onUpdate('marginBefore', Number(e.target.value))}
+              className={`w-full rounded px-2 py-1 ${inputClass}`}
+            />
+          </div>
+          <div>
+            <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>段后 (px)</label>
+            <input
+              type="number"
+              min={0}
+              max={120}
+              value={config.marginAfter}
+              onChange={(e) => onUpdate('marginAfter', Number(e.target.value))}
+              className={`w-full rounded px-2 py-1 ${inputClass}`}
+            />
+          </div>
+          {indent && (
+            <div>
+              <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>缩进 (px)</label>
+              <input
+                type="number"
+                min={0}
+                max={200}
+                value={indent.value}
+                onChange={(e) => indent.onChange(Number(e.target.value))}
+                className={`w-full rounded px-2 py-1 ${inputClass}`}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </details>
+  );
 
   const updateStyle = (field: string, val: any) => {
     onChange({
@@ -1076,8 +1189,8 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   </div>
                 </div>
 
-                <div className={`pt-2 border-t ${sectionBorderClass}`}>
-                  <label className={`flex items-center gap-2 cursor-pointer font-bold text-[11px] mb-2 ${textSubClass}`}>
+                <div className={`pt-2 border-t ${sectionBorderClass} space-y-2`}>
+                  <label className={`flex items-center gap-2 cursor-pointer font-bold text-[11px] ${textSubClass}`}>
                     <input
                       type="checkbox"
                       checked={theme.toc.showPageNumbers}
@@ -1095,7 +1208,34 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                     />
                     <span>目录后强行独占分页</span>
                   </label>
+                  <label className={`flex items-center gap-2 cursor-pointer font-bold text-[11px] ${textSubClass}`}>
+                    <input
+                      type="checkbox"
+                      checked={theme.toc.titleOnEveryPage === true}
+                      onChange={(e) => updateToc('titleOnEveryPage', e.target.checked)}
+                      className={`rounded text-blue-600 ${isDark ? 'bg-[#0A0A0A] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
+                    />
+                    <span>目录分页后显示标题</span>
+                  </label>
                 </div>
+
+                <section className="space-y-2 pt-1">
+                  <div className={`flex items-center gap-1.5 pb-2 border-b ${sectionBorderClass}`}>
+                    <Type className="w-4 h-4 text-blue-500" />
+                    <span className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>目录字体与层级样式</span>
+                  </div>
+                  {renderTocFontDetails('目录页标题', getTocTitleFont(theme.toc), updateTocTitleFont)}
+                  {getTocLevelStyles(theme.toc).slice(0, theme.toc.maxDepth).map((level, index) => (
+                    <React.Fragment key={`toc-level-${index}`}>
+                      {renderTocFontDetails(
+                        `${index + 1} 级目录项`,
+                        level,
+                        (field, value) => updateTocLevelStyle(index, field, value),
+                        { value: level.paddingLeft, onChange: (value) => updateTocLevelStyle(index, 'paddingLeft', value) },
+                      )}
+                    </React.Fragment>
+                  ))}
+                </section>
               </div>
             )}
           </div>

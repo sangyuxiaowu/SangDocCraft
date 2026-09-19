@@ -224,6 +224,9 @@ describe('AI assistant setting tools', () => {
       titleCenter: true,
       titleStyle: 'minimal',
       showPageNumbers: false,
+      titleOnEveryPage: true,
+      titleFont: { fontSize: 26, bold: false, marginAfter: 18, unknownField: 'ignored' },
+      levelStyles: [{ fontSize: 15 }, undefined, { bold: true, paddingLeft: 48 }],
     });
 
     expect(theme.meta.title).toBe('企业级云原生中台系统架构设计说明书');
@@ -257,6 +260,14 @@ describe('AI assistant setting tools', () => {
       titleCenter: true,
       titleStyle: 'minimal',
       showPageNumbers: false,
+      titleOnEveryPage: true,
+      titleFont: { fontFamily: 'inherit', fontSize: 26, bold: false, marginBefore: 0, marginAfter: 18 },
+      levelStyles: [
+        { fontSize: 15, bold: true, paddingLeft: 0 },
+        { fontSize: 13, paddingLeft: 20 },
+        { fontSize: 12, bold: true, paddingLeft: 48 },
+        { fontSize: 12, paddingLeft: 54 },
+      ],
     });
 
     const stateTool = tools.find(item => item.definition.function.name === 'get_document_state');
@@ -271,5 +282,7 @@ describe('AI assistant setting tools', () => {
     expect(tocProperties).toHaveProperty('titleCenter');
     expect(tocProperties).toHaveProperty('titleStyle');
     expect(tocProperties).toHaveProperty('showPageNumbers');
+    expect(tocProperties).toHaveProperty('titleFont');
+    expect(tocProperties).toHaveProperty('levelStyles');
   });
 });

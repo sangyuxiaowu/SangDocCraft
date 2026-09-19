@@ -14,8 +14,17 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { DocumentTheme, TocItem, ViewMode } from '../types';
-import { getFooterSlots, getHeadingText, getTocChunks } from '../utils/documentStructure';
-import { parseTableOfContents, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss } from '../utils/markdownParser';
+import {
+  getFooterSlots,
+  getHeadingText,
+  getTocLeaderStyleObject,
+  getTocLevelStyleObject,
+  getTocPageNumberStyleObject,
+  getTocRowStyleObject,
+  getTocTextStyleObject,
+  getTocTitleStyleObject,
+} from '../utils/documentStructure';
+import { parseTableOfContents, extractTocHeadings, assignTocPageNumbers, paginateTocItemsByDom, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss } from '../utils/markdownParser';
 import { resolveImageSrc, resolvePreviewImageSrc } from '../utils/tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidElements } from '../utils/mermaidRenderer';
@@ -211,19 +220,38 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
   });
 
   // Build TOC page numbers from the same pages rendered below.
-  const tocItems: TocItem[] = toc.show
-    ? parseTableOfContents(markdown, toc.maxDepth, meta, toc.show, style.h1PageBreak, rawContentPages, toc.headingNumbering)
+  // 目录分页按真实渲染高度自适应测量，目录页数与正文页码保持同步。
+  const tocHeadings = toc.show
+    ? extractTocHeadings(rawContentPages, toc.maxDepth, toc.headingNumbering)
     : [];
+  const tocChunks = toc.show
+    ? paginateTocItemsByDom(tocHeadings, {
+        toc,
+        style,
+        headerShow: header.show,
+        footerShow: footer.show,
+        fontFamily: fontStack,
+        coverPageCount: meta.showCover ? 1 : 0,
+        contentPageCount: rawContentPages.length,
+      })
+    : [];
+  const tocPageCount = tocChunks.length;
+  const firstContentPageNum = (meta.showCover ? 1 : 0) + (toc.show ? tocPageCount : 0) + 1;
 
-  // Always compute outline headings regardless of whether printed TOC page is enabled
+  // 测量得到的是标题项，渲染前需按正文起始页回填页码
+  const tocPages: TocItem[][] = tocChunks.map((chunk) => assignTocPageNumbers(chunk, firstContentPageNum));
+
+  // Always compute outline headings regardless of whether printed TOC page is enabled.
+  // 大纲页码必须复用真实目录页数，否则文档含 h4 标题时会整体偏移。
   const outlineItems: TocItem[] = parseTableOfContents(
     markdown,
     4,
     meta,
-    true,
+    toc.show,
     style.h1PageBreak,
     rawContentPages,
-    toc.headingNumbering
+    toc.headingNumbering,
+    toc.show ? tocPageCount : 0
   );
 
   useEffect(() => {
@@ -353,14 +381,13 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
 
   // 2. Table of Contents Pages (Auto-paginated across multiple pages if long)
   if (toc.show) {
-    const tocChunks = getTocChunks(tocItems);
-    tocChunks.forEach((chunk, chunkIdx) => {
+    tocPages.forEach((chunk, chunkIdx) => {
       pages.push({
         type: 'toc',
         pageNum: pageCounter++,
         tocChunk: chunk,
         tocChunkIdx: chunkIdx,
-        totalTocPages: tocChunks.length,
+        totalTocPages: tocPages.length,
       });
     });
   }
@@ -674,52 +701,58 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
 
                 {/* 2. Table of Contents Content */}
                 {page.type === 'toc' && (
-                  <div className="flex-1 flex flex-col py-4">
-                    <h2 
-                      className={`doc-toc-title text-xl font-bold mb-6 flex items-center ${toc.titleCenter ? 'justify-center text-center' : 'justify-between'}`}
-                    >
-                      <span>
+                  <div className="flex-1 flex flex-col" style={{ paddingTop: '16px', paddingBottom: '16px' }}>
+                    {((page.tocChunkIdx ?? 0) === 0 || toc.titleOnEveryPage) && (
+                      <h2
+                        className="doc-toc-title"
+                        style={getTocTitleStyleObject(toc) as React.CSSProperties}
+                      >
                         {toc.title || '目 录'}
-                        {page.totalTocPages && page.totalTocPages > 1 && (
+                        {toc.titleOnEveryPage && page.totalTocPages && page.totalTocPages > 1 && (
                           <span className="text-xs font-normal text-slate-500 ml-2">
                             ({(page.tocChunkIdx ?? 0) + 1}/{page.totalTocPages})
                           </span>
                         )}
-                      </span>
-                    </h2>
+                      </h2>
+                    )}
 
                     {(!page.tocChunk || page.tocChunk.length === 0) ? (
                       <p className="text-xs text-slate-400 italic">尚未找到标题，请输入 # 或 ## 创建目录项...</p>
                     ) : (
-                      <div className="space-y-3 text-xs flex-1">
-                        {page.tocChunk.map((item) => {
-                          const indentClass = item.level === 1 ? 'font-bold text-slate-800 text-sm' :
-                                              item.level === 2 ? 'pl-4 text-slate-700' : 'pl-8 text-slate-600';
-                          
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                              className={`w-full flex items-center justify-between text-left cursor-pointer hover:text-blue-600 ${indentClass}`}
-                            >
-                              <span className="shrink-0 max-w-[80%]">{item.text}</span>
-                              {toc.leaderStyle !== 'none' && (
-                                <div 
-                                  className="flex-1 mx-2 border-b border-dotted border-slate-300 h-2"
-                                  style={{
-                                    borderStyle: toc.leaderStyle === 'dashes' ? 'dashed' : toc.leaderStyle === 'line' ? 'solid' : 'dotted',
-                                  }}
-                                />
-                              )}
-                              {toc.showPageNumbers && (
-                                <span className="text-slate-600 font-mono text-[11px] font-semibold shrink-0">
-                                  {item.pageNumber ?? 1}
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {page.tocChunk.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                            className="hover:text-blue-600"
+                            style={{
+                              ...(getTocRowStyleObject() as React.CSSProperties),
+                              ...(getTocLevelStyleObject(item.level, toc) as React.CSSProperties),
+                              paddingTop: 0,
+                              paddingRight: 0,
+                              paddingBottom: 0,
+                              border: 'none',
+                              background: 'none',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              lineHeight: style.lineHeight,
+                            }}
+                          >
+                            <span style={getTocTextStyleObject() as React.CSSProperties}>{item.text}</span>
+                            {toc.leaderStyle !== 'none' && (
+                              <span style={getTocLeaderStyleObject(toc.leaderStyle) as React.CSSProperties} />
+                            )}
+                            {toc.showPageNumbers && (
+                              <span
+                                className="font-mono font-semibold"
+                                style={{ ...(getTocPageNumberStyleObject() as React.CSSProperties), color: '#475569', fontSize: '0.9em' }}
+                              >
+                                {item.pageNumber ?? 1}
+                              </span>
+                            )}
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>

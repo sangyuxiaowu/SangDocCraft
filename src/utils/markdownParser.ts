@@ -1,11 +1,30 @@
 import { marked } from 'marked';
 import { TocItem, DocumentMeta, StyleConfig, ImageStyleConfig, TableCaptionConfig, TocConfig } from '../types';
-import { getHeadingText, TOC_ITEMS_PER_PAGE } from './documentStructure';
+import {
+  getHeadingText,
+  getTocChunks,
+  getTocLevelStyleObject,
+  getTocLeaderStyleObject,
+  getTocPageNumberStyleObject,
+  getTocRowStyleObject,
+  getTocTextStyleObject,
+  getTocTitleStyleObject,
+  styleObjectToCss,
+  TOC_CONTENT_WIDTH_MM,
+  TOC_ITEMS_PER_PAGE,
+} from './documentStructure';
 import { resolveImageSrc } from './tauriHelper';
 import { splitExplicitPages } from './pageBreaks';
 import { parseImageDimensions } from './imageDimensions';
 
 export { formatPageNumber, getFooterSlots, getHeadingText, getTocChunks, TOC_ITEMS_PER_PAGE } from './documentStructure';
+export {
+  DEFAULT_TOC_LEVEL_STYLES,
+  DEFAULT_TOC_TITLE_FONT,
+  getTocLevelStyle,
+  getTocLevelStyles,
+  getTocTitleFont,
+} from './documentStructure';
 
 export interface DomPaginationOptions {
   fontSize?: number;
@@ -552,44 +571,24 @@ export function paginateContentByDom(
 /**
  * Extracts H1, H2, H3 headings from markdown to build Table of Contents items with calculated page numbers
  */
-export function parseTableOfContents(
-  markdown: string, 
-  maxDepth: number = 3, 
-  meta?: Partial<DocumentMeta>, 
-  tocShow: boolean = true,
-  h1PageBreak: boolean = false,
-  paginatedContent?: string[],
-  headingNumbering: TocConfig['headingNumbering'] = 'none'
-): TocItem[] {
-  const showCover = meta?.showCover !== false;
-  const showToc = tocShow !== false;
+export interface TocHeading {
+  id: string;
+  text: string;
+  level: number;
+  contentPageIndex: number;
+}
 
-  const contentPages = paginatedContent || splitContentByPages(markdown, h1PageBreak);
-
-  // Compute total TOC pages if TOC is shown
-  let tocPagesCount = 0;
-  if (showToc) {
-    let totalHeadingsCount = 0;
-    contentPages.forEach((pageMd) => {
-      let tokens: any[] = [];
-      try { tokens = marked.lexer(pageMd); } catch (e) { tokens = []; }
-      tokens.forEach((token) => {
-        if (token.type === 'heading' && token.depth <= maxDepth) {
-          totalHeadingsCount++;
-        }
-      });
-    });
-    tocPagesCount = Math.max(1, Math.ceil(totalHeadingsCount / TOC_ITEMS_PER_PAGE));
-  }
-
-  const firstContentPageNum = (showCover ? 1 : 0) + (showToc ? tocPagesCount : 0) + 1;
-
-  const items: TocItem[] = [];
+/** 解析各级标题（不含页码）；页码需在目录页数确定后再统一赋值 */
+export function extractTocHeadings(
+  contentPages: string[],
+  maxDepth: number = 3,
+  headingNumbering: TocConfig['headingNumbering'] = 'none',
+): TocHeading[] {
+  const headings: TocHeading[] = [];
   let index = 1;
   const counters = [0, 0, 0, 0];
 
-  contentPages.forEach((pageMd, pageIdx) => {
-    const pageNum = firstContentPageNum + pageIdx;
+  contentPages.forEach((pageMd, contentPageIndex) => {
     let tokens: any[] = [];
     try {
       tokens = marked.lexer(pageMd);
@@ -599,17 +598,214 @@ export function parseTableOfContents(
 
     tokens.forEach((token) => {
       if (token.type === 'heading' && token.depth <= maxDepth) {
-        items.push({
+        headings.push({
           id: `heading-${index++}`,
           text: getHeadingText(token.text, token.depth, counters, headingNumbering),
           level: token.depth,
-          pageNumber: pageNum,
+          contentPageIndex,
         });
       }
     });
   });
 
-  return items;
+  return headings;
+}
+
+export interface TocPaginationOptions {
+  toc: TocConfig;
+  style: StyleConfig;
+  headerShow?: boolean;
+  footerShow?: boolean;
+  fontFamily?: string;
+  coverPageCount?: number;
+  contentPageCount?: number;
+}
+
+/** 依据正文起始页码为标题项回填页码 */
+export function assignTocPageNumbers(headings: TocHeading[], firstContentPageNum: number): TocItem[] {
+  return headings.map((heading) => ({
+    id: heading.id,
+    text: heading.text,
+    level: heading.level,
+    pageNumber: firstContentPageNum + heading.contentPageIndex,
+  }));
+}
+
+function escapeHtmlText(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** 渲染目录项所需的最小字段集合 */
+export interface TocRenderableItem {
+  id: string;
+  text: string;
+  level: number;
+}
+
+/** 目录页标题 HTML（与预览/导出使用同一套字号、行高与盒模型） */
+export function buildTocTitleHtml(toc: TocConfig, className: string = 'doc-toc-title', suffixHtml: string = ''): string {
+  const titleStyle = styleObjectToCss(getTocTitleStyleObject(toc));
+  return `<h2 class="${className}" style="${titleStyle}">${escapeHtmlText(toc.title || '目 录')}${suffixHtml}</h2>`;
+}
+
+export function buildTocPageIndicator(chunkIdx: number, totalChunks: number): string {
+  if (totalChunks <= 1) return '';
+  return `<span style="font-size:12px;font-weight:400;color:#64748b;margin-left:8px;">(${chunkIdx + 1}/${totalChunks})</span>`;
+}
+
+/** 单个目录项 HTML（与预览/导出使用同一套行样式） */
+export function buildTocItemHtml(
+  item: TocRenderableItem,
+  toc: TocConfig,
+  pageNumberText: string,
+  options: { href?: string; className?: string } = {},
+): string {
+  const rowCss = styleObjectToCss({ ...getTocRowStyleObject(), ...getTocLevelStyleObject(item.level, toc) });
+  const textCss = styleObjectToCss(getTocTextStyleObject());
+  const className = options.className ? ` class="${options.className}"` : '';
+  const openTag = options.href ? `<a href="${options.href}"${className} style="${rowCss}">` : `<div${className} style="${rowCss}">`;
+  const closeTag = options.href ? '</a>' : '</div>';
+  const leaderHtml = toc.leaderStyle !== 'none'
+    ? `<span style="${styleObjectToCss(getTocLeaderStyleObject(toc.leaderStyle))}"></span>`
+    : '';
+  const pageNumberHtml = toc.showPageNumbers
+    ? `<span style="${styleObjectToCss(getTocPageNumberStyleObject())}">${escapeHtmlText(pageNumberText)}</span>`
+    : '';
+  return `${openTag}<span style="${textCss}">${escapeHtmlText(item.text)}</span>${leaderHtml}${pageNumberHtml}${closeTag}`;
+}
+
+/**
+ * 依据真实渲染高度把目录项切分为多页。
+ * 目录项高度受标题长度、级别字号与段间距影响，固定条数（TOC_ITEMS_PER_PAGE）会
+ * 造成长标题溢出被裁切、短标题提前分页，因此这里沿用正文分页的离屏测量思路。
+ */
+export function paginateTocItemsByDom<T extends TocRenderableItem>(items: T[], options: TocPaginationOptions): T[][] {
+  if (!items || items.length === 0) return [[]];
+  if (typeof document === 'undefined') return getTocChunks(items);
+
+  const { toc, style } = options;
+  const measurer = document.createElement('div');
+  measurer.className = 'toc-pagination-measurer';
+  measurer.style.cssText = [
+    'position:absolute',
+    'left:-9999px',
+    'top:-9999px',
+    'visibility:hidden',
+    'pointer-events:none',
+    'box-sizing:border-box',
+    'display:flex',
+    'flex-direction:column',
+    `width:${TOC_CONTENT_WIDTH_MM}mm`,
+    `font-family:${options.fontFamily || 'sans-serif'}`,
+    `font-size:${style.fontSize || 14}px`,
+    `line-height:${style.lineHeight || 1.6}`,
+    `color:${style.textColor || '#0f172a'}`,
+  ].join(';');
+
+  const headerHeight = options.headerShow ? 42 : 0;
+  const footerHeight = options.footerShow ? 42 : 0;
+  const renderingTolerance = Math.ceil((style.fontSize || 14) * (style.lineHeight || 1.6)) + 8;
+  // 目录页正文区高度：A4 高 - 上下页边距 - 页眉页脚 - 容器 py-4(上下各 16px)
+  const availableHeight = 1122.5 - 151.2 - headerHeight - footerHeight - renderingTolerance - 32;
+
+  const measurerStyles = document.createElement('style');
+  measurerStyles.textContent = getTocTitleCss('.toc-pagination-measurer .doc-toc-title', toc, style);
+  document.head.appendChild(measurerStyles);
+  document.body.appendChild(measurer);
+
+  try {
+    const paginate = (tocPageCount: number): T[][] => {
+      const chunks: T[][] = [];
+      let current: T[] = [];
+      let pageIndex = 0;
+      const firstContentPageNum = (options.coverPageCount ?? 0) + tocPageCount + 1;
+      const lastContentPageNum = firstContentPageNum + Math.max(0, (options.contentPageCount ?? items.length) - 1);
+      const pageNumberText = String(lastContentPageNum);
+
+      const renderPageBase = () => {
+        measurer.innerHTML = pageIndex === 0 || toc.titleOnEveryPage
+          ? buildTocTitleHtml(toc, 'doc-toc-title', toc.titleOnEveryPage ? buildTocPageIndicator(pageIndex, tocPageCount) : '')
+          : '';
+      };
+      renderPageBase();
+
+      items.forEach((item) => {
+        measurer.insertAdjacentHTML('beforeend', buildTocItemHtml(item, toc, pageNumberText));
+        if (measurer.scrollHeight > availableHeight && current.length > 0) {
+          if (measurer.lastElementChild) measurer.removeChild(measurer.lastElementChild);
+          chunks.push(current);
+          current = [];
+          pageIndex += 1;
+          renderPageBase();
+          measurer.insertAdjacentHTML('beforeend', buildTocItemHtml(item, toc, pageNumberText));
+        }
+        current.push(item);
+      });
+
+      if (current.length > 0) chunks.push(current);
+      return chunks.length > 0 ? chunks : [[]];
+    };
+
+    let expectedPageCount = 1;
+    for (let attempt = 0; attempt <= items.length; attempt += 1) {
+      const chunks = paginate(expectedPageCount);
+      if (chunks.length === expectedPageCount) return chunks;
+      expectedPageCount = chunks.length;
+    }
+    return paginate(expectedPageCount);
+  } finally {
+    if (document.body.contains(measurer)) document.body.removeChild(measurer);
+    measurerStyles.remove();
+  }
+}
+
+/**
+ * Extracts H1, H2, H3 headings from markdown to build Table of Contents items with calculated page numbers
+ */
+export function parseTableOfContents(
+  markdown: string,
+  maxDepth: number = 3,
+  meta?: Partial<DocumentMeta>,
+  tocShow: boolean = true,
+  h1PageBreak: boolean = false,
+  paginatedContent?: string[],
+  headingNumbering: TocConfig['headingNumbering'] = 'none',
+  tocPageCountOverride?: number
+): TocItem[] {
+  const showCover = meta?.showCover !== false;
+  const showToc = tocShow !== false;
+
+  const contentPages = paginatedContent || splitContentByPages(markdown, h1PageBreak);
+
+  // Compute total TOC pages if TOC is shown. When the caller already measured the real
+  // (adaptive) TOC page count, use it so content page numbers stay in sync.
+  let tocPagesCount = 0;
+  if (showToc) {
+    if (typeof tocPageCountOverride === 'number' && Number.isFinite(tocPageCountOverride)) {
+      tocPagesCount = Math.max(1, Math.trunc(tocPageCountOverride));
+    } else {
+      let totalHeadingsCount = 0;
+      contentPages.forEach((pageMd) => {
+        let tokens: any[] = [];
+        try { tokens = marked.lexer(pageMd); } catch (e) { tokens = []; }
+        tokens.forEach((token) => {
+          if (token.type === 'heading' && token.depth <= maxDepth) {
+            totalHeadingsCount++;
+          }
+        });
+      });
+      tocPagesCount = Math.max(1, Math.ceil(totalHeadingsCount / TOC_ITEMS_PER_PAGE));
+    }
+  }
+
+  const firstContentPageNum = (showCover ? 1 : 0) + (showToc ? tocPagesCount : 0) + 1;
+
+  return extractTocHeadings(contentPages, maxDepth, headingNumbering).map((heading) => ({
+    id: heading.id,
+    text: heading.text,
+    level: heading.level,
+    pageNumber: firstContentPageNum + heading.contentPageIndex,
+  }));
 }
 
 /**
