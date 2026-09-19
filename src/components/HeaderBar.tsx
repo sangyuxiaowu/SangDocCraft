@@ -16,14 +16,11 @@ import {
   FolderOpen,
   Save,
   History,
-  FileText,
-  Layers,
   Info,
   Printer,
   AlertTriangle,
 } from 'lucide-react';
 import { DocumentTheme, ThemeMode, ViewMode } from '../types';
-import { SAMPLE_MARKDOWNS } from '../data/defaultMarkdown';
 
 interface HeaderBarProps {
   currentTheme: DocumentTheme;
@@ -32,7 +29,6 @@ interface HeaderBarProps {
   onThemeChange: (theme: DocumentTheme) => void;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
-  onMarkdownChange: (md: string) => void;
   onExportDocx: () => void;
   onExportHtml: () => void;
   onExportSdc: () => void;
@@ -63,7 +59,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onThemeChange,
   viewMode,
   onViewModeChange,
-  onMarkdownChange,
   onExportDocx,
   onExportHtml,
   onExportSdc,
@@ -214,7 +209,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     ? isDark ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-slate-200 border-slate-300 text-slate-900'
                     : isDark ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-300' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
                 }`}
-                title="文件管理与排版范本"
+                title="文件管理与文档模板"
               >
                 <FolderOpen className="w-3.5 h-3.5 text-blue-500" />
                 <span>文件</span>
@@ -277,61 +272,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     <div className="min-w-0 flex-1">
                       <div className="font-semibold">历史快照与自动备份</div>
                       <div className={`text-[10px] truncate ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>浏览与回滚近期历史版本</div>
-                    </div>
-                  </button>
-
-                  <div className={`my-1 border-t ${isDark ? 'border-zinc-800' : 'border-slate-100'}`} />
-
-                  {/* 排版演示范本 */}
-                  <div className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>
-                    排版演示范本
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      onMarkdownChange(SAMPLE_MARKDOWNS.systemTemplate);
-                      setActiveDropdown(null);
-                    }}
-                    className={`w-full text-left px-2.5 py-2 rounded-lg text-xs font-medium flex items-center gap-2.5 transition ${
-                      isDark ? 'hover:bg-zinc-800 text-zinc-200' : 'hover:bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    <FileText className="w-4 h-4 text-blue-500 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="font-semibold">本系统 Markdown 范本</div>
-                      <div className={`text-[10px] truncate ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>语法、特性与排版指南</div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onMarkdownChange(SAMPLE_MARKDOWNS.architectureDoc);
-                      setActiveDropdown(null);
-                    }}
-                    className={`w-full text-left px-2.5 py-2 rounded-lg text-xs font-medium flex items-center gap-2.5 transition ${
-                      isDark ? 'hover:bg-zinc-800 text-zinc-200' : 'hover:bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    <Layers className="w-4 h-4 text-indigo-500 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="font-semibold">架构设计说明书</div>
-                      <div className={`text-[10px] truncate ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>技术方案、架构图与参数规范</div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onMarkdownChange(SAMPLE_MARKDOWNS.uiDesignDoc);
-                      setActiveDropdown(null);
-                    }}
-                    className={`w-full text-left px-2.5 py-2 rounded-lg text-xs font-medium flex items-center gap-2.5 transition ${
-                      isDark ? 'hover:bg-zinc-800 text-zinc-200' : 'hover:bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    <Sparkles className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="font-semibold">UI/UX 体验设计交付规范</div>
-                      <div className={`text-[10px] truncate ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>视觉组件与设计系统规范</div>
                     </div>
                   </button>
 

@@ -23,7 +23,7 @@ import {
   ExternalLink,
   ChevronRight
 } from 'lucide-react';
-import { DOCUMENT_TEMPLATES, type DocumentTemplateItem } from '../data/documentTemplates';
+import { DOCUMENT_TEMPLATES, type DocumentTemplateCategory, type DocumentTemplateItem } from '../data/documentTemplates';
 import type { DocumentDraft } from '../utils/draftStore';
 import type { RecentDocumentItem } from '../utils/recentDocumentsStore';
 import type { ThemeMode } from '../types';
@@ -72,7 +72,7 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
   onRemoveRecent,
   onClearRecent,
 }) => {
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'blank' | 'sample' | 'template'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<'all' | DocumentTemplateCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Handle ESC key to close if canClose is true
@@ -278,12 +278,11 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
             <div className={`flex items-center p-0.5 rounded-xl border shrink-0 ${
               isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-slate-200/80 border-slate-200'
             }`}>
-              {(['all', 'blank', 'sample', 'template'] as const).map((cat) => {
-                const labels = {
+              {(['all', 'blank', 'template'] as const).map((cat) => {
+                const labels: Record<'all' | DocumentTemplateCategory, string> = {
                   all: '全部',
                   blank: '空白文档',
-                  sample: '精选范文',
-                  template: '实用模板',
+                  template: '文档模板',
                 };
                 const active = selectedCategory === cat;
                 return (

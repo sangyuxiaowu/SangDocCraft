@@ -439,17 +439,17 @@ export default function App() {
     const allThemes = [...builtinThemes, ...customThemes];
     const matchedTheme = allThemes.find((t) => t.id === template.recommendedThemeId) || builtinThemes[0];
 
+    // 模板只描述差异部分，其余排版与配色完全沿用推荐主题；未在模板中声明的字段保持主题默认值
     const newTheme: DocumentTheme = {
       ...matchedTheme,
       meta: {
         ...matchedTheme.meta,
+        ...template.coverConfig,
         title: template.coverConfig?.title || template.title,
         subtitle: template.coverConfig?.subtitle || template.subtitle,
-        author: template.coverConfig?.author || matchedTheme.meta.author || '',
-        organization: template.coverConfig?.organization || matchedTheme.meta.organization || '',
         version: template.coverConfig?.version || matchedTheme.meta.version || 'v1.0.0',
         date: template.coverConfig?.date || new Date().toISOString().split('T')[0],
-        showCover: true,
+        showCover: template.coverConfig?.showCover ?? true,
       },
     };
 
@@ -858,7 +858,6 @@ export default function App() {
         onThemeChange={handlePresetThemeChange}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        onMarkdownChange={handleMarkdownChange}
         onExportDocx={handleExportDocx}
         onExportHtml={handleExportHtml}
         onExportSdc={handleExportSdc}
