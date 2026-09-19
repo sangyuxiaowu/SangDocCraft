@@ -14,6 +14,7 @@ import { modal } from './utils/modalDialog';
 import { DocumentAsset, DocumentHistoryEntry, DocumentTheme, ThemeMode, ViewMode } from './types';
 import { getRegisteredThemes } from './themes/themeRegistry';
 import { loadCustomThemes, saveCustomThemes } from './themes/customThemeStore';
+import { mergeThemePreservingDocumentText } from './themes/themeSelection';
 import { clearDocumentAssets, clearDocumentChatSessions, listChatSessions, listDocumentAssets, listLibraryAssets } from './utils/imageRepository';
 import { registerAssetUrls } from './utils/assetUrlRegistry';
 import { clearDocumentAssetUrls } from './utils/assetUrlRegistry';
@@ -386,7 +387,8 @@ export default function App() {
   }, [isDragging, isConfigPanelOpen, viewMode]);
 
   const handlePresetThemeChange = (selectedTheme: DocumentTheme) => {
-    setTheme(selectedTheme);
+    // 切换主题只替换排版与配色，封面/页眉页脚中当前文档已填写的文本类信息保持不变
+    setTheme((currentTheme) => mergeThemePreservingDocumentText(currentTheme, selectedTheme));
     setIsDocumentDirty(true);
   };
 
