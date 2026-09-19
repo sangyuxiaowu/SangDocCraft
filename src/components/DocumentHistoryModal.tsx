@@ -11,7 +11,8 @@ import {
   Sparkles, 
   Palette, 
   Save, 
-  ArrowRight 
+  ArrowRight,
+  Tag
 } from 'lucide-react';
 import type { DocumentHistoryEntry, DocumentSettings } from '../types';
 import { modal } from '../utils/modalDialog';
@@ -21,6 +22,8 @@ interface DocumentHistoryModalProps {
   isDark: boolean;
   settings: DocumentSettings;
   history: DocumentHistoryEntry[];
+  /** 当前文档封面 meta.version，便于与快照记录中的版本号对照 */
+  currentVersion?: string;
   onClose: () => void;
   onSettingsChange: (settings: DocumentSettings) => void;
   onRestore: (entry: DocumentHistoryEntry) => void;
@@ -32,6 +35,7 @@ export const DocumentHistoryModal: React.FC<DocumentHistoryModalProps> = ({
   isDark,
   settings,
   history,
+  currentVersion,
   onClose,
   onSettingsChange,
   onRestore,
@@ -49,13 +53,19 @@ export const DocumentHistoryModal: React.FC<DocumentHistoryModalProps> = ({
     return reversedHistory.find((e) => e.id === selectedEntryId) || reversedHistory[0];
   }, [reversedHistory, selectedEntryId]);
 
+  // 版本号仅在有值时展示，方便按 version 字段定位指定快照
+  const normalizeVersion = (value?: string) => (value && value.trim() ? value.trim() : '');
+  const currentVersionLabel = normalizeVersion(currentVersion);
+  const selectedEntryVersion = normalizeVersion(selectedEntry?.theme?.meta?.version);
+
   if (!isOpen) return null;
 
   const handleRestoreClick = async (entry: DocumentHistoryEntry) => {
     const timeStr = new Date(entry.createdAt).toLocaleString();
+    const entryVersion = normalizeVersion(entry.theme?.meta?.version);
     const ok = await modal.confirm({
       title: '恢复历史快照',
-      message: `确定要恢复至 ${timeStr} 的版本吗？\n当前未保存的修改将被此历史快照覆盖。`,
+      message: `确定要恢复至 ${timeStr}${entryVersion ? `（版本 ${entryVersion}）` : ''} 的版本吗？\n当前未保存的修改将被此历史快照覆盖。`,
       confirmText: '确认恢复',
       cancelText: '取消',
       variant: 'warning',
@@ -115,6 +125,18 @@ export const DocumentHistoryModal: React.FC<DocumentHistoryModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-bold tracking-tight">文档版本与编辑历史</h2>
+                {currentVersionLabel && (
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold border ${
+                      isDark
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`}
+                    title="当前文档版本"
+                  >
+                    当前版本 {currentVersionLabel}
+                  </span>
+                )}
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
                   isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200/80 text-slate-700'
                 }`}>
@@ -201,6 +223,7 @@ export const DocumentHistoryModal: React.FC<DocumentHistoryModalProps> = ({
                 const isSelected = selectedEntry?.id === entry.id;
                 const isManual = entry.reason === 'manual';
                 const dateObj = new Date(entry.createdAt);
+                const entryVersion = normalizeVersion(entry.theme?.meta?.version);
 
                 return (
                   <div
@@ -236,8 +259,25 @@ export const DocumentHistoryModal: React.FC<DocumentHistoryModalProps> = ({
                       </span>
                     </div>
 
-                    <div className="text-xs font-semibold mb-1">
-                      {dateObj.toLocaleDateString([], { year: 'numeric', month: '2-digit', day: '2-digit' })}
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-xs font-semibold">
+                        {dateObj.toLocaleDateString([], { year: 'numeric', month: '2-digit', day: '2-digit' })}
+                      </span>
+                      {entryVersion && (
+                        <span
+                          className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-mono font-semibold truncate max-w-[110px] ${
+                            isSelected
+                              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                              : isDark
+                              ? 'border-zinc-700 bg-zinc-800/60 text-emerald-400'
+                              : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          }`}
+                          title={`快照版本：${entryVersion}`}
+                        >
+                          <Tag className="w-2.5 h-2.5 shrink-0" />
+                          <span className="truncate">{entryVersion}</span>
+                        </span>
+                      )}
                     </div>
 
                     <div className={`flex items-center gap-3 text-[11px] ${
@@ -268,24 +308,43 @@ export const DocumentHistoryModal: React.FC<DocumentHistoryModalProps> = ({
                 <div className={`px-6 py-3 border-b flex flex-wrap items-center justify-between gap-3 shrink-0 ${
                   isDark ? 'border-zinc-800 bg-[#1a1a1a]' : 'border-slate-100 bg-slate-50/80'
                 }`}>
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <div className="text-xs font-bold flex items-center gap-2">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold flex items-center gap-2 flex-wrap">
                         <span>快照内容预览</span>
-                        <span className={`text-[10px] font-normal px-2 py-0.5 rounded-full ${
+                        <span className={`text-[10px] font-normal px-2 py-0.5 rounded-full whitespace-nowrap ${
                           isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-slate-600'
                         }`}>
                           {new Date(selectedEntry.createdAt).toLocaleString()}
                         </span>
+                        <span
+                          className={`flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                            selectedEntryVersion
+                              ? isDark
+                                ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400'
+                                : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                              : isDark
+                              ? 'bg-zinc-800 border-zinc-700 text-zinc-500'
+                              : 'bg-slate-100 border-slate-200 text-slate-500'
+                          }`}
+                          title={selectedEntryVersion ? `快照记录的文档版本：${selectedEntryVersion}` : '该快照未记录文档版本'}
+                        >
+                          <Tag className="w-3 h-3" />
+                          {selectedEntryVersion || '未设置版本'}
+                        </span>
                       </div>
-                      <div className={`text-[11px] mt-0.5 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
-                        字数: {selectedEntry.markdown.length} 字符 · 主题: {selectedEntry.theme?.name || '默认主题'}
+                      <div className={`text-[11px] mt-1 flex flex-wrap items-center gap-x-1.5 ${
+                        isDark ? 'text-zinc-400' : 'text-slate-500'
+                      }`}>
+                        <span className="whitespace-nowrap">字数: {selectedEntry.markdown.length} 字符</span>
+                        <span>·</span>
+                        <span className="truncate max-w-[240px]">主题: {selectedEntry.theme?.name || '默认主题'}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => void handleCopyContent(selectedEntry.markdown)}
                       className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition ${

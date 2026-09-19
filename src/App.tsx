@@ -1032,6 +1032,7 @@ export default function App() {
         isDark={isDark}
         settings={documentSettings}
         history={history}
+        currentVersion={theme.meta.version}
         onClose={() => setShowHistory(false)}
         onSettingsChange={(settings) => { setDocumentSettings(settings); setIsDocumentDirty(true); }}
         onRestore={(entry) => { setMarkdown(entry.markdown); setTheme(entry.theme); setIsDocumentDirty(true); setShowHistory(false); }}
