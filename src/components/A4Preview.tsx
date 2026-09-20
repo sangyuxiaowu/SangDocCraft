@@ -30,6 +30,7 @@ import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidElements } from '../utils/mermaidRenderer';
 import { containsMath, ensureMathLoaded, onMathReady } from '../utils/mathRenderer';
 import { getTocTitleCss } from '../utils/markdownParser';
+import { WatermarkOverlay } from './WatermarkOverlay';
 
 interface A4PreviewProps {
   markdown: string;
@@ -673,6 +674,12 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                 color: style.textColor,
               }}
             >
+              <WatermarkOverlay
+                watermark={style.watermark}
+                isCover={page.type === 'cover'}
+                pageNum={page.pageNum}
+              />
+
               {header.show && (page.type !== 'cover' || !header.hideOnCover) && headerLogoSrc && (
                 <img
                   src={headerLogoSrc}

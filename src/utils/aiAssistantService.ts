@@ -626,6 +626,24 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
                   captionPosition: { type: 'string', enum: ['top', 'bottom'] },
                   captionAlign: { type: 'string', enum: ['center', 'left', 'right'] }
                 }
+              },
+              watermark: {
+                type: 'object',
+                description: '文档水印配置',
+                properties: {
+                  show: { type: 'boolean' },
+                  type: { type: 'string', enum: ['text', 'image'] },
+                  text: { type: 'string' },
+                  fontSize: { type: 'number' },
+                  color: { type: 'string' },
+                  opacity: { type: 'number' },
+                  rotate: { type: 'number' },
+                  layout: { type: 'string', enum: ['single', 'repeat'] },
+                  repeatGap: { type: 'number' },
+                  hideOnCover: { type: 'boolean' },
+                  imageUrl: { type: 'string' },
+                  imageWidth: { type: 'number' }
+                }
               }
             }
           }
@@ -672,6 +690,9 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
           }
           if (typeof args.tableCaptionConfig === 'object' && args.tableCaptionConfig !== null) {
             updatedStyle.tableCaptionConfig = { ...updatedStyle.tableCaptionConfig, ...args.tableCaptionConfig } as NonNullable<DocumentTheme['style']['tableCaptionConfig']>;
+          }
+          if (typeof args.watermark === 'object' && args.watermark !== null) {
+            updatedStyle.watermark = { ...updatedStyle.watermark, ...args.watermark } as NonNullable<DocumentTheme['style']['watermark']>;
           }
           return { ...theme, style: updatedStyle };
         };

@@ -157,6 +157,24 @@ export interface StyleConfig {
   // Image and Captions config
   imageConfig?: ImageStyleConfig;
   tableCaptionConfig?: TableCaptionConfig;
+
+  // Document Watermark config
+  watermark?: WatermarkConfig;
+}
+
+export interface WatermarkConfig {
+  show: boolean;
+  type: 'text' | 'image';
+  text: string;
+  fontSize: number;
+  color: string;
+  opacity: number;
+  rotate: number;
+  layout: 'single' | 'repeat';
+  repeatGap: number;
+  hideOnCover: boolean;
+  imageUrl?: string;
+  imageWidth?: number;
 }
 
 export interface DocumentTheme {

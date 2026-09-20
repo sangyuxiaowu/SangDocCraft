@@ -7,6 +7,7 @@ import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidInHtml } from './mermaidRenderer';
 import { ensureMathLoaded } from './mathRenderer';
 import { getTocTitleCss } from './markdownParser';
+import { renderWatermarkHtml, renderWatermarkImageDefinition } from './watermark';
 
 function renderFooterHtml(pageNum: number, totalPages: number, footer: FooterConfig, meta: DocumentMeta): string {
   if (!footer.show) return '';
@@ -45,7 +46,7 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 }
 
 async function inlineImagesAsDataUris(html: string): Promise<string> {
-  const imageSources = [...html.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["']/gi)].map((match) => match[1]);
+  const imageSources = [...html.matchAll(/<(?:img|image)\b[^>]*\b(?:src|href)=["']([^"']+)["']/gi)].map((match) => match[1]);
   const uniqueSources = [...new Set(imageSources.filter((src) => !src.startsWith('data:')))];
   const replacements = new Map<string, string>();
 
@@ -58,7 +59,7 @@ async function inlineImagesAsDataUris(html: string): Promise<string> {
     }
   }));
 
-  return html.replace(/(<img\b[^>]*\bsrc=["'])([^"']+)(["'])/gi, (match, prefix: string, source: string, suffix: string) => {
+  return html.replace(/(<(?:img|image)\b[^>]*\b(?:src|href)=["'])([^"']+)(["'])/gi, (match, prefix: string, source: string, suffix: string) => {
     return replacements.has(source) ? `${prefix}${replacements.get(source)}${suffix}` : match;
   });
 }
@@ -724,12 +725,26 @@ export function generateStandaloneHtml(
       .doc-header, .doc-footer {
         display: flex !important;
       }
+
+      .doc-watermark-overlay {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        overflow: hidden;
+        z-index: 1;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
     }
   </style>
 </head>
 <body>
+  ${renderWatermarkImageDefinition(style.watermark)}
   ${meta.showCover ? `
   <div class="a4-page cover-page-wrapper">
+    ${renderWatermarkHtml(style.watermark, true, 'cover')}
     ${header.show && !header.hideOnCover ? `
     <div class="doc-header">
       <span>${header.leftText || ''}</span>
@@ -749,6 +764,7 @@ export function generateStandaloneHtml(
     const tocPageNum = (meta.showCover ? 1 : 0) + chunkIdx + 1;
     return `
   <div class="a4-page toc-page-wrapper">
+    ${renderWatermarkHtml(style.watermark, false, `toc-${chunkIdx}`)}
     ${header.show ? `
     ${header.logoUrl ? `<img src="${header.logoUrl}" style="position: absolute; top: ${header.logoTopOffset ?? 15}px; z-index: 10; height: ${header.logoHeight || 20}px; width: auto; object-fit: contain; opacity: ${header.logoOpacity ?? 1}; pointer-events: none;" alt="Header Logo" />` : ''}
     <div class="doc-header">
@@ -791,6 +807,7 @@ export function generateStandaloneHtml(
 
       return `
   <div class="a4-page content-page-wrapper">
+    ${renderWatermarkHtml(style.watermark, false, `content-${idx}`)}
     ${header.show ? `
     ${header.logoUrl ? `<img src="${header.logoUrl}" style="position: absolute; top: ${header.logoTopOffset ?? 15}px; z-index: 10; height: ${header.logoHeight || 20}px; width: auto; object-fit: contain; opacity: ${header.logoOpacity ?? 1}; pointer-events: none;" alt="Header Logo" />` : ''}
     <div class="doc-header">

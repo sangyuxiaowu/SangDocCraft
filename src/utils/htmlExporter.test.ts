@@ -137,6 +137,45 @@ describe('generateStandaloneHtml', () => {
     expect(html).toContain('overflow: hidden;');
   });
 
+  it('exports tiled watermarks with numeric text coordinates and one image resource', () => {
+    const base = PRESET_THEMES[0];
+    const html = generateStandaloneHtml('# First\n\n<!-- pagebreak -->\n\n# Second', {
+      ...base,
+      meta: { ...base.meta, showCover: false },
+      toc: { ...base.toc, show: false },
+      style: {
+        ...base.style,
+        paginationMode: 'manual',
+        watermark: {
+          show: true,
+          type: 'image',
+          text: '',
+          fontSize: 28,
+          color: '#94a3b8',
+          opacity: 0.15,
+          rotate: -30,
+          layout: 'repeat',
+          repeatGap: 140,
+          hideOnCover: true,
+          imageUrl: 'https://example.com/watermark.png',
+          imageWidth: 120,
+        },
+      },
+    });
+
+    expect(html.match(/href="https:\/\/example\.com\/watermark\.png"/g)).toHaveLength(1);
+    expect(html.match(/<use\s+href="#doc-watermark-image"/g)).toHaveLength(2);
+
+    const textHtml = generateStandaloneHtml('# Body', {
+      ...base,
+      meta: { ...base.meta, showCover: false },
+      toc: { ...base.toc, show: false },
+      style: { ...base.style, watermark: { ...base.style.watermark, show: true, layout: 'repeat', type: 'text' } },
+    });
+    expect(textHtml).toMatch(/<text\s+x="\d+(?:\.\d+)?"\s+y="\d+(?:\.\d+)?"/);
+    expect(textHtml).not.toContain('x="50%"');
+  });
+
   it('does not treat YAML-like document prefixes as metadata', () => {
     const base = PRESET_THEMES[0];
     const html = generateStandaloneHtml(
