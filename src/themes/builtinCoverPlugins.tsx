@@ -174,7 +174,7 @@ function creativePreview({ meta, style, coverListItems }: CoverRenderContext): R
         </div>
       </div>;
     })}</div> : <div />}
-    <div />
+    {meta.department ? <div className="text-center text-[10px] font-bold tracking-widest uppercase text-slate-400">{meta.department}</div> : <div />}
   </div>;
 }
 
@@ -219,7 +219,7 @@ function creativeHtml({ meta, style, coverListItems }: CoverRenderContext): stri
   const hasBanner = Boolean(meta.organization || meta.logo || meta.logoUrl || meta.number || meta.title || meta.subtitle);
   const hasMeta = Boolean(coverListItems?.length);
 
-  return `<div style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:space-between;">${hasBanner ? `<div style="background:linear-gradient(135deg,${style.primaryColor},${style.accentColor});color:#fff;padding:28px 24px;border-radius:16px;text-align:left;">${(meta.organization || meta.logo || meta.logoUrl) ? `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">${meta.organization ? `<div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;opacity:.9;">${meta.organization}</div>` : '<div></div>'}${(meta.logo || meta.logoUrl) ? `<img src="${meta.logo || meta.logoUrl}" style="${logoHeightStyle(meta.logoHeight, 24)}filter:brightness(0) invert(1);" alt="Logo" />` : ''}</div>` : ''}${meta.number ? `<div style="font-size:11px;font-family:monospace;opacity:.8;">NO. ${meta.number}</div>` : ''}${meta.title ? `<div style="font-size:30px;font-weight:800;line-height:1.2;">${meta.title}</div>` : ''}${meta.subtitle ? `<div style="font-size:14px;margin-top:8px;opacity:.9;">${meta.subtitle}</div>` : ''}</div>` : '<div></div>'}${hasMeta ? `<div class="creative-grid">${coverListItems.map(creativeCardHtml).join('')}</div>` : '<div></div>'}<div></div></div>`;
+  return `<div style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:space-between;">${hasBanner ? `<div style="background:linear-gradient(135deg,${style.primaryColor},${style.accentColor});color:#fff;padding:28px 24px;border-radius:16px;text-align:left;">${(meta.organization || meta.logo || meta.logoUrl) ? `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">${meta.organization ? `<div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;opacity:.9;">${meta.organization}</div>` : '<div></div>'}${(meta.logo || meta.logoUrl) ? `<img src="${meta.logo || meta.logoUrl}" style="${logoHeightStyle(meta.logoHeight, 24)}filter:brightness(0) invert(1);" alt="Logo" />` : ''}</div>` : ''}${meta.number ? `<div style="font-size:11px;font-family:monospace;opacity:.8;">NO. ${meta.number}</div>` : ''}${meta.title ? `<div style="font-size:30px;font-weight:800;line-height:1.2;">${meta.title}</div>` : ''}${meta.subtitle ? `<div style="font-size:14px;margin-top:8px;opacity:.9;">${meta.subtitle}</div>` : ''}</div>` : '<div></div>'}${hasMeta ? `<div class="creative-grid">${coverListItems.map(creativeCardHtml).join('')}</div>` : '<div></div>'}${meta.department ? `<div style="text-align:center;font-size:10px;color:#94a3b8;letter-spacing:2px;font-weight:bold;">${meta.department}</div>` : '<div></div>'}</div>`;
 }
 
 function logoHeightStyle(height: number | undefined, defaultHeight: number): string {

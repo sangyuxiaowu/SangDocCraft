@@ -136,7 +136,7 @@ describe('themeRegistry', () => {
     const registry = await loadRegistry();
     const plugin = registry.getCoverTemplate('creative');
     const context = {
-      meta: { ...PRESET_THEMES[0].meta, coverStyle: 'creative' as const },
+      meta: { ...PRESET_THEMES[0].meta, coverStyle: 'creative' as const, department: 'FRONTIER EXPLORATION GROUP' },
       style: PRESET_THEMES[0].style,
       coverListItems: [{ label: '🎨 Author', value: 'Alice' }, { label: 'Reviewer', value: 'Bob' }],
     };
@@ -145,11 +145,13 @@ describe('themeRegistry', () => {
     expect(preview).toMatch(/shrink-0[^>]*>🎨</);
     expect(preview).toContain('>Author</div>');
     expect(preview).not.toContain('🎨 Author');
+    expect(preview).toContain('FRONTIER EXPLORATION GROUP');
 
     const html = plugin.renderHtml(context);
     expect(html).toContain('<span class="emoji">🎨</span>');
     expect(html).toContain('<div class="label">Author</div>');
     expect(html).not.toContain('🎨 Author');
+    expect(html).toContain('text-align:center;font-size:10px;color:#94a3b8;letter-spacing:2px;font-weight:bold;">FRONTIER EXPLORATION GROUP</div>');
 
     // 没有 emoji 的 label 不应产生多余的空 emoji 列
     const plainHtml = plugin.renderHtml({ ...context, coverListItems: [{ label: 'Reviewer', value: 'Bob' }] });

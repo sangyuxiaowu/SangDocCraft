@@ -19,6 +19,15 @@ describe('splitLeadingEmoji', () => {
     expect(splitLeadingEmoji('👨‍👩‍👧‍👦 家庭')).toEqual({ emoji: '👨‍👩‍👧‍👦', label: '家庭' });
   });
 
+  it('保留肤色修饰符，避免其残留在 label 中', () => {
+    expect(splitLeadingEmoji('👍🏽 审核人')).toEqual({ emoji: '👍🏽', label: '审核人' });
+    expect(splitLeadingEmoji('👩🏽‍💻 工程师')).toEqual({ emoji: '👩🏽‍💻', label: '工程师' });
+  });
+
+  it('将连续的首 emoji 簇完整保留在 emoji 列中', () => {
+    expect(splitLeadingEmoji('🎨❤️ 设计')).toEqual({ emoji: '🎨❤️', label: '设计' });
+  });
+
   it('label 不以 emoji 开头时原样返回', () => {
     expect(splitLeadingEmoji('撰写团队')).toEqual({ emoji: null, label: '撰写团队' });
   });

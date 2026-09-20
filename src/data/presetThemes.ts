@@ -268,7 +268,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
       title: '下一代 AIGC 创意工作流设计方案',
       subtitle: 'AI-Powered Creative Suite Blueprint',
       author: '产品创新实验室',
-      department: '前沿探索组',
+      department: 'FRONTIER EXPLORATION GROUP',
       organization: '某某科技有限公司',
       date: '2026年Q3',
       showCover: true,
