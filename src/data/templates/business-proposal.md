@@ -24,9 +24,9 @@
 ```mermaid
 flowchart LR
     Customer[企业客户] --> Platform[知识中台私有部署]
-    Platform --> Sub1[标准平台授权许可<br/>(基础版 / 专业版)]
-    Platform --> Sub2[行业垂直模型微调<br/>(专业服务交付)]
-    Platform --> Sub3[年度金牌维保与安全巡检<br/>(持续性订阅收入)]
+    Platform --> Sub1[标准平台授权许可<br/>（基础版 / 专业版）]
+    Platform --> Sub2[行业垂直模型微调<br/>（专业服务交付）]
+    Platform --> Sub3[年度金牌维保与安全巡检<br/>（持续性订阅收入）]
 ```
 
 ## 3.1 财务收益预测 (三年规划)
