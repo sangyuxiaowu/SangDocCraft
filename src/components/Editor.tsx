@@ -6,6 +6,8 @@ import {
   Heading4,
   Bold, 
   Italic, 
+  Superscript,
+  Subscript,
   List, 
   ListOrdered, 
   Quote, 
@@ -484,6 +486,22 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
           title="斜体"
         >
           <Italic className="w-4 h-4" />
+        </button>
+        <button
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => insertText('<sup>', '</sup>', '上标文本')}
+          className={`p-1.5 rounded transition ${btnHoverClass}`}
+          title="上标"
+        >
+          <Superscript className="w-4 h-4" />
+        </button>
+        <button
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => insertText('<sub>', '</sub>', '下标文本')}
+          className={`p-1.5 rounded transition ${btnHoverClass}`}
+          title="下标"
+        >
+          <Subscript className="w-4 h-4" />
         </button>
 
         <div className={`w-px h-4 mx-1 ${dividerClass}`} />

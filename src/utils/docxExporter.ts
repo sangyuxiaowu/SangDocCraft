@@ -112,18 +112,37 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
     }
   };
 
-  const createInlineRuns = async (tokens: any[], options: { bold?: boolean; italics?: boolean; underline?: boolean; size?: number; color?: string; font?: string } = {}): Promise<(TextRun | ImageRun)[]> => {
+  const createInlineRuns = async (tokens: any[], options: { bold?: boolean; italics?: boolean; underline?: boolean; superScript?: boolean; subScript?: boolean; size?: number; color?: string; font?: string } = {}): Promise<(TextRun | ImageRun)[]> => {
     const runs: (TextRun | ImageRun)[] = [];
     const inlineTokens = (tokens || []).map((token: any) => ({ ...token }));
+    let superScript = Boolean(options.superScript);
+    let subScript = Boolean(options.subScript);
     for (let index = 0; index < inlineTokens.length; index++) {
       const inlineToken = inlineTokens[index];
-      const inherited = { bold: options.bold, italics: options.italics, underline: options.underline ? {} : undefined, size: options.size || 22, color: options.color || textHex, font: options.font || docxFont };
+      const inherited = { bold: options.bold, italics: options.italics, underline: options.underline ? {} : undefined, superScript, subScript, size: options.size || 22, color: options.color || textHex, font: options.font || docxFont };
       if (inlineToken.type === 'strong' || inlineToken.type === 'em' || inlineToken.type === 'del' || inlineToken.type === 'link') {
         runs.push(...await createInlineRuns(inlineToken.tokens, {
           ...options,
           bold: inlineToken.type === 'strong' || options.bold,
           italics: inlineToken.type === 'em' || options.italics,
+          superScript,
+          subScript,
         }));
+      } else if (inlineToken.type === 'html') {
+        const tag = String(inlineToken.raw || inlineToken.text || '').toLowerCase();
+        if (/^<sup\s*>$/.test(tag)) {
+          superScript = true;
+          subScript = false;
+        } else if (/^<\/sup\s*>$/.test(tag)) {
+          superScript = Boolean(options.superScript);
+        } else if (/^<sub\s*>$/.test(tag)) {
+          subScript = true;
+          superScript = false;
+        } else if (/^<\/sub\s*>$/.test(tag)) {
+          subScript = Boolean(options.subScript);
+        } else {
+          runs.push(new TextRun({ text: inlineToken.text || inlineToken.raw || '', ...inherited }));
+        }
       } else if (inlineToken.type === 'image') {
         const nextToken = inlineTokens[index + 1];
         const nextText = nextToken?.type === 'text' ? nextToken.text || nextToken.raw || '' : '';

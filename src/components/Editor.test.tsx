@@ -113,6 +113,19 @@ describe('Editor keyboard indentation', () => {
     });
   });
 
+  it.each([
+    ['上标', 'x2', 1, 2, 'x<sup>2</sup>'],
+    ['下标', 'CO2', 2, 3, 'CO<sub>2</sub>'],
+  ])('wraps the selection with %s Markdown HTML', (title, value, start, end, expected) => {
+    const rendered = renderEditor(value);
+    roots.push(rendered.root);
+    rendered.textarea.setSelectionRange(start, end);
+
+    act(() => document.querySelector<HTMLButtonElement>(`button[title="${title}"]`)?.click());
+
+    expect(rendered.onChange).toHaveBeenCalledWith(expected);
+  });
+
   it('shows statistics for the current text selection', () => {
     const rendered = renderEditor('alpha beta');
     roots.push(rendered.root);
