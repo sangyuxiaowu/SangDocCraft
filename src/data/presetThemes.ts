@@ -273,6 +273,13 @@ export const PRESET_THEMES: DocumentTheme[] = [
       date: '2026年Q3',
       showCover: true,
       coverStyle: 'creative',
+      coverlist: [
+        { label: '📁项目名称', value: 'Project Name' },
+        { label: '🏷️文档版本', value: 'v1.5' },
+        { label: '✍️撰写团队', value: '前沿探索组' },
+        { label: '🏢所属部门', value: '基础架构研发中心' },
+        { label: '📅交付日期', value: '2026年Q3' },
+      ],
     },
     header: {
       show: true,

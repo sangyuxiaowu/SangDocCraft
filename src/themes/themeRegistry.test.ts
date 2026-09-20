@@ -131,6 +131,31 @@ describe('themeRegistry', () => {
     }
   });
 
+  // 卡片式封面（creative）的 label 首 emoji 必须独立成列：
+  it('splits a leading emoji out of creative cover cards in preview and HTML', async () => {
+    const registry = await loadRegistry();
+    const plugin = registry.getCoverTemplate('creative');
+    const context = {
+      meta: { ...PRESET_THEMES[0].meta, coverStyle: 'creative' as const },
+      style: PRESET_THEMES[0].style,
+      coverListItems: [{ label: '🎨 Author', value: 'Alice' }, { label: 'Reviewer', value: 'Bob' }],
+    };
+
+    const preview = renderToStaticMarkup(plugin.renderPreview(context));
+    expect(preview).toMatch(/shrink-0[^>]*>🎨</);
+    expect(preview).toContain('>Author</div>');
+    expect(preview).not.toContain('🎨 Author');
+
+    const html = plugin.renderHtml(context);
+    expect(html).toContain('<span class="emoji">🎨</span>');
+    expect(html).toContain('<div class="label">Author</div>');
+    expect(html).not.toContain('🎨 Author');
+
+    // 没有 emoji 的 label 不应产生多余的空 emoji 列
+    const plainHtml = plugin.renderHtml({ ...context, coverListItems: [{ label: 'Reviewer', value: 'Bob' }] });
+    expect(plainHtml).not.toContain('class="emoji"');
+  });
+
   it('supports custom covers and themes and rejects missing covers', async () => {
     const registry = await loadRegistry();
     const customCover = { ...registry.getCoverTemplate('enterprise'), id: 'custom-cover', name: 'Custom' };

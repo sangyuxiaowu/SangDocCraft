@@ -319,8 +319,13 @@ export function generateStandaloneHtml(
       align-items: center;
       gap: 10px;
     }
+    /* 卡片式封面专属：emoji */
     .creative-grid .creative-card .emoji {
       font-size: 18px;
+      line-height: 1;
+      flex: 0 0 auto;
+      align-self: center;
+      user-select: none;
     }
     .creative-grid .creative-card .label {
       font-size: 10px;

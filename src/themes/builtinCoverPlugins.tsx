@@ -2,6 +2,8 @@ import React from 'react';
 import { AlignmentType, BorderStyle, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
 import type { CoverDocxRenderContext, CoverRenderContext, CoverTemplatePlugin } from './contracts';
 import { CoverMetadata, coverMetadataDocx, coverMetadataHtml } from './coverMetadata';
+import type { CoverListItem } from '../types';
+import { splitLeadingEmoji } from '../utils/coverEmoji';
 
 const hasLabelSuffix = (label: string) => label.includes(':') || label.includes('：');
 
@@ -42,6 +44,10 @@ async function renderStandardDocx(context: CoverDocxRenderContext): Promise<(Par
   if (meta.title || meta.subtitle) {
     children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 400, after: 1600 }, children: [new TextRun({ text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', color: accentHex, size: 20 })] }));
   }
+  // 注意：DOCX 端用的是「label：value」两列表格，没有独立的 emoji 列，
+  // 因此这里**刻意不**调用 splitLeadingEmoji —— 拆出来的 emoji 无处安放，
+  // 反而会把 emoji 与 label 分到不同单元格。
+  // 若将来要统一三端，需要先给 DOCX 定义一个 emoji 列，再复用 splitLeadingEmoji。
   if (coverListItems.length) children.push(new Table({
     width: { size: 8000, type: WidthType.DXA }, alignment: AlignmentType.CENTER,
     borders: { top: { style: BorderStyle.NONE, size: 0, color: 'auto' }, bottom: { style: BorderStyle.NONE, size: 0, color: 'auto' }, left: { style: BorderStyle.NONE, size: 0, color: 'auto' }, right: { style: BorderStyle.NONE, size: 0, color: 'auto' }, insideHorizontal: { style: BorderStyle.NONE, size: 0, color: 'auto' }, insideVertical: { style: BorderStyle.NONE, size: 0, color: 'auto' } },
@@ -157,7 +163,17 @@ function creativePreview({ meta, style, coverListItems }: CoverRenderContext): R
         {meta.subtitle && <p className="text-sm font-medium opacity-90 mt-2">{meta.subtitle}</p>}
       </div>
     </div> : <div />}
-    {hasMeta ? <div className="grid grid-cols-2 gap-3 my-auto py-6">{coverListItems.map((item, index) => <div key={index} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center gap-3"><div className="overflow-hidden"><div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{item.label}</div><div className="text-xs font-bold text-slate-800 truncate">{item.value}</div></div></div>)}</div> : <div />}
+    {hasMeta ? <div className="grid grid-cols-2 gap-3 my-auto py-6">{coverListItems.map((item, index) => {
+      // 【卡片式封面专属：emoji 独立成列】
+      const { emoji, label } = splitLeadingEmoji(item.label);
+      return <div key={index} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center gap-3">
+        {emoji ? <span className="text-base shrink-0 select-none leading-none flex items-center justify-center">{emoji}</span> : null}
+        <div className="overflow-hidden">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{label}</div>
+          <div className="text-xs font-bold text-slate-800 truncate">{item.value}</div>
+        </div>
+      </div>;
+    })}</div> : <div />}
     <div />
   </div>;
 }
@@ -191,11 +207,19 @@ function minimalHtml({ meta, coverListItems }: CoverRenderContext): string {
 
   return `<div style="text-align:left;flex:1;height:100%;display:flex;flex-direction:column;justify-content:space-between;">${hasTop ? `<div style="display:flex;justify-content:space-between;align-items:center;">${meta.organization ? `<div style="font-size:11px;font-family:monospace;color:#94a3b8;letter-spacing:2px;text-transform:uppercase;">${meta.organization}</div>` : '<div></div>'}${(meta.logo || meta.logoUrl) ? `<img src="${meta.logo || meta.logoUrl}" style="${logoHeightStyle(meta.logoHeight, 24)}object-fit:contain;" alt="Logo" />` : ''}</div>` : '<div></div>'}${hasTitle ? `<div style="margin:auto 0;padding:20px 0;">${meta.number ? `<div style="font-size:11px;font-family:monospace;color:#94a3b8;margin-bottom:8px;">NO. ${meta.number}</div>` : ''}${meta.title ? `<div class="cover-title" style="text-align:left;font-size:40px;font-weight:300;">${meta.title}</div>` : ''}${meta.subtitle ? `<div class="cover-subtitle" style="text-align:left;font-size:16px;color:#64748b;">${meta.subtitle}</div>` : ''}${(meta.title || meta.subtitle) ? '<div style="height:1px;width:50px;background:#cbd5e1;margin-top:20px;"></div>' : ''}</div>` : '<div></div>'}${hasMeta ? `<div style="font-size:11px;color:#64748b;font-family:monospace;border-top:1px solid #e2e8f0;padding-top:14px;">${coverListItems.map((item) => `<div><span style="color:#94a3b8;">${item.label} /</span> ${item.value}</div>`).join('')}</div>` : '<div></div>'}</div>`;
 }
+/**
+ * 「🎨 现代渐变」单个元信息卡片的 HTML。
+ */
+function creativeCardHtml(item: CoverListItem): string {
+  const { emoji, label } = splitLeadingEmoji(item.label);
+  return `<div class="creative-card">${emoji ? `<span class="emoji">${emoji}</span>` : ''}<div style="overflow:hidden;width:100%;"><div class="label">${label}</div><div class="value">${item.value}</div></div></div>`;
+}
+
 function creativeHtml({ meta, style, coverListItems }: CoverRenderContext): string {
   const hasBanner = Boolean(meta.organization || meta.logo || meta.logoUrl || meta.number || meta.title || meta.subtitle);
   const hasMeta = Boolean(coverListItems?.length);
 
-  return `<div style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:space-between;">${hasBanner ? `<div style="background:linear-gradient(135deg,${style.primaryColor},${style.accentColor});color:#fff;padding:28px 24px;border-radius:16px;text-align:left;">${(meta.organization || meta.logo || meta.logoUrl) ? `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">${meta.organization ? `<div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;opacity:.9;">${meta.organization}</div>` : '<div></div>'}${(meta.logo || meta.logoUrl) ? `<img src="${meta.logo || meta.logoUrl}" style="${logoHeightStyle(meta.logoHeight, 24)}filter:brightness(0) invert(1);" alt="Logo" />` : ''}</div>` : ''}${meta.number ? `<div style="font-size:11px;font-family:monospace;opacity:.8;">NO. ${meta.number}</div>` : ''}${meta.title ? `<div style="font-size:30px;font-weight:800;line-height:1.2;">${meta.title}</div>` : ''}${meta.subtitle ? `<div style="font-size:14px;margin-top:8px;opacity:.9;">${meta.subtitle}</div>` : ''}</div>` : '<div></div>'}${hasMeta ? `<div class="creative-grid">${coverListItems.map((item) => `<div class="creative-card"><div style="overflow:hidden;width:100%;"><div class="label">${item.label}</div><div class="value">${item.value}</div></div></div>`).join('')}</div>` : '<div></div>'}<div></div></div>`;
+  return `<div style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:space-between;">${hasBanner ? `<div style="background:linear-gradient(135deg,${style.primaryColor},${style.accentColor});color:#fff;padding:28px 24px;border-radius:16px;text-align:left;">${(meta.organization || meta.logo || meta.logoUrl) ? `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">${meta.organization ? `<div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;opacity:.9;">${meta.organization}</div>` : '<div></div>'}${(meta.logo || meta.logoUrl) ? `<img src="${meta.logo || meta.logoUrl}" style="${logoHeightStyle(meta.logoHeight, 24)}filter:brightness(0) invert(1);" alt="Logo" />` : ''}</div>` : ''}${meta.number ? `<div style="font-size:11px;font-family:monospace;opacity:.8;">NO. ${meta.number}</div>` : ''}${meta.title ? `<div style="font-size:30px;font-weight:800;line-height:1.2;">${meta.title}</div>` : ''}${meta.subtitle ? `<div style="font-size:14px;margin-top:8px;opacity:.9;">${meta.subtitle}</div>` : ''}</div>` : '<div></div>'}${hasMeta ? `<div class="creative-grid">${coverListItems.map(creativeCardHtml).join('')}</div>` : '<div></div>'}<div></div></div>`;
 }
 
 function logoHeightStyle(height: number | undefined, defaultHeight: number): string {
