@@ -2,8 +2,20 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PRESET_THEMES } from '../data/presetThemes';
 import { generateStandaloneHtml } from './htmlExporter';
+import { containsMath, ensureMathLoaded } from './mathRenderer';
 
 describe('generateStandaloneHtml', () => {
+  it('embeds rendered LaTeX formulas as self-contained SVG', async () => {
+    await ensureMathLoaded();
+    expect(containsMath('公式 $E = mc^2$ 与 $\\alpha$')).toBe(true);
+
+    const html = generateStandaloneHtml('打分公式 $S(q, d)$ 如下：\n\n$$\nE = mc^2\n$$', PRESET_THEMES[0]);
+    expect(html).toContain('<mjx-container');
+    expect(html).toContain('class="math-block"');
+    // 公式字形内嵌在 SVG 中，导出文件不依赖外部字体或脚本
+    expect(html).not.toContain('MathJax.js');
+  });
+
   it.each(['signature', 'briefing'])('keeps body heading borders off the %s cover title', (coverStyle) => {
     const base = PRESET_THEMES[0];
     const html = generateStandaloneHtml('# Body', { ...base, meta: { ...base.meta, coverStyle } });

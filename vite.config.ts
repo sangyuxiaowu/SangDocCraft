@@ -18,6 +18,9 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       !isTauriMode && mode !== 'test' && VitePWA({
         registerType: 'autoUpdate',
+        workbox: {
+          globIgnores: ['assets/mathjax-*.js'],
+        },
         manifest: {
           name: 'SangDocCraft - 智能 Markdown 排版工具',
           short_name: 'SangDocCraft',
@@ -60,12 +63,14 @@ export default defineConfig(({ mode }) => {
         : { ignored: ['**/src-tauri/target/**'] },
     },
     build: {
-      // Mermaid's independently lazy-loaded Cynefin renderer is about 691 kB.
-      chunkSizeWarningLimit: 700,
+      // Mermaid's independently lazy-loaded Cynefin renderer is about 691 kB,
+      // and the lazily loaded MathJax SVG renderer is about 1.8 MB.
+      chunkSizeWarningLimit: 1900,
       rollupOptions: {
         output: {
           manualChunks(id) {
             const moduleId = id.replaceAll('\\', '/');
+            if (moduleId.includes('/node_modules/mathjax-full/')) return 'mathjax';
             if (moduleId.includes('/node_modules/docx/')) return 'vendor-docx';
             if (/\/node_modules\/(?:react|react-dom|scheduler)\//.test(moduleId)) return 'vendor-react';
             if (moduleId.includes('/node_modules/marked/')) return 'vendor-marked';

@@ -1,8 +1,9 @@
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { Check, ChevronDown, ChevronRight, Copy, GitFork, Lightbulb, RotateCcw, Wrench } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { AiChatMessage } from '../../types/ai';
+import { containsMath, ensureMathLoaded, onMathReady } from '../../utils/mathRenderer';
 
 interface AiChatMessageCardProps {
   message: AiChatMessage;
@@ -18,7 +19,12 @@ interface AiChatMessageCardProps {
 }
 
 function renderMarkdown(markdown: string): string {
-  return DOMPurify.sanitize(marked.parse(markdown) as string);
+  // 公式由 MathJax 渲染为内联 SVG，需要放开 SVG 与 mjx-container 标签
+  return DOMPurify.sanitize(marked.parse(markdown) as string, {
+    USE_PROFILES: { html: true, svg: true, svgFilters: true },
+    ADD_TAGS: ['mjx-container', 'use'],
+    ADD_ATTR: ['jax', 'display', 'data-c', 'xlink:href'],
+  });
 }
 
 function formatJson(value: string): string {
@@ -42,7 +48,22 @@ export const AiChatMessageCard: React.FC<AiChatMessageCardProps> = ({
   onRetryTools,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [, setMathEpoch] = useState(0);
   const isAssistant = message.role === 'assistant';
+
+  // 回复中的公式需要按需加载 MathJax，加载完成后重新渲染
+  useEffect(() => {
+    if (!containsMath(message.content)) return;
+    let cancelled = false;
+    const unsubscribe = onMathReady(() => {
+      if (!cancelled) setMathEpoch((epoch) => epoch + 1);
+    });
+    void ensureMathLoaded().catch((error) => console.warn('公式模块加载失败:', error));
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [message.content]);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(message.content);

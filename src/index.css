@@ -21,6 +21,45 @@
   background: rgb(0 0 0 / 12%)
 }
 
+/* LaTeX 公式（MathJax SVG 输出）：预览与 AI 对话共用 */
+mjx-container[jax="SVG"] {
+  direction: ltr;
+  display: inline-block;
+  text-align: left;
+  line-height: 0;
+  text-indent: 0;
+  max-width: 100%;
+}
+
+mjx-container[jax="SVG"] > svg {
+  overflow: visible;
+  min-height: 1px;
+  min-width: 1px;
+  max-width: 100%;
+}
+
+mjx-container[jax="SVG"][display="true"] {
+  display: block;
+  margin: 0.9em 0;
+  text-align: center;
+}
+
+.ai-chat-markdown .math-block {
+  overflow-x: auto;
+}
+
+/* MathJax 未就绪或 LaTeX 语法错误时的回退样式 */
+.math-pending,
+.math-error {
+  font-family: Consolas, ui-monospace, monospace;
+  font-size: 0.9em;
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+.math-pending { color: #b45309; background: #fffbeb; }
+.math-error { color: #b91c1c; background: #fef2f2; }
+
 .a4-preview-shell {
   container-name: a4-preview;
   container-type: inline-size;

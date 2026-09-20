@@ -28,6 +28,7 @@ import { parseTableOfContents, extractTocHeadings, assignTocPageNumbers, paginat
 import { resolveImageSrc, resolvePreviewImageSrc } from '../utils/tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidElements } from '../utils/mermaidRenderer';
+import { containsMath, ensureMathLoaded, onMathReady } from '../utils/mathRenderer';
 import { getTocTitleCss } from '../utils/markdownParser';
 
 interface A4PreviewProps {
@@ -155,6 +156,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
   const [headerLogoSrc, setHeaderLogoSrc] = useState<string>('');
   const [overflowPageNumbers, setOverflowPageNumbers] = useState<number[]>([]);
   const [mermaidHeights, setMermaidHeights] = useState<Record<string, number>>({});
+  const [, setMathEpoch] = useState(0);
   const [isOutlineOpen, setIsOutlineOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageInput, setPageInput] = useState<string>('1');
@@ -366,6 +368,20 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
       cancelAnimationFrame(animationFrame);
     };
   }, [markdown, theme, viewMode]);
+
+  // 公式按需加载：未就绪时公式回退为 LaTeX 源码，就绪后触发一次重排以得到正确的分页高度
+  useEffect(() => {
+    if (!containsMath(markdown)) return;
+    let cancelled = false;
+    const unsubscribe = onMathReady(() => {
+      if (!cancelled) setMathEpoch((epoch) => epoch + 1);
+    });
+    void ensureMathLoaded().catch((error) => console.warn('公式模块加载失败:', error));
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [markdown]);
 
   // Build Pages Array
   const pages: PageItem[] = [];

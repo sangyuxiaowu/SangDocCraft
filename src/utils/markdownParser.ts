@@ -16,6 +16,10 @@ import {
 import { resolveImageSrc } from './tauriHelper';
 import { splitExplicitPages } from './pageBreaks';
 import { parseImageDimensions } from './imageDimensions';
+import { getMathRanges, registerMathExtensions } from './mathRenderer';
+
+// 公式（$...$ / $$...$$）作为 marked 扩展全局注册：预览、独立 HTML 导出、DOCX 导出共用
+registerMathExtensions();
 
 export { formatPageNumber, getFooterSlots, getHeadingText, getTocChunks, TOC_ITEMS_PER_PAGE } from './documentStructure';
 export {
@@ -139,6 +143,13 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
     ${selector} .mermaid { display: flex; align-items: center; justify-content: center; min-height: 180px; max-height: 720px; margin: 1.2em 0; overflow: hidden; text-indent: 0; }
     ${selector} .mermaid-error { display: block; min-height: 0; }
     ${selector} .mermaid svg { width: auto; height: auto; max-width: 100%; max-height: 720px; }
+    ${selector} mjx-container[jax="SVG"] { direction: ltr; display: inline-block; text-align: left; line-height: 0; text-indent: 0; }
+    ${selector} mjx-container[jax="SVG"] > svg { overflow: visible; min-height: 1px; min-width: 1px; max-width: 100%; }
+    ${selector} .math-block { display: block; margin: 1.1em 0; text-align: center; text-indent: 0; break-inside: avoid; page-break-inside: avoid; }
+    ${selector} .math-block mjx-container[jax="SVG"] { display: block; text-align: center; margin: 0; }
+    ${selector} .math-pending, ${selector} .math-error { font-family: Consolas, monospace; font-size: 0.9em; padding: 0 4px; border-radius: 3px; }
+    ${selector} .math-pending { color: #b45309; background: #fffbeb; }
+    ${selector} .math-error { color: #b91c1c; background: #fef2f2; }
     ${selector} ul { margin: 0.8em 0; padding-left: 20px; list-style: none; }
     ${selector} ul li { position: relative; padding-left: 14px; margin-bottom: 0.3em; }
     ${selector} ul li::before { content: "${bulletChar}"; position: absolute; left: 0; color: var(--accent-color); font-weight: bold; }
@@ -249,6 +260,13 @@ function findDomParagraphSplit(
   }
   if (splitIdx === -1) {
     splitIdx = bestFitIdx;
+  }
+
+  // 公式不能被拆到两页：切点落在 $...$ 内部时前移到公式之前，让公式整体进入下一页
+  const mathRange = getMathRanges(text).find((range) => splitIdx > range.start && splitIdx < range.end);
+  if (mathRange) {
+    if (mathRange.start <= 5) return null;
+    splitIdx = mathRange.start;
   }
 
   const part1 = text.slice(0, splitIdx).trim();
@@ -859,6 +877,11 @@ export function splitContentByPages(markdown: string, h1PageBreak: boolean = fal
     if (token.type === 'space' || token.type === 'hr') {
       return 0.4;
     }
+    if (token.type === 'mathBlock') {
+      // 独立公式块：按 LaTeX 换行数估算行数
+      const formulaLines = Math.max(1, String(token.text || '').split('\\\\').length);
+      return formulaLines * 1.1 + 1.4;
+    }
     if (token.type === 'image') {
       return 12.0;
     }
@@ -910,6 +933,13 @@ export function splitContentByPages(markdown: string, h1PageBreak: boolean = fal
     // 3. Fallback: split right at targetIdx if no punctuation found
     if (splitIdx === -1) {
       splitIdx = targetIdx;
+    }
+
+    // 公式不能被拆到两页：切点落在 $...$ 内部时前移到公式之前，让公式整体进入下一页
+    const mathRange = getMathRanges(text).find((range) => splitIdx > range.start && splitIdx < range.end);
+    if (mathRange) {
+      if (mathRange.start <= 5) return null;
+      splitIdx = mathRange.start;
     }
 
     const firstText = text.slice(0, splitIdx).trim();

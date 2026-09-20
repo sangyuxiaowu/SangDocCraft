@@ -53,7 +53,7 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     id: 'system-guide',
     title: 'SangDocCraft 使用范本',
     subtitle: 'Feature Showcase',
-    description: '系统推荐全功能演示文档，包含 Mermaid 流程图、表格与题注、内部/网络图片、分页符及文档历史等特性。',
+    description: '系统推荐全功能演示文档，包含 Mermaid 流程图、LaTeX 公式、表格与题注、内部/网络图片、分页符及文档历史等特性。',
     category: 'template',
     categoryLabel: '文档模板',
     badge: '官方推荐',

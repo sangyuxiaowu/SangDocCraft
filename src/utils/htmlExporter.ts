@@ -5,6 +5,7 @@ import { extractTocHeadings, assignTocPageNumbers, paginateTocItemsByDom, buildT
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidInHtml } from './mermaidRenderer';
+import { ensureMathLoaded } from './mathRenderer';
 import { getTocTitleCss } from './markdownParser';
 
 function renderFooterHtml(pageNum: number, totalPages: number, footer: FooterConfig, meta: DocumentMeta): string {
@@ -843,6 +844,9 @@ async function measureMermaidHeights(html: string, sources: string[]): Promise<R
 }
 
 export async function generatePreparedHtml(markdownText: string, theme: DocumentTheme): Promise<string> {
+  // 公式需要先渲染为 SVG，否则导出的 HTML 只会得到 LaTeX 源码回退文本
+  await ensureMathLoaded().catch((error) => console.warn('公式模块加载失败:', error));
+
   const initialHtml = generateStandaloneHtml(markdownText, theme);
   const parsed = new DOMParser().parseFromString(initialHtml, 'text/html');
   const mermaidSources = Array.from(parsed.querySelectorAll<HTMLElement>('.mermaid'))

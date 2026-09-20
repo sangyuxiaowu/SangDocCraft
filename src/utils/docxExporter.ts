@@ -24,8 +24,12 @@ import { getHeadingText, getTocLevelStyles, getTocTitleFont } from './documentSt
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidPng } from './mermaidRenderer';
+import { registerMathExtensions, renderMathPng } from './mathRenderer';
 import { splitExplicitPages } from './pageBreaks';
 import { extractImageDimensionSuffix } from './imageDimensions';
+
+// 公式需要先注册 marked 扩展，才能在此链路中拿到 mathInline / mathBlock token
+registerMathExtensions();
 
 /**
  * Converts Hex color string (#RRGGBB) to pure Hex string without '#'
@@ -91,6 +95,23 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
     }
   };
 
+  // Word 无法直接嵌入 SVG/MathML，公式统一栅格化为 PNG 后插入
+  const createMathImageRun = async (latex: string, display: boolean, sizeHalfPoints = 22): Promise<ImageRun | null> => {
+    try {
+      const formula = await renderMathPng(latex, display, { fontSizePx: (sizeHalfPoints * 2) / 3 });
+      const altText = (display ? `公式：${latex}` : latex).slice(0, 120);
+      return new ImageRun({
+        type: 'png',
+        data: formula.data,
+        transformation: { width: formula.width, height: formula.height },
+        altText: { title: '公式', description: altText, name: '公式' },
+      });
+    } catch (error) {
+      console.warn('DOCX formula rendering failed:', latex, error);
+      return null;
+    }
+  };
+
   const createInlineRuns = async (tokens: any[], options: { bold?: boolean; italics?: boolean; underline?: boolean; size?: number; color?: string; font?: string } = {}): Promise<(TextRun | ImageRun)[]> => {
     const runs: (TextRun | ImageRun)[] = [];
     const inlineTokens = (tokens || []).map((token: any) => ({ ...token }));
@@ -123,6 +144,14 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
         } else {
           runs.push(new TextRun({ text: inlineToken.text || '[图片]', ...inherited }));
         }
+      } else if (inlineToken.type === 'mathInline') {
+        const mathRun = await createMathImageRun(inlineToken.text || '', Boolean(inlineToken.display), inherited.size);
+        runs.push(mathRun || new TextRun({
+          text: `$${inlineToken.text || ''}$`,
+          size: inherited.size,
+          font: 'Consolas',
+          color: inherited.color,
+        }));
       } else if (inlineToken.tokens?.length) {
         runs.push(...await createInlineRuns(inlineToken.tokens, options));
       } else if (inlineToken.type === 'codespan') {
@@ -419,6 +448,28 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
             })
           );
         });
+        break;
+      }
+
+      case 'mathBlock': {
+        const mathRun = await createMathImageRun(token.text || '', true, 22);
+        if (mathRun) {
+          sectionsChildren.push(
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 160, after: 160 },
+              children: [mathRun],
+            })
+          );
+        } else {
+          sectionsChildren.push(
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 160, after: 160 },
+              children: [new TextRun({ text: `$$${token.text || ''}$$`, size: 20, font: 'Consolas', color: textHex })],
+            })
+          );
+        }
         break;
       }
 
