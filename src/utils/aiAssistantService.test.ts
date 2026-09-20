@@ -285,4 +285,34 @@ describe('AI assistant setting tools', () => {
     expect(tocProperties).toHaveProperty('titleFont');
     expect(tocProperties).toHaveProperty('levelStyles');
   });
+
+  it('returns success after the requested watermark fields match', async () => {
+    const tools = createTools('# Test');
+    const styleTool = tools.find(item => item.definition.function.name === 'update_document_style')!;
+
+    const result = await styleTool.handler({
+      watermark: {
+        show: true,
+        type: 'text',
+        text: '机密资料',
+        fontSize: 40,
+        color: '#dc2626',
+        opacity: 0.11,
+        rotate: 45,
+        layout: 'repeat',
+        repeatGap: 155,
+        hideOnCover: false,
+      },
+    });
+
+    expect(result).toBe('更新成功');
+  });
+
+  it('returns success after requested header fields match', async () => {
+    const tools = createTools('# Test');
+    const headerFooterTool = tools.find(item => item.definition.function.name === 'update_header_footer_config')!;
+
+    await expect(headerFooterTool.handler({ headerLeftText: '内部资料' }))
+      .resolves.toBe('更新成功');
+  });
 });

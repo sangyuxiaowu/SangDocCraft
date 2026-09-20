@@ -102,6 +102,40 @@ function readInteger(value: unknown, name: string, minimum: number): number | un
   return Number(value);
 }
 
+interface UpdateVerification {
+  field: string;
+  expected: unknown;
+  actual: unknown;
+}
+
+function addUpdateVerification(
+  checks: UpdateVerification[],
+  field: string,
+  expected: unknown,
+  actual: unknown,
+): void {
+  if (
+    typeof expected === 'object' && expected !== null && !Array.isArray(expected)
+    && typeof actual === 'object' && actual !== null && !Array.isArray(actual)
+  ) {
+    Object.entries(expected).forEach(([key, value]) => {
+      addUpdateVerification(checks, `${field}.${key}`, value, (actual as Record<string, unknown>)[key]);
+    });
+    return;
+  }
+  checks.push({ field, expected, actual });
+}
+
+function formatUpdateVerification(checks: UpdateVerification[]): string {
+  if (checks.length === 0) return '更新成功';
+  const failed = checks.filter(({ expected, actual }) => JSON.stringify(expected) !== JSON.stringify(actual));
+  if (failed.length === 0) return '更新成功';
+  return JSON.stringify({
+    error: '更新未完成',
+    fields: failed.map(({ field, expected, actual }) => ({ field, expected, actual })),
+  }, null, 2);
+}
+
 /** 仅提取目录字体/层级样式的已知字段，避免上游多余键污染主题配置 */
 function pickTocFontFields(value: unknown): Partial<TocLevelStyle> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
@@ -537,7 +571,16 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
         context.onUpdateTheme(applyUpdate);
         const updatedMeta = currentTheme.meta;
 
-        return `文档元信息已更新：标题「${updatedMeta.title}」，版本「${updatedMeta.version}」，作者「${updatedMeta.author || '未填'}」，封面状态：${updatedMeta.showCover ? '开启' : '关闭'}。`;
+        const checks: UpdateVerification[] = [];
+        const fieldMap: Record<string, keyof typeof updatedMeta> = {
+          title: 'title', subtitle: 'subtitle', author: 'author', department: 'department', organization: 'organization',
+          date: 'date', version: 'version', number: 'number', showCover: 'showCover', coverStyle: 'coverStyle',
+          logoUrl: 'logoUrl', logoHeight: 'logoHeight', coverListColumns: 'coverListColumns', coverlist: 'coverlist',
+        };
+        Object.entries(fieldMap).forEach(([argument, metaField]) => {
+          if (args[argument] !== undefined) addUpdateVerification(checks, argument, args[argument], updatedMeta[metaField]);
+        });
+        return formatUpdateVerification(checks);
       }
     },
     {
@@ -700,8 +743,27 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
         currentTheme = applyUpdate(currentTheme);
         context.onUpdateTheme(applyUpdate);
         const updatedStyle = currentTheme.style;
+        const checks: UpdateVerification[] = [];
+        const scalarFields: Array<[string, keyof DocumentTheme['style']]> = [
+          ['primaryColor', 'primaryColor'], ['accentColor', 'accentColor'], ['textColor', 'textColor'],
+          ['fontSize', 'fontSize'], ['lineHeight', 'lineHeight'], ['backgroundColor', 'backgroundColor'],
+          ['coverBgColor', 'coverBgColor'], ['fontFamily', 'fontFamily'], ['latinFontFamily', 'latinFontFamily'],
+          ['bodyFontFamily', 'bodyFontFamily'], ['h1Style', 'h1Style'], ['h2Style', 'h2Style'], ['h3Style', 'h3Style'],
+          ['indentParagraph', 'indentParagraph'], ['h1PageBreak', 'h1PageBreak'], ['h1Center', 'h1Center'],
+          ['paginationMode', 'paginationMode'], ['bulletStyle', 'bulletStyle'], ['numberStyle', 'numberStyle'],
+          ['codeTheme', 'codeTheme'], ['tableStyle', 'tableStyle'],
+        ];
+        scalarFields.forEach(([argument, styleField]) => {
+          if (args[argument] !== undefined) checks.push({ field: argument, expected: args[argument], actual: updatedStyle[styleField] });
+        });
+        (['headingFonts', 'imageConfig', 'tableCaptionConfig', 'watermark'] as const).forEach(section => {
+          const requested = args[section];
+          const actual = updatedStyle[section];
+          if (typeof requested !== 'object' || requested === null || Array.isArray(requested)) return;
+          addUpdateVerification(checks, section, requested, actual);
+        });
 
-        return `文档排版样式已更新：主色「${updatedStyle.primaryColor}」，强调色「${updatedStyle.accentColor}」，正文字号「${updatedStyle.fontSize}px」，首行缩进「${updatedStyle.indentParagraph ? '开启' : '关闭'}」，一级标题另起页「${updatedStyle.h1PageBreak ? '开启' : '关闭'}」。`;
+        return formatUpdateVerification(checks);
       }
     },
     {
@@ -772,7 +834,23 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
         context.onUpdateTheme(applyUpdate);
         const { header: nextHeader, footer: nextFooter } = currentTheme;
 
-        return `页眉页脚配置已更新：页眉 ${nextHeader.show ? '开启' : '关闭'} (${nextHeader.leftText || nextHeader.centerText || nextHeader.rightText || '无文本'})；页脚 ${nextFooter.show ? '开启' : '关闭'}，页码格式：${nextFooter.pageNumberFormat}。`;
+        const checks: UpdateVerification[] = [];
+        const fields: Array<[string, 'header' | 'footer', string]> = [
+          ['headerShow', 'header', 'show'], ['headerLeftText', 'header', 'leftText'], ['headerCenterText', 'header', 'centerText'],
+          ['headerRightText', 'header', 'rightText'], ['headerLineStyle', 'header', 'lineStyle'], ['headerHideOnCover', 'header', 'hideOnCover'],
+          ['headerLogoUrl', 'header', 'logoUrl'], ['headerLogoHeight', 'header', 'logoHeight'], ['headerLogoOpacity', 'header', 'logoOpacity'],
+          ['headerLeftTextOffset', 'header', 'leftTextOffset'], ['headerLogoTopOffset', 'header', 'logoTopOffset'],
+          ['footerShow', 'footer', 'show'], ['footerLeftText', 'footer', 'leftText'], ['footerCenterText', 'footer', 'centerText'],
+          ['footerRightText', 'footer', 'rightText'], ['footerHideOnCover', 'footer', 'hideOnCover'],
+          ['pageNumberFormat', 'footer', 'pageNumberFormat'], ['pageNumberPosition', 'footer', 'pageNumberPosition'],
+        ];
+        fields.forEach(([argument, section, field]) => {
+          if (args[argument] !== undefined) {
+            const source = section === 'header' ? nextHeader : nextFooter;
+            checks.push({ field: argument, expected: args[argument], actual: (source as unknown as Record<string, unknown>)[field] });
+          }
+        });
+        return formatUpdateVerification(checks);
       }
     },
     {
@@ -878,12 +956,15 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
         const nextToc = currentTheme.toc;
         const titleFont = getTocTitleFont(nextToc);
         const levelStyles = getTocLevelStyles(nextToc);
-        const levelSummary = levelStyles
-          .slice(0, nextToc.maxDepth)
-          .map((style, index) => `${index + 1}级(${style.fontSize}px${style.bold ? '/粗' : ''}${style.italic ? '/斜' : ''}${style.underline ? '/下划线' : ''},缩进${style.paddingLeft})`)
-          .join('，');
-
-        return `目录配置已更新：目录展示「${nextToc.show ? '开启' : '关闭'}」，最大层级「${nextToc.maxDepth}」，编号样式「${nextToc.headingNumbering}」，目录后分页「${nextToc.pageBreakAfter ? '是' : '否'}」，分页后每页显示标题「${nextToc.titleOnEveryPage ? '是' : '否'}」，标题「${nextToc.title}」，标题居中「${nextToc.titleCenter ? '是' : '否'}」，标题样式「${nextToc.titleStyle}」，标题字体「${titleFont.fontFamily} / ${titleFont.fontSize}px / 段前${titleFont.marginBefore} / 段后${titleFont.marginAfter}」，目录项样式：${levelSummary}，目录项引导线样式「${nextToc.leaderStyle}」，是否显示页码「${nextToc.showPageNumbers ? '是' : '否'}」。`;
+        const checks: UpdateVerification[] = [];
+        const fieldMap: Record<string, unknown> = {
+          show: nextToc.show, title: nextToc.title, titleCenter: nextToc.titleCenter, titleStyle: nextToc.titleStyle,
+          titleFont, levelStyles, maxDepth: nextToc.maxDepth, headingNumbering: nextToc.headingNumbering,
+          leaderStyle: nextToc.leaderStyle, showPageNumbers: nextToc.showPageNumbers,
+          pageBreakAfter: nextToc.pageBreakAfter, titleOnEveryPage: nextToc.titleOnEveryPage,
+        };
+        Object.entries(args).forEach(([field, expected]) => addUpdateVerification(checks, field, expected, fieldMap[field]));
+        return formatUpdateVerification(checks);
       }
     }
   ];
