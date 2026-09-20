@@ -372,6 +372,13 @@ describe('Rendered Markdown post-processing', () => {
     expect(css).toContain('.body { font-family: Microsoft YaHei; }');
   });
 
+  it('centers display math regardless of the block-level svg imposed by Tailwind preflight', () => {
+    const css = getMarkdownBodyCss('.body', theme.style);
+
+    expect(css).toContain('.body .math-block { display: block; margin: 1.1em 0; text-align: center;');
+    expect(css).toContain('.body .math-block mjx-container[jax="SVG"] > svg { display: block; margin-left: auto; margin-right: auto; }');
+  });
+
   it('applies default and custom paragraph spacing to top-level paragraphs', () => {
     const defaultCss = getMarkdownBodyCss('.body', theme.style);
     const customCss = getMarkdownBodyCss('.body', {

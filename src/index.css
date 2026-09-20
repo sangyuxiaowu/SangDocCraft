@@ -44,6 +44,12 @@ mjx-container[jax="SVG"][display="true"] {
   text-align: center;
 }
 
+/* preflight 将 svg 置为块级元素，display 公式需用自动外边距才能居中 */
+mjx-container[jax="SVG"][display="true"] > svg {
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .ai-chat-markdown .math-block {
   overflow-x: auto;
 }

@@ -147,6 +147,8 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
     ${selector} mjx-container[jax="SVG"] > svg { overflow: visible; min-height: 1px; min-width: 1px; max-width: 100%; }
     ${selector} .math-block { display: block; margin: 1.1em 0; text-align: center; text-indent: 0; break-inside: avoid; page-break-inside: avoid; }
     ${selector} .math-block mjx-container[jax="SVG"] { display: block; text-align: center; margin: 0; }
+    /* 预览页的 Tailwind preflight 会把 svg 设为块级，仅靠 text-align 无法居中，故用自动外边距兜底 */
+    ${selector} .math-block mjx-container[jax="SVG"] > svg { display: block; margin-left: auto; margin-right: auto; }
     ${selector} .math-pending, ${selector} .math-error { font-family: Consolas, monospace; font-size: 0.9em; padding: 0 4px; border-radius: 3px; }
     ${selector} .math-pending { color: #b45309; background: #fffbeb; }
     ${selector} .math-error { color: #b91c1c; background: #fef2f2; }
