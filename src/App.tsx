@@ -1036,6 +1036,7 @@ export default function App() {
         onClose={() => setShowHistory(false)}
         onSettingsChange={(settings) => { setDocumentSettings(settings); setIsDocumentDirty(true); }}
         onRestore={(entry) => { setMarkdown(entry.markdown); setTheme(entry.theme); setIsDocumentDirty(true); setShowHistory(false); }}
+        onDelete={(entry) => { setHistory((prev) => prev.filter((item) => item.id !== entry.id)); setIsDocumentDirty(true); }}
         onClear={() => { setHistory([]); setIsDocumentDirty(true); }}
       />
 

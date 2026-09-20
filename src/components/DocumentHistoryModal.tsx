@@ -27,6 +27,7 @@ interface DocumentHistoryModalProps {
   onClose: () => void;
   onSettingsChange: (settings: DocumentSettings) => void;
   onRestore: (entry: DocumentHistoryEntry) => void;
+  onDelete: (entry: DocumentHistoryEntry) => void;
   onClear: () => void;
 }
 
@@ -39,6 +40,7 @@ export const DocumentHistoryModal: React.FC<DocumentHistoryModalProps> = ({
   onClose,
   onSettingsChange,
   onRestore,
+  onDelete,
   onClear,
 }) => {
   const [selectedEntryId, setSelectedEntryId] = useState<string>('');
@@ -57,8 +59,27 @@ export const DocumentHistoryModal: React.FC<DocumentHistoryModalProps> = ({
   const normalizeVersion = (value?: string) => (value && value.trim() ? value.trim() : '');
   const currentVersionLabel = normalizeVersion(currentVersion);
   const selectedEntryVersion = normalizeVersion(selectedEntry?.theme?.meta?.version);
+  /** 最新快照代表文档当前状态，不参与单独删除 */
+  const latestEntryId = reversedHistory[0]?.id;
 
   if (!isOpen) return null;
+
+  const handleDeleteClick = async (entry: DocumentHistoryEntry) => {
+    if (entry.id === latestEntryId) return;
+
+    const timeStr = new Date(entry.createdAt).toLocaleString();
+    const ok = await modal.confirm({
+      title: '删除历史快照',
+      message: `确定删除 ${timeStr} 的历史快照吗？此操作无法撤销。`,
+      confirmText: '删除快照',
+      cancelText: '取消',
+      variant: 'danger',
+    });
+    if (ok) {
+      onDelete(entry);
+      if (selectedEntry?.id === entry.id) setSelectedEntryId('');
+    }
+  };
 
   const handleRestoreClick = async (entry: DocumentHistoryEntry) => {
     const timeStr = new Date(entry.createdAt).toLocaleString();
@@ -254,7 +275,7 @@ export const DocumentHistoryModal: React.FC<DocumentHistoryModalProps> = ({
                           </span>
                         )}
                       </div>
-                      <span className={`text-[10px] font-mono ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>
+                      <span className={`text-[10px] font-mono shrink-0 ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>
                         {dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                       </span>
                     </div>
@@ -280,18 +301,37 @@ export const DocumentHistoryModal: React.FC<DocumentHistoryModalProps> = ({
                       )}
                     </div>
 
-                    <div className={`flex items-center gap-3 text-[11px] ${
+                    <div className={`flex items-end justify-between gap-3 text-[11px] ${
                       isDark ? 'text-zinc-400' : 'text-slate-500'
                     }`}>
-                      <span className="flex items-center gap-1">
-                        <FileText className="w-3 h-3 text-zinc-500" />
-                        {entry.markdown.length} 字符
-                      </span>
-                      {entry.theme?.name && (
-                        <span className="flex items-center gap-1 truncate max-w-[120px]">
-                          <Palette className="w-3 h-3 text-zinc-500" />
-                          {entry.theme.name}
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="flex items-center gap-1 shrink-0">
+                          <FileText className="w-3 h-3 text-zinc-500" />
+                          {entry.markdown.length} 字符
                         </span>
+                        {entry.theme?.name && (
+                          <span className="flex items-center gap-1 truncate max-w-[120px]">
+                            <Palette className="w-3 h-3 text-zinc-500 shrink-0" />
+                            {entry.theme.name}
+                          </span>
+                        )}
+                      </div>
+                      {index !== 0 && (
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleDeleteClick(entry);
+                          }}
+                          title="删除该快照"
+                          className={`p-1 -mb-1 -mr-1 rounded-md shrink-0 transition ${
+                            isDark
+                              ? 'text-zinc-500 hover:text-red-400 hover:bg-red-500/10'
+                              : 'text-slate-400 hover:text-red-600 hover:bg-red-50'
+                          }`}
+                          aria-label="删除该快照"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
                       )}
                     </div>
                   </div>
@@ -345,6 +385,21 @@ export const DocumentHistoryModal: React.FC<DocumentHistoryModalProps> = ({
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 shrink-0">
+                    {selectedEntry.id !== latestEntryId && (
+                      <button
+                        onClick={() => void handleDeleteClick(selectedEntry)}
+                        title="删除当前选中的历史快照"
+                        className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition ${
+                          isDark
+                            ? 'border-red-500/25 text-red-400 hover:bg-red-500/10'
+                            : 'border-red-200 text-red-600 hover:bg-red-50'
+                        }`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>删除</span>
+                      </button>
+                    )}
+
                     <button
                       onClick={() => void handleCopyContent(selectedEntry.markdown)}
                       className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition ${
@@ -355,7 +410,7 @@ export const DocumentHistoryModal: React.FC<DocumentHistoryModalProps> = ({
                       title="仅复制该快照的 Markdown 文本至剪贴板"
                     >
                       {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copied ? '已复制' : '复制正文'}</span>
+                      <span>{copied ? '已复制' : '复制'}</span>
                     </button>
 
                     <button
@@ -363,7 +418,7 @@ export const DocumentHistoryModal: React.FC<DocumentHistoryModalProps> = ({
                       className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center gap-1.5 transition shadow-xs"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
-                      <span>恢复至此版本</span>
+                      <span>恢复</span>
                     </button>
                   </div>
                 </div>
