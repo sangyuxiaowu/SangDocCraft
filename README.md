@@ -13,6 +13,15 @@
 
 SangDocCraft 将 Markdown 编辑、AI 辅助写作、分页预览和样式配置集中在一个工作区中，适合编写技术方案、架构设计、项目报告等需要规范版式的文档。项目既可作为 Web 应用运行，也可通过 Tauri 构建为桌面应用。
 
+## 下载使用
+
+SangDocCraft 可通过以下方式下载使用：
+
+- **Web 端**：直接访问 <https://sangyuxiaowu.github.io/SangDocCraft/> 使用，无需安装。
+- **桌面端**：前往 [GitHub Releases](https://github.com/sangyuxiaowu/SangDocCraft/releases) 下载对应平台的安装包进行安装。
+
+也可以直接前往网盘下载最新的安装包：[百度网盘链接](https://pan.baidu.com/s/1w0eFRlDX9WXqckSQZcAclA?pwd=mnjf)，提取码: `mnjf`。
+
 ## 功能特性
 
 - **实时 A4 预览**：提供双栏预览、专注编辑和 A4 全屏三种视图，支持拖动调整编辑区宽度、文档大纲和页码导航；双栏模式下双击 Markdown 内容可定位到对应预览位置。
