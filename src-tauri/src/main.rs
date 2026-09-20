@@ -145,6 +145,7 @@ fn set_window_title(window: tauri::Window, title: String) -> Result<(), String> 
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             open_sdc_document,

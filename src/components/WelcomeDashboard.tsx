@@ -316,7 +316,7 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                       isDark ? 'bg-amber-500/15 text-amber-300 border border-amber-500/20' : 'bg-amber-100/80 text-amber-800 border border-amber-200'
                     }`}>
-                      首次使用推荐
+                      Buy Me a Coffee
                     </span>
                   </div>
                   <p className={`text-xs leading-relaxed max-w-2xl ${isDark ? 'text-zinc-300' : 'text-slate-600'}`}>
