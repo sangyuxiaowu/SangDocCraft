@@ -254,7 +254,7 @@ npm run build
 SangDocCraft 完全免费、无广告，不设付费功能，全部代码基于 Apache 2.0 开源。如果它帮你省下了排版校对和导出 Word 的时间，欢迎微信扫码赞赏支持作者（桑榆肖物）。
 
 <div align="center">
-	<img src="public/reward-code.svg" alt="微信赞赏码" width="220" style="background: #fff; border: 1px solid #ddd; border-radius: 8px;" />
+	<img src="docs/reward-code.svg" alt="微信赞赏码" width="220" style="background: #fff; border: 1px solid #ddd; border-radius: 8px;" />
 	<br />
 	<sub>微信扫一扫，赞赏支持作者</sub>
 </div>
