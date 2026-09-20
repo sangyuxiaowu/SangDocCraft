@@ -663,7 +663,7 @@ export const ImageManager: React.FC<ImageManagerProps> = ({
             <div className={`mt-4 text-[11px] px-3 py-2 rounded-lg border ${
               isDark ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'
             }`}>
-              注意：删除后该图片数据将立即从存储中清除，此操作不可撤销。
+              注意：删除后该图片数据将立即从存储中清除，此操作不可撤销。未引用的图片也可能存在历史版本中，删除同样会影响这些历史版本。
             </div>
 
             <div className="mt-6 flex items-center justify-end gap-2.5">
