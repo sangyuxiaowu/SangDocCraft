@@ -13,16 +13,18 @@ import {
   AlertCircle,
   UploadCloud,
   Copy,
-  RefreshCw
+  RefreshCw,
+  Gauge
 } from 'lucide-react';
 import type { DocumentAsset, DocumentAssetScope, DocumentTheme } from '../types';
-import { getAssetReference, registerAssetUrl, unregisterAssetUrl } from '../utils/assetUrlRegistry';
+import { getAssetReference } from '../utils/assetUrlRegistry';
+import { saveAsset, removeAsset } from '../utils/assetStorage';
 import { compressAssetToWebp } from '../utils/imageCompression';
 import { createDocumentAsset } from '../utils/documentPackage';
-import { deleteAsset, putDocumentAsset, putLibraryAsset } from '../utils/imageRepository';
 import { isImageReferenced } from '../utils/imageReferences';
 import { resolveImageSrc } from '../utils/tauriHelper';
 import { collectDocumentNetworkImages } from '../utils/networkImageCollector';
+import { BatchImageOptimizer } from './BatchImageOptimizer';
 
 interface ImageManagerProps {
   isOpen: boolean;
@@ -35,12 +37,6 @@ interface ImageManagerProps {
   onAssetsChanged: () => Promise<void>;
   onInsert: (markdown: string) => void;
   onDocumentContentChange: (markdown: string, theme: DocumentTheme) => void;
-}
-
-async function saveAsset(documentId: string, asset: DocumentAsset): Promise<void> {
-  if (asset.scope === 'library') await putLibraryAsset(asset);
-  else await putDocumentAsset(documentId, asset);
-  registerAssetUrl(asset);
 }
 
 export const ImageManager: React.FC<ImageManagerProps> = ({
@@ -65,6 +61,7 @@ export const ImageManager: React.FC<ImageManagerProps> = ({
   const [isDragOver, setIsDragOver] = useState(false);
   const [assetToDelete, setAssetToDelete] = useState<DocumentAsset | null>(null);
   const [pendingOverwrite, setPendingOverwrite] = useState<DocumentAsset | null>(null);
+  const [showBatchOptimizer, setShowBatchOptimizer] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scopeAssets = useMemo(() => {
@@ -174,8 +171,7 @@ export const ImageManager: React.FC<ImageManagerProps> = ({
     const target = assetToDelete;
     setAssetToDelete(null);
     void run(async () => {
-      await deleteAsset(documentId, target);
-      unregisterAssetUrl(getAssetReference(target));
+      await removeAsset(documentId, target);
       if (selectedId === target.id) {
         setSelectedId('');
       }
@@ -309,8 +305,22 @@ export const ImageManager: React.FC<ImageManagerProps> = ({
               <span>上传图片</span>
             </button>
 
-            <button 
-              disabled={busy} 
+            <button
+              disabled={busy}
+              onClick={() => setShowBatchOptimizer(true)}
+              className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50 ${
+                isDark
+                  ? 'border-zinc-700 hover:border-zinc-600 bg-zinc-900 text-zinc-200'
+                  : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700 shadow-xs'
+              }`}
+              title="批量压缩本文档中的非 WebP 图片，可选重采样分辨率与移除未引用图片"
+            >
+              <Gauge className="w-3.5 h-3.5 text-emerald-500" />
+              <span>整体压缩</span>
+            </button>
+
+            <button
+              disabled={busy}
               onClick={() => void collectImagesFromDocument()} 
               className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50 ${
                 isDark 
@@ -646,6 +656,18 @@ export const ImageManager: React.FC<ImageManagerProps> = ({
 
         </div>
       </div>
+
+      {/* Batch Optimization Panel */}
+      <BatchImageOptimizer
+        isOpen={showBatchOptimizer}
+        documentId={documentId}
+        assets={assets}
+        markdown={markdown}
+        theme={theme}
+        isDark={isDark}
+        onClose={() => setShowBatchOptimizer(false)}
+        onAssetsChanged={onAssetsChanged}
+      />
 
       {/* Overwrite Confirmation Modal Dialog */}
       {pendingOverwrite && (
