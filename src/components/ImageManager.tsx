@@ -11,7 +11,9 @@ import {
   FileCode, 
   Sparkles,
   AlertCircle,
-  UploadCloud
+  UploadCloud,
+  Copy,
+  RefreshCw
 } from 'lucide-react';
 import type { DocumentAsset, DocumentAssetScope, DocumentTheme } from '../types';
 import { getAssetReference, registerAssetUrl, unregisterAssetUrl } from '../utils/assetUrlRegistry';
@@ -62,6 +64,7 @@ export const ImageManager: React.FC<ImageManagerProps> = ({
   const [error, setError] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
   const [assetToDelete, setAssetToDelete] = useState<DocumentAsset | null>(null);
+  const [pendingOverwrite, setPendingOverwrite] = useState<DocumentAsset | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scopeAssets = useMemo(() => {
@@ -135,11 +138,30 @@ export const ImageManager: React.FC<ImageManagerProps> = ({
     setSelectedId(collected.assets[0].id);
   });
 
-  const compressSelected = () => selected && run(async () => {
-    const compressed = await compressAssetToWebp(selected, quality);
-    await saveAsset(documentId, compressed);
-    setSelectedId(compressed.id);
+  /**
+   * 压缩当前图片：
+   * - overwrite = false：保留原图，额外生成一张 WebP 优化副本（新 ID）
+   * - overwrite = true：沿用原图 ID 直接覆盖数据，正文/封面/页眉中的引用保持不变
+   */
+  const runCompression = (target: DocumentAsset, overwrite: boolean) => run(async () => {
+    const compressed = await compressAssetToWebp(target, quality);
+    const result: DocumentAsset = overwrite
+      ? { ...compressed, id: target.id, description: target.description || compressed.description }
+      : compressed;
+    await saveAsset(documentId, result);
+    setSelectedId(result.id);
   });
+
+  const createCompressedCopy = () => {
+    if (selected) void runCompression(selected, false);
+  };
+
+  const confirmOverwrite = () => {
+    const target = pendingOverwrite;
+    if (!target) return;
+    setPendingOverwrite(null);
+    void runCompression(target, true);
+  };
 
   const handleDeleteClick = () => {
     if (selected && !referenced) {
@@ -532,17 +554,35 @@ export const ImageManager: React.FC<ImageManagerProps> = ({
                       onChange={(e) => setQuality(Number(e.target.value))} 
                       className="w-full accent-blue-600 h-1.5" 
                     />
-                    <button 
-                      disabled={busy} 
-                      onClick={() => void compressSelected()} 
-                      className={`w-full mt-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition disabled:opacity-50 ${
-                        isDark 
-                          ? 'border-zinc-700 hover:bg-zinc-800 text-zinc-200' 
-                          : 'border-slate-200 hover:bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      生成 WebP 优化副本
-                    </button>
+                    <div className="grid grid-cols-2 gap-2 mt-2.5">
+                      <button 
+                        disabled={busy} 
+                        onClick={createCompressedCopy} 
+                        title="保留原图，额外生成一张新的 WebP 优化副本"
+                        className={`py-1.5 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition disabled:opacity-50 ${
+                          isDark 
+                            ? 'border-zinc-700 hover:bg-zinc-800 text-zinc-200' 
+                            : 'border-slate-200 hover:bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>生成副本</span>
+                      </button>
+
+                      <button 
+                        disabled={busy} 
+                        onClick={() => setPendingOverwrite(selected)} 
+                        title="用压缩后的 WebP 数据替换原图，图片引用保持不变"
+                        className={`py-1.5 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition disabled:opacity-50 ${
+                          isDark 
+                            ? 'border-amber-500/30 text-amber-300 hover:bg-amber-500/10' 
+                            : 'border-amber-300 text-amber-700 hover:bg-amber-50'
+                        }`}
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>覆盖原图</span>
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -606,6 +646,92 @@ export const ImageManager: React.FC<ImageManagerProps> = ({
 
         </div>
       </div>
+
+      {/* Overwrite Confirmation Modal Dialog */}
+      {pendingOverwrite && (
+        <div 
+          className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="overwrite-modal-title"
+          aria-describedby="overwrite-modal-desc"
+          onClick={() => !busy && setPendingOverwrite(null)}
+        >
+          <div 
+            className={`w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 p-6 ${
+              isDark ? 'bg-[#1a1a1a] border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                <RefreshCw className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 id="overwrite-modal-title" className="text-base font-bold">
+                  确认覆盖原图
+                </h3>
+                <p id="overwrite-modal-desc" className={`text-xs mt-1 leading-relaxed ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+                  将使用 {Math.round(quality * 100)}% 质量的 WebP 数据替换当前图片，原图数据会被永久覆盖。
+                </p>
+              </div>
+            </div>
+
+            {/* Target Card Preview */}
+            <div className={`mt-4 p-3 rounded-xl border flex items-center gap-3 ${
+              isDark ? 'bg-zinc-900/80 border-zinc-800' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="w-12 h-12 rounded-lg bg-[linear-gradient(45deg,#f3f4f6_25%,transparent_25%),linear-gradient(-45deg,#f3f4f6_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f3f4f6_75%),linear-gradient(-45deg,transparent_75%,#f3f4f6_75%)] bg-[size:10px_10px] dark:bg-[linear-gradient(45deg,#202020_25%,transparent_25%),linear-gradient(-45deg,#202020_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#202020_75%)] border border-black/10 overflow-hidden flex items-center justify-center shrink-0">
+                <img 
+                  src={resolveImageSrc(getAssetReference(pendingOverwrite))} 
+                  alt={pendingOverwrite.fileName} 
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold truncate" title={pendingOverwrite.fileName}>
+                  {pendingOverwrite.fileName}
+                </div>
+                <div className={`text-[11px] mt-0.5 flex items-center gap-2 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+                  <span className="uppercase font-mono font-semibold">{getFormatBadge(pendingOverwrite.mediaType)}</span>
+                  <span>→</span>
+                  <span className="uppercase font-mono font-semibold text-amber-500">WEBP</span>
+                </div>
+              </div>
+            </div>
+
+            <div className={`mt-4 text-[11px] px-3 py-2 rounded-lg border ${
+              isDark ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'
+            }`}>
+              注意：覆盖后引用标识保持不变，正文、封面与页眉中的引用无需修改即可自动生效；但历史版本中使用该图片的页面同样会显示压缩后的效果，且此操作不可撤销。
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setPendingOverwrite(null)}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold border transition ${
+                  isDark 
+                    ? 'border-zinc-700 hover:bg-zinc-800 text-zinc-300' 
+                    : 'border-slate-200 hover:bg-slate-100 text-slate-700'
+                }`}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={confirmOverwrite}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-xs transition flex items-center gap-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>确认覆盖</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal Dialog */}
       {assetToDelete && (
