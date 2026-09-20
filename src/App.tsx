@@ -36,7 +36,7 @@ import {
 } from './utils/draftStore';
 import { getRecentDocuments, addRecentDocument, removeRecentDocument, clearRecentDocuments, type RecentDocumentItem } from './utils/recentDocumentsStore';
 import { WelcomeDashboard } from './components/WelcomeDashboard';
-import { type DocumentTemplateItem } from './data/documentTemplates';
+import { resolveTemplateTheme, type DocumentTemplateItem } from './data/documentTemplates';
 import { formatApplicationTitle, resolveDocumentTitle } from './utils/applicationTitle';
 import { loadAiConfig, loadAiConfigWithSecrets, saveAiConfig } from './lib/aiConfig';
 import { AiConfig, DiffReviewSession } from './types/ai';
@@ -442,18 +442,7 @@ export default function App() {
     const matchedTheme = allThemes.find((t) => t.id === template.recommendedThemeId) || builtinThemes[0];
 
     // 模板只描述差异部分，其余排版与配色完全沿用推荐主题；未在模板中声明的字段保持主题默认值
-    const newTheme: DocumentTheme = {
-      ...matchedTheme,
-      meta: {
-        ...matchedTheme.meta,
-        ...template.coverConfig,
-        title: template.coverConfig?.title || template.title,
-        subtitle: template.coverConfig?.subtitle || template.subtitle,
-        version: template.coverConfig?.version || matchedTheme.meta.version || 'v1.0.0',
-        date: template.coverConfig?.date || new Date().toISOString().split('T')[0],
-        showCover: template.coverConfig?.showCover ?? true,
-      },
-    };
+    const newTheme = resolveTemplateTheme(template, matchedTheme);
 
     const nextId = crypto.randomUUID();
     const now = new Date().toISOString();

@@ -1,4 +1,4 @@
-import type { CoverConfig } from '../types';
+import type { CoverConfig, DocumentTheme, StyleConfig, TocConfig } from '../types';
 
 // 每个模板的 Markdown 正文独立存放在 ./templates/*.md，便于单独维护与编辑。
 import blankMarkdown from './templates/blank.md?raw';
@@ -23,11 +23,41 @@ export interface DocumentTemplateItem {
   /** 必须与内置主题（PRESET_THEMES）中的 id 完全一致，否则新建文档会退回默认主题 */
   recommendedThemeId: string;
   markdown: string;
+  /** 封面差异项：仅声明需要偏离推荐主题的字段（如 showCover: false 关闭封面） */
   coverConfig?: Partial<CoverConfig>;
+  /** 目录差异项：仅声明需要偏离推荐主题的字段（如 show: false 关闭目录） */
+  tocConfig?: Partial<TocConfig>;
+  /** 正文排版差异项：仅声明需要偏离推荐主题的字段（如 h1Center: true 一级标题居中） */
+  styleConfig?: Partial<StyleConfig>;
 }
 
 /** 模板中心默认推荐主题，供兜底与测试使用 */
 export const DEFAULT_TEMPLATE_THEME_ID = 'enterprise-standard';
+
+/**
+ * 依据模板差异项合成新文档主题：
+ * 模板只描述差异部分，封面 / 目录 / 正文样式仅覆盖模板显式声明的字段，
+ * 其余排版、配色、页眉页脚完全沿用推荐主题。
+ */
+export function resolveTemplateTheme(
+  template: DocumentTemplateItem,
+  baseTheme: DocumentTheme,
+): DocumentTheme {
+  return {
+    ...baseTheme,
+    meta: {
+      ...baseTheme.meta,
+      ...template.coverConfig,
+      title: template.coverConfig?.title || template.title,
+      subtitle: template.coverConfig?.subtitle || template.subtitle,
+      version: template.coverConfig?.version || baseTheme.meta.version || 'v1.0.0',
+      date: template.coverConfig?.date || new Date().toISOString().split('T')[0],
+      showCover: template.coverConfig?.showCover ?? true,
+    },
+    toc: { ...baseTheme.toc, ...template.tocConfig },
+    style: { ...baseTheme.style, ...template.styleConfig },
+  };
+}
 
 export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
   {
@@ -162,6 +192,16 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
       organization: '技术委员会',
       number: '技委会纪〔2026〕37 号',
       version: '第 37 期',
+      // 纪要类文档无需封面，直接从标题进入正文
+      showCover: false,
+    },
+    // 纪要篇幅短、结构清晰，省略目录
+    tocConfig: {
+      show: false,
+    },
+    // 纪要标题居中排布，更贴近公文与会议纪要惯例
+    styleConfig: {
+      h1Center: true,
     },
   },
 ];
