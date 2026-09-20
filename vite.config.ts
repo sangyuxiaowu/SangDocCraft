@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       !isTauriMode && mode !== 'test' && VitePWA({
         registerType: 'autoUpdate',
+        includeAssets: ['reward-code.svg'],
         workbox: {
           globIgnores: ['assets/mathjax-*.js'],
         },

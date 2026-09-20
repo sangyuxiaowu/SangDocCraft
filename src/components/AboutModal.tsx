@@ -52,7 +52,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
       onClick={onClose}
     >
       <div 
-        className={`w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col ${
+        className={`w-full max-w-3xl rounded-2xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col ${
           isDark ? 'bg-[#181818] border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'
         }`}
         onClick={(e) => e.stopPropagation()}
@@ -93,6 +93,77 @@ export const AboutModal: React.FC<AboutModalProps> = ({
 
         {/* Content Body */}
         <div className="p-6 space-y-5 overflow-y-auto max-h-[calc(85vh-120px)]">
+          {/* WeChat Sponsor / Reward Code Card */}
+          <div className={`p-4 rounded-xl border transition flex flex-col sm:flex-row items-center sm:items-stretch gap-4 ${
+            isDark 
+              ? 'bg-gradient-to-br from-amber-500/10 via-zinc-900/80 to-zinc-900 border-amber-500/25' 
+              : 'bg-gradient-to-br from-amber-50/90 via-orange-50/40 to-white border-amber-200/90 shadow-xs'
+          }`}>
+            {/* QR Code Container with crisp white background */}
+            <div className="shrink-0 flex flex-col items-center justify-center gap-1.5">
+              <div className="p-2 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center justify-center">
+                <img 
+                  src="/reward-code.svg" 
+                  alt="微信赞赏码" 
+                  className="w-28 h-28 sm:w-32 sm:h-32 object-contain select-none"
+                  loading="eager"
+                />
+              </div>
+              <span className={`text-[10px] font-medium flex items-center gap-1 ${
+                isDark ? 'text-zinc-400' : 'text-slate-500'
+              }`}>
+                <span>微信扫一扫赞赏</span>
+              </span>
+            </div>
+
+            {/* Sponsor Info */}
+            <div className="flex-1 min-w-0 text-center sm:text-left flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-center sm:justify-between gap-2 mb-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Heart className="w-4 h-4 text-rose-500 fill-rose-500 shrink-0" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                      微信赞赏支持
+                    </span>
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium hidden sm:inline-flex items-center gap-1 ${
+                    isDark ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20' : 'bg-amber-100/70 text-amber-800 border border-amber-200'
+                  }`}>
+                    开源不易 • 感谢支持
+                  </span>
+                </div>
+
+                <p className={`text-xs leading-relaxed ${isDark ? 'text-zinc-300' : 'text-slate-600'}`}>
+                  SangDocCraft 是一款面向正式交付文档的完全免费、无广告独立开源排版系统。如果这款工具帮助您提高了排版效率或解决了导出难题，欢迎微信扫码赞赏支持作者（桑榆肖物），您的每一份鼓励都是持续打磨体验的最大动力！
+                </p>
+              </div>
+
+              <div className={`mt-3 pt-2.5 border-t flex flex-wrap items-center justify-center sm:justify-between gap-2 text-[11px] ${
+                isDark ? 'border-zinc-800/80 text-zinc-400' : 'border-amber-200/60 text-slate-500'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1">
+                    <span>开发者:</span>
+                    <strong className={isDark ? 'text-zinc-200' : 'text-slate-700'}>桑榆肖物</strong>
+                  </span>
+                  <span>•</span>
+                  <span>永久免费开源</span>
+                </div>
+                <a 
+                  href="/reward-code.svg" 
+                  download="sangdoccraft-wechat-reward.svg"
+                  className={`text-[10px] px-2 py-0.5 rounded transition inline-flex items-center gap-1 ${
+                    isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200' : 'hover:bg-amber-100/60 text-slate-500 hover:text-slate-800'
+                  }`}
+                  title="下载赞赏码原图"
+                >
+                  <Download className="w-3 h-3" />
+                  <span>保存赞赏码</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
           {/* GitHub Repository Card */}
           <div className={`p-4 rounded-xl border transition ${
             isDark 
@@ -156,7 +227,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
             }`}>
               核心特性
             </h4>
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <div className={`p-3 rounded-xl border ${
                 isDark ? 'bg-zinc-900/30 border-zinc-800/80' : 'bg-white border-slate-200/80'
               }`}>
