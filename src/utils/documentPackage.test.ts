@@ -69,4 +69,28 @@ describe('SangDocCraft document package', () => {
       assets: [],
     }).slice(0, 10))).rejects.toThrow('有效的 .sdc 文件');
   });
+
+  it('opens legacy themes without a cover configuration', async () => {
+    const document: SangDocument = {
+      id: 'doc-legacy',
+      title: '旧版文档',
+      createdAt: '2026-09-15T00:00:00.000Z',
+      modifiedAt: '2026-09-15T00:00:00.000Z',
+      markdown: '# 旧版文档',
+      theme: getRegisteredThemes()[0],
+      settings: { historyEnabled: false, historyIdleMinutes: 10 },
+      history: [],
+      chatSessions: [],
+      assets: [],
+    };
+    const files = unzipSync(packSangDocument(document));
+    const legacyTheme = { ...document.theme, meta: { ...document.theme.meta, logoUrl: 'https://example.com/old-logo.png' } } as Record<string, unknown>;
+    delete legacyTheme.cover;
+    files['theme.json'] = new TextEncoder().encode(JSON.stringify(legacyTheme));
+
+    const unpacked = await unpackSangDocument(zipSync(files));
+
+    expect(unpacked.theme.cover).toEqual(getRegisteredThemes()[0].cover);
+    expect(unpacked.theme.meta.title).toBe(document.theme.meta.title);
+  });
 });

@@ -23,9 +23,8 @@ function createAsset(
 
 function createTheme(logoReferences: { cover?: string; header?: string } = {}) {
   const theme = structuredClone(getRegisteredThemes()[0]);
-  theme.meta.logo = undefined;
-  theme.meta.logoUrl = logoReferences.cover ?? '@images/img-cover0001';
-  theme.meta.logoHeight = 40;
+  theme.cover.logoUrl = logoReferences.cover ?? '@images/img-cover0001';
+  theme.cover.logoHeight = 40;
   theme.header.logoUrl = logoReferences.header ?? '@library/img-libused01';
   theme.header.logoHeight = 32;
   return theme;

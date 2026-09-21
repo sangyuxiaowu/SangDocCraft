@@ -1,4 +1,4 @@
-import type { CoverListItem, DocumentMeta, DocumentTheme, FooterConfig, HeaderConfig } from '../types';
+import type { CoverConfig, CoverListItem, DocumentMeta, DocumentTheme, FooterConfig, HeaderConfig } from '../types';
 
 /**
  * 切换交付规范主题时，只替换排版与配色类参数；
@@ -31,11 +31,14 @@ function mergeMeta(current: DocumentMeta, incoming: DocumentMeta): DocumentMeta 
     number: keepExistingText(current.number, incoming.number),
   };
 
-  if (hasCoverList(current.coverlist)) {
-    merged.coverlist = current.coverlist;
-  }
-
   return merged;
+}
+
+function mergeCover(current: CoverConfig, incoming: CoverConfig): CoverConfig {
+  return {
+    ...incoming,
+    coverlist: hasCoverList(current.coverlist) ? current.coverlist : incoming.coverlist,
+  };
 }
 
 function mergeHeader(current: HeaderConfig, incoming: HeaderConfig): HeaderConfig {
@@ -63,6 +66,7 @@ export function mergeThemePreservingDocumentText(current: DocumentTheme, incomin
   return {
     ...incoming,
     meta: mergeMeta(current.meta, incoming.meta),
+    cover: mergeCover(current.cover, incoming.cover),
     header: mergeHeader(current.header, incoming.header),
     footer: mergeFooter(current.footer, incoming.footer),
   };

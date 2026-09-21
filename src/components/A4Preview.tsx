@@ -149,7 +149,8 @@ export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
 export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 'dark', viewMode = 'split', navigationTarget, onNavigateToEditor, scrollSyncEnabled = false, onScrollPositionChange, onOverflowPageNumbersChange }) => {
   const { header, footer, toc, style } = theme;
   const meta = theme.meta;
-  const coverTemplate = getCoverTemplate(meta.coverStyle);
+  const cover = theme.cover;
+  const coverTemplate = getCoverTemplate(cover.coverStyle);
   const isDark = uiMode === 'dark';
 
   const [zoom, setZoom] = useState<number>(85);
@@ -234,12 +235,12 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
         headerShow: header.show,
         footerShow: footer.show,
         fontFamily: fontStack,
-        coverPageCount: meta.showCover ? 1 : 0,
+        coverPageCount: cover.showCover ? 1 : 0,
         contentPageCount: rawContentPages.length,
       })
     : [];
   const tocPageCount = tocChunks.length;
-  const firstContentPageNum = (meta.showCover ? 1 : 0) + (toc.show ? tocPageCount : 0) + 1;
+  const firstContentPageNum = (cover.showCover ? 1 : 0) + (toc.show ? tocPageCount : 0) + 1;
 
   // 测量得到的是标题项，渲染前需按正文起始页回填页码
   const tocPages: TocItem[][] = tocChunks.map((chunk) => assignTocPageNumbers(chunk, firstContentPageNum));
@@ -249,7 +250,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
   const outlineItems: TocItem[] = parseTableOfContents(
     markdown,
     4,
-    meta,
+    cover,
     toc.show,
     style.h1PageBreak,
     rawContentPages,
@@ -389,7 +390,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
   let pageCounter = 1;
 
   // 1. Cover Page
-  if (meta.showCover) {
+  if (cover.showCover) {
     pages.push({
       type: 'cover',
       pageNum: pageCounter++,
@@ -472,8 +473,8 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
   }, [onOverflowPageNumbersChange, overflowPageNumbers]);
 
   // Dynamic cover list items
-  const coverListItems = (meta.coverlist && meta.coverlist.length > 0)
-    ? meta.coverlist
+  const coverListItems = (cover.coverlist && cover.coverlist.length > 0)
+    ? cover.coverlist
     : [
         { label: '撰写团队', value: meta.author },
         { label: '所属部门', value: meta.department },
@@ -717,7 +718,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
                 {page.type === 'cover' && (
                   <div className="flex-1 flex flex-col justify-between py-4 h-full">
                     
-                    {coverTemplate.renderPreview({ meta, style, coverListItems })}
+                    {coverTemplate.renderPreview({ meta, cover, style, coverListItems })}
 
                   </div>
                 )}

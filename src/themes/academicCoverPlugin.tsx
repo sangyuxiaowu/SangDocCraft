@@ -26,15 +26,15 @@ function renderThumbnail(): React.ReactNode {
 }
 
 function renderPreview(context: CoverRenderContext): React.ReactNode {
-  const { meta, style } = context;
-  const hasHeader = Boolean(meta.logo || meta.logoUrl || meta.organization);
+  const { meta, cover, style } = context;
+  const hasHeader = Boolean(cover.logoUrl || meta.organization);
   const hasTitle = Boolean(meta.title || meta.subtitle);
   return (
     <div className="flex-1 flex flex-col items-center px-8 py-4 text-center">
       {hasHeader && (
         <div className="w-full flex flex-col items-center gap-3 min-h-24">
-          {(meta.logo || meta.logoUrl) && (
-            <img src={meta.logo || meta.logoUrl} alt="Logo" style={{ height: meta.logoHeight }} className="h-16 max-w-[240px] w-auto object-contain" />
+          {cover.logoUrl && (
+            <img src={cover.logoUrl} alt="Logo" style={{ height: cover.logoHeight }} className="h-16 max-w-[240px] w-auto object-contain" />
           )}
           {meta.organization && (
             <div className="text-xl font-bold tracking-[0.25em] leading-none" style={{ color: style.primaryColor }}>
@@ -64,14 +64,14 @@ function renderPreview(context: CoverRenderContext): React.ReactNode {
 }
 
 function renderHtml(context: CoverRenderContext): string {
-  const { meta } = context;
-  const hasHeader = Boolean(meta.logo || meta.logoUrl || meta.organization);
+  const { meta, cover } = context;
+  const hasHeader = Boolean(cover.logoUrl || meta.organization);
   const hasTitle = Boolean(meta.title || meta.subtitle);
   const hasMeta = Boolean(context.coverListItems?.length);
   return `
     <div class="academic-cover">
       ${hasHeader ? `<div>
-        ${(meta.logo || meta.logoUrl) ? `<img src="${meta.logo || meta.logoUrl}" class="academic-cover-logo"${meta.logoHeight === undefined ? '' : ` style="height:${meta.logoHeight}px;max-height:none;width:auto;"`} alt="Logo" />` : ''}
+        ${cover.logoUrl ? `<img src="${cover.logoUrl}" class="academic-cover-logo"${cover.logoHeight === undefined ? '' : ` style="height:${cover.logoHeight}px;max-height:none;width:auto;"`} alt="Logo" />` : ''}
         ${meta.organization ? `<div class="academic-cover-organization">${meta.organization}</div>` : ''}
       </div>` : ''}
       ${hasTitle ? `<div class="academic-cover-title-block">
@@ -86,13 +86,13 @@ function renderHtml(context: CoverRenderContext): string {
 }
 
 async function renderDocx(context: CoverDocxRenderContext): Promise<(Paragraph | Table)[]> {
-  const { meta, primaryHex, accentHex, textHex, fontName, docxFont, createImageRun } = context;
+  const { meta, cover, primaryHex, accentHex, textHex, fontName, docxFont, createImageRun } = context;
   const children: (Paragraph | Table)[] = [];
-  const logoSource = meta.logo || meta.logoUrl;
+  const logoSource = cover.logoUrl;
   if (logoSource) {
-    const logoRun = meta.logoHeight === undefined
+    const logoRun = cover.logoHeight === undefined
       ? await createImageRun(logoSource, '文档标志', 180, 100)
-      : await createImageRun(logoSource, '文档标志', undefined, meta.logoHeight);
+      : await createImageRun(logoSource, '文档标志', undefined, cover.logoHeight);
     if (logoRun) {
       children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 400, after: 160 }, children: [logoRun] }));
     }

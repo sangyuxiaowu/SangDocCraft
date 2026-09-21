@@ -10,7 +10,7 @@ import { AiToolExecutionError } from '../types/ai';
  */
 
 /** 主题中可被 AI 工具直接改写的分区 */
-export type ThemeSection = 'meta' | 'header' | 'footer' | 'toc' | 'style';
+export type ThemeSection = 'meta' | 'cover' | 'header' | 'footer' | 'toc' | 'style';
 
 type ScalarKind = 'string' | 'number' | 'boolean' | 'enum';
 
@@ -28,8 +28,6 @@ export interface ScalarFieldSpec extends FieldConstraint {
   section: ThemeSection;
   /** 写入主题的字段名，缺省与 argument 相同 */
   field?: string;
-  /** 需要同步写入同值的别名字段（如 logoUrl → logo） */
-  also?: readonly string[];
   description: string;
 }
 
@@ -160,11 +158,11 @@ export const META_FIELDS: readonly ScalarFieldSpec[] = [
   { argument: 'date', section: 'meta', kind: 'string', description: '日期 (如 2025-05-20)' },
   { argument: 'version', section: 'meta', kind: 'string', description: '版本号 (如 v1.0.0)' },
   { argument: 'number', section: 'meta', kind: 'string', description: '文档编号 (如 DOC-2025-001)' },
-  { argument: 'showCover', section: 'meta', kind: 'boolean', description: '是否展示独立封面页' },
-  { argument: 'coverStyle', section: 'meta', kind: 'string', description: '封面样式风格，值应来自当前可用封面模板 ID' },
-  { argument: 'logoUrl', section: 'meta', kind: 'string', also: ['logo'], description: '封面 Logo 的图片 URL 或 @images/@library 引用，空字符串表示清除' },
-  { argument: 'logoHeight', section: 'meta', kind: 'number', min: 20, max: 120, description: '封面 Logo 高度，单位 px，范围 20-120' },
-  { argument: 'coverListColumns', section: 'meta', kind: 'enum', values: [1, 2], description: '封面属性列表列数' },
+  { argument: 'showCover', section: 'cover', kind: 'boolean', description: '是否展示独立封面页' },
+  { argument: 'coverStyle', section: 'cover', kind: 'string', description: '封面样式风格，值应来自当前可用封面模板 ID' },
+  { argument: 'logoUrl', section: 'cover', kind: 'string', description: '封面 Logo 的图片 URL 或 @images/@library 引用，空字符串表示清除' },
+  { argument: 'logoHeight', section: 'cover', kind: 'number', min: 20, max: 120, description: '封面 Logo 高度，单位 px，范围 20-120' },
+  { argument: 'coverListColumns', section: 'cover', kind: 'enum', values: [1, 2], description: '封面属性列表列数' },
 ];
 
 export const STYLE_FIELDS: readonly ScalarFieldSpec[] = [

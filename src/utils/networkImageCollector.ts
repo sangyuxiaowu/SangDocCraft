@@ -30,8 +30,7 @@ export function findNetworkImageSources(markdown: string, theme: DocumentTheme):
     }
   });
   const logoSources = [
-    [theme.meta.logo, '封面 Logo'],
-    [theme.meta.logoUrl, '封面 Logo'],
+    [theme.cover.logoUrl, '封面 Logo'],
     [theme.header.logoUrl, '页眉 Logo'],
   ] as const;
   for (const [url, description] of logoSources) {
@@ -74,8 +73,7 @@ export async function collectDocumentNetworkImages(
     assetsById.set(asset.id, asset);
     const reference = `@images/${asset.id}`;
     nextMarkdown = replaceMarkdownImageSource(nextMarkdown, source.url, reference);
-    if (nextTheme.meta.logo === source.url) nextTheme.meta.logo = reference;
-    if (nextTheme.meta.logoUrl === source.url) nextTheme.meta.logoUrl = reference;
+    if (nextTheme.cover.logoUrl === source.url) nextTheme.cover.logoUrl = reference;
     if (nextTheme.header.logoUrl === source.url) nextTheme.header.logoUrl = reference;
   }
 

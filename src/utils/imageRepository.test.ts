@@ -41,7 +41,7 @@ describe('image repository', () => {
 
   it('detects references in markdown, cover and header theme settings', async () => {
     const theme = structuredClone(getRegisteredThemes()[0]);
-    theme.meta.logoUrl = '@library/img-12345678';
+    theme.cover.logoUrl = '@library/img-12345678';
     theme.header.logoUrl = '@images/img-87654321';
 
     expect(isImageReferenced('img-abcdefgh', 'document', '![图](@images/img-abcdefgh)', theme)).toBe(true);

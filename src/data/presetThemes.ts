@@ -19,6 +19,8 @@ export const PRESET_THEMES: DocumentTheme[] = [
       department: '技术研发中心 / 基础架构部',
       organization: '某某科技有限公司',
       date: '2026年08月12日',
+    },
+    cover: {
       showCover: true,
       coverStyle: 'enterprise',
     },
@@ -94,6 +96,8 @@ export const PRESET_THEMES: DocumentTheme[] = [
       department: '数据工程部',
       organization: '某某科技有限公司',
       date: '2026年08月',
+    },
+    cover: {
       showCover: true,
       coverStyle: 'modern',
     },
@@ -153,6 +157,8 @@ export const PRESET_THEMES: DocumentTheme[] = [
       department: '解决方案集成中心',
       organization: '某某科技有限公司',
       date: '二〇二六年八月',
+    },
+    cover: {
       showCover: true,
       coverStyle: 'spec',
     },
@@ -212,6 +218,8 @@ export const PRESET_THEMES: DocumentTheme[] = [
       department: '体验设计部',
       organization: '某某科技有限公司',
       date: '2026.08',
+    },
+    cover: {
       showCover: true,
       coverStyle: 'minimal',
     },
@@ -271,6 +279,8 @@ export const PRESET_THEMES: DocumentTheme[] = [
       department: 'FRONTIER EXPLORATION GROUP',
       organization: '某某科技有限公司',
       date: '2026年Q3',
+    },
+    cover: {
       showCover: true,
       coverStyle: 'creative',
       coverlist: [
@@ -338,6 +348,8 @@ export const PRESET_THEMES: DocumentTheme[] = [
       organization: '某某科技有限公司',
       date: '2026年09月',
       number: 'SDC-2026-001',
+    },
+    cover: {
       showCover: true,
       coverStyle: 'signature',
       coverListColumns: 2,
@@ -423,6 +435,8 @@ export const PRESET_THEMES: DocumentTheme[] = [
       organization: '某某科技有限公司',
       date: '2026年09月',
       number: 'BRIEF-2026-Q3',
+    },
+    cover: {
       showCover: true,
       coverStyle: 'briefing',
       coverListColumns: 2,
@@ -505,6 +519,8 @@ export const PRESET_THEMES: DocumentTheme[] = [
       department: '经济管理学院',
       organization: '某某大学',
       date: '2026年8月',
+    },
+    cover: {
       showCover: true,
       coverStyle: 'academic',
       coverlist: [

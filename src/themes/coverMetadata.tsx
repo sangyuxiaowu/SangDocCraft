@@ -14,7 +14,7 @@ const valueStyle: React.CSSProperties = { minHeight: 24, borderBottom: '1px soli
 
 export function CoverMetadata({ context, defaultColumns = 1, width = '52%' }: { context: CoverRenderContext; defaultColumns?: 1 | 2; width?: string }) {
   if (!context.coverListItems || !context.coverListItems.length) return null;
-  const columns = context.meta.coverListColumns ?? defaultColumns;
+  const columns = context.cover.coverListColumns ?? defaultColumns;
   return <div data-cover-columns={columns} style={metadataStyle(columns, width)}>
     {context.coverListItems.map((item, index) => <div key={index} style={rowStyle}>
       <span style={labelStyle}>{labelText(item.label)}</span>
@@ -25,14 +25,14 @@ export function CoverMetadata({ context, defaultColumns = 1, width = '52%' }: { 
 
 export function coverMetadataHtml(context: CoverRenderContext, defaultColumns: 1 | 2 = 1, width = '52%'): string {
   if (!context.coverListItems || !context.coverListItems.length) return '';
-  const columns = context.meta.coverListColumns ?? defaultColumns;
+  const columns = context.cover.coverListColumns ?? defaultColumns;
   return `<div data-cover-columns="${columns}" style="display:grid;grid-template-columns:repeat(${columns},minmax(0,1fr));gap:12px 28px;width:${columns === 2 ? '80%' : width};max-width:${columns === 2 ? '80%' : '44%'};margin:0 auto;font-size:14px;text-align:left;">${context.coverListItems.map((item) => `<div style="display:grid;grid-template-columns:minmax(0,6em) minmax(0,1fr);align-items:end;gap:8px;min-width:0;"><span style="color:#334155;font-weight:500;white-space:pre-wrap;overflow-wrap:anywhere;">${labelText(item.label)}</span><span style="min-height:24px;border-bottom:1px solid #334155;padding:0 4px;text-align:center;color:#0f172a;font-weight:500;overflow-wrap:anywhere;">${item.value}</span></div>`).join('')}</div>`;
 }
 
 export function coverMetadataDocx(context: CoverDocxRenderContext, defaultColumns: 1 | 2 = 1, singleWidth = 5200): Table[] {
-  const { meta, coverListItems, primaryHex, textHex, fontName, docxFont } = context;
+  const { cover, coverListItems, primaryHex, textHex, fontName, docxFont } = context;
   if (!coverListItems.length) return [];
-  const columns = meta.coverListColumns ?? defaultColumns;
+  const columns = cover.coverListColumns ?? defaultColumns;
   const width = columns === 2 ? 7680 : Math.min(singleWidth, 4400);
   const fieldWidth = columns === 2 ? (width - 400) / 2 : width;
   const noBorder = { style: BorderStyle.NONE, size: 0, color: 'auto' };

@@ -17,18 +17,18 @@ export interface DocumentMeta {
   department: string;
   organization: string;
   date: string;
-  logoUrl?: string;
-  logo?: string;
-  logoHeight?: number;
   number?: string;
   version?: string;
+}
+
+export interface CoverConfig {
+  logoUrl?: string;
+  logoHeight?: number;
   coverlist?: CoverListItem[];
   coverListColumns?: 1 | 2;
   showCover: boolean;
   coverStyle: CoverStyle;
 }
-
-export type CoverConfig = DocumentMeta;
 
 export interface HeaderConfig {
   show: boolean;
@@ -182,6 +182,7 @@ export interface DocumentTheme {
   name: string;
   description: string;
   meta: DocumentMeta;
+  cover: CoverConfig;
   header: HeaderConfig;
   footer: FooterConfig;
   toc: TocConfig;

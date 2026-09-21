@@ -12,11 +12,11 @@ export function validateTheme(value: unknown): DocumentTheme {
   if (!theme.id?.trim() || !theme.name?.trim()) {
     throw new Error('主题必须包含非空的 id 和 name');
   }
-  if (!theme.meta || !theme.header || !theme.footer || !theme.toc || !theme.style) {
-    throw new Error('主题缺少 meta、header、footer、toc 或 style 配置');
+  if (!theme.meta || !theme.cover || !theme.header || !theme.footer || !theme.toc || !theme.style) {
+    throw new Error('主题缺少 meta、cover、header、footer、toc 或 style 配置');
   }
-  if (!hasCoverTemplate(theme.meta.coverStyle)) {
-    throw new Error(`未注册的封面模板：${theme.meta.coverStyle || '未指定'}`);
+  if (!hasCoverTemplate(theme.cover.coverStyle)) {
+    throw new Error(`未注册的封面模板：${theme.cover.coverStyle || '未指定'}`);
   }
 
   return theme as DocumentTheme;

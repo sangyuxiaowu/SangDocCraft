@@ -29,7 +29,7 @@ describe('DOCUMENT_TEMPLATES', () => {
   it('每个模板都带有独立的 Markdown 正文与封面标题', () => {
     for (const template of DOCUMENT_TEMPLATES) {
       expect(template.markdown.trim().length).toBeGreaterThan(0);
-      expect(template.coverConfig?.title?.trim()).toBeTruthy();
+      expect(template.metaConfig?.title?.trim()).toBeTruthy();
     }
   });
 
@@ -48,7 +48,7 @@ describe('resolveTemplateTheme', () => {
 
   it('应用模板差异项：关闭封面与目录、一级标题居中', () => {
     const resolved = resolveTemplateTheme(meetingMinutes, baseTheme);
-    expect(resolved.meta.showCover).toBe(false);
+    expect(resolved.cover.showCover).toBe(false);
     expect(resolved.toc.show).toBe(false);
     expect(resolved.style.h1Center).toBe(true);
   });
@@ -59,14 +59,14 @@ describe('resolveTemplateTheme', () => {
     expect(resolved.toc).toEqual({ ...baseTheme.toc, show: false });
     expect(resolved.header).toEqual(baseTheme.header);
     expect(resolved.footer).toEqual(baseTheme.footer);
-    expect(resolved.meta.title).toBe(meetingMinutes.coverConfig?.title);
+    expect(resolved.meta.title).toBe(meetingMinutes.metaConfig?.title);
   });
 
   it('未声明差异项的模板保持推荐主题的封面与目录配置', () => {
     const blank = DOCUMENT_TEMPLATES.find((template) => template.id === 'blank')!;
     const theme = PRESET_THEMES.find((item) => item.id === blank.recommendedThemeId)!;
     const resolved = resolveTemplateTheme(blank, theme);
-    expect(resolved.meta.showCover).toBe(theme.meta.showCover);
+    expect(resolved.cover.showCover).toBe(theme.cover.showCover);
     expect(resolved.toc).toEqual(theme.toc);
     expect(resolved.style).toEqual(theme.style);
   });

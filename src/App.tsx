@@ -836,8 +836,7 @@ export default function App() {
   const uiMode = effectiveUiMode;
   const isDark = effectiveUiMode === 'dark';
   const previewTheme = structuredClone(theme);
-  if (previewTheme.meta.logo) previewTheme.meta.logo = resolveImageSrc(previewTheme.meta.logo);
-  if (previewTheme.meta.logoUrl) previewTheme.meta.logoUrl = resolveImageSrc(previewTheme.meta.logoUrl);
+  if (previewTheme.cover.logoUrl) previewTheme.cover.logoUrl = resolveImageSrc(previewTheme.cover.logoUrl);
   if (previewTheme.header.logoUrl) previewTheme.header.logoUrl = resolveImageSrc(previewTheme.header.logoUrl);
 
   const aiToolContext: AiToolContext = {

@@ -18,7 +18,7 @@ describe('generateStandaloneHtml', () => {
 
   it.each(['signature', 'briefing'])('keeps body heading borders off the %s cover title', (coverStyle) => {
     const base = PRESET_THEMES[0];
-    const html = generateStandaloneHtml('# Body', { ...base, meta: { ...base.meta, coverStyle } });
+    const html = generateStandaloneHtml('# Body', { ...base, cover: { ...base.cover, coverStyle } });
     document.documentElement.innerHTML = html;
     const coverTitle = document.querySelector('.cover-page h1')!;
     const bodyTitle = document.querySelector('.markdown-content h1')!;
@@ -38,8 +38,8 @@ describe('generateStandaloneHtml', () => {
       '# Body',
       {
         ...base,
-        meta: {
-          ...base.meta,
+        cover: {
+          ...base.cover,
           coverStyle,
           coverListColumns: 2,
           coverlist: [
@@ -62,7 +62,7 @@ describe('generateStandaloneHtml', () => {
       '| 因素 | 水平 1 | 水平 2 |\n| --- | --- | --- |\n| 电压 | 1050 | 900 |',
       {
         ...base,
-        meta: { ...base.meta, showCover: false },
+        cover: { ...base.cover, showCover: false },
         toc: { ...base.toc, show: false },
         style: { ...base.style, tableStyle: 'minimal' },
       },
@@ -117,7 +117,7 @@ describe('generateStandaloneHtml', () => {
     const base = PRESET_THEMES[0];
     const html = generateStandaloneHtml(
       '# First\n\n# Second\n\n| ID | Value |\n| --- | --- |\n| 1 | first |\n<!-- pagebreak -->\n| 2 | second |',
-      { ...base, meta: { ...base.meta, showCover: false }, toc: { ...base.toc, show: false }, style: { ...base.style, paginationMode: 'manual', h1PageBreak: true } },
+      { ...base, cover: { ...base.cover, showCover: false }, toc: { ...base.toc, show: false }, style: { ...base.style, paginationMode: 'manual', h1PageBreak: true } },
     );
     expect(html.match(/class="a4-page content-page-wrapper"/g)).toHaveLength(2);
     expect(html.match(/<th>ID<\/th>/g)).toHaveLength(2);
@@ -128,7 +128,7 @@ describe('generateStandaloneHtml', () => {
   it('keeps exported content pages constrained to a single A4 sheet', () => {
     const html = generateStandaloneHtml('# Body', {
       ...PRESET_THEMES[0],
-      meta: { ...PRESET_THEMES[0].meta, showCover: false },
+      cover: { ...PRESET_THEMES[0].cover, showCover: false },
       toc: { ...PRESET_THEMES[0].toc, show: false },
     });
 
@@ -141,7 +141,7 @@ describe('generateStandaloneHtml', () => {
     const base = PRESET_THEMES[0];
     const html = generateStandaloneHtml('# First\n\n<!-- pagebreak -->\n\n# Second', {
       ...base,
-      meta: { ...base.meta, showCover: false },
+      cover: { ...base.cover, showCover: false },
       toc: { ...base.toc, show: false },
       style: {
         ...base.style,
@@ -168,7 +168,7 @@ describe('generateStandaloneHtml', () => {
 
     const textHtml = generateStandaloneHtml('# Body', {
       ...base,
-      meta: { ...base.meta, showCover: false },
+      cover: { ...base.cover, showCover: false },
       toc: { ...base.toc, show: false },
       style: { ...base.style, watermark: { ...base.style.watermark, show: true, layout: 'repeat', type: 'text' } },
     });
@@ -194,7 +194,7 @@ describe('generateStandaloneHtml', () => {
   it('preserves Mermaid as a renderable container before async export finalization', () => {
     const html = generateStandaloneHtml(
       '```mermaid\nflowchart LR\nA --> B\n```',
-      { ...PRESET_THEMES[0], meta: { ...PRESET_THEMES[0].meta, showCover: false }, toc: { ...PRESET_THEMES[0].toc, show: false } },
+      { ...PRESET_THEMES[0], cover: { ...PRESET_THEMES[0].cover, showCover: false }, toc: { ...PRESET_THEMES[0].toc, show: false } },
     );
 
     expect(html).toContain('class="mermaid"');

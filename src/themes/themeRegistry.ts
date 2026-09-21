@@ -42,8 +42,8 @@ export function getRegisteredThemes(): DocumentTheme[] {
 }
 
 export function registerThemePlugin(plugin: ThemePlugin): void {
-  if (!hasCoverTemplate(plugin.theme.meta.coverStyle)) {
-    throw new Error(`未注册的封面模板：${plugin.theme.meta.coverStyle}`);
+  if (!hasCoverTemplate(plugin.theme.cover.coverStyle)) {
+    throw new Error(`未注册的封面模板：${plugin.theme.cover.coverStyle}`);
   }
   themePlugins.set(plugin.id, plugin);
 }

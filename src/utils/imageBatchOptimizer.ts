@@ -52,8 +52,7 @@ export function collectAssetDisplaySizes(markdown: string, theme: DocumentTheme)
   }
 
   const logos: [string | undefined, number | undefined][] = [
-    [theme.meta.logo, theme.meta.logoHeight],
-    [theme.meta.logoUrl, theme.meta.logoHeight],
+    [theme.cover.logoUrl, theme.cover.logoHeight],
     [theme.header.logoUrl, theme.header.logoHeight],
   ];
   for (const [source, height] of logos) {

@@ -2,6 +2,7 @@ import {
   DocumentSettings, 
   DocumentTheme,
   DocumentMeta,
+  CoverConfig,
   HeaderConfig,
   FooterConfig,
   TocConfig,
@@ -145,6 +146,7 @@ type SectionRecords = Record<ThemeSection, Record<string, unknown>>;
 function toSectionRecords(theme: DocumentTheme): SectionRecords {
   return {
     meta: { ...theme.meta },
+    cover: { ...theme.cover },
     header: { ...theme.header },
     footer: { ...theme.footer },
     toc: { ...theme.toc },
@@ -156,6 +158,7 @@ function fromSectionRecords(theme: DocumentTheme, sections: SectionRecords): Doc
   return {
     ...theme,
     meta: sections.meta as unknown as DocumentMeta,
+    cover: sections.cover as unknown as CoverConfig,
     header: sections.header as unknown as HeaderConfig,
     footer: sections.footer as unknown as FooterConfig,
     toc: sections.toc as unknown as TocConfig,
@@ -178,7 +181,6 @@ function applyScalarFields(
     const value = readFieldValue(spec.argument, spec, raw);
     const target = sections[spec.section];
     target[spec.field ?? spec.argument] = value;
-    spec.also?.forEach(alias => { target[alias] = value; });
   });
 }
 
@@ -197,9 +199,6 @@ function verifyScalarFields(
     const section = sections[spec.section];
     const field = spec.field ?? spec.argument;
     checks.push({ field: spec.argument, expected: value, actual: section[field] });
-    spec.also?.forEach(alias => {
-      checks.push({ field: `${spec.argument}→${alias}`, expected: value, actual: section[alias] });
-    });
   });
   return checks;
 }
@@ -269,17 +268,16 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
     {
       definition: AI_TOOL_DEFINITIONS.get_document_state,
       handler: async () => {
-        // 按配置分区返回，避免扁平字段与完整对象重复；meta 拆出 cover 是为了对齐封面展示项。
+        // 按配置分区返回，避免扁平字段与完整对象重复。
         const theme = context.getTheme();
-        const { title, subtitle, author, department, organization, date, version, number, ...cover } = theme.meta;
         const { primaryColor, accentColor, textColor, backgroundColor, coverBgColor, watermark, ...style } = theme.style;
         return JSON.stringify({
           markdownLength: currentMarkdown.length,
           totalLines: getMarkdownLines(currentMarkdown).length,
           historyEnabled: currentSettings.historyEnabled,
           outline: getMarkdownOutline(currentMarkdown),
-          meta: { title, subtitle, author, department, organization, date, version, number },
-          cover,
+          meta: theme.meta,
+          cover: theme.cover,
           header: theme.header,
           footer: theme.footer,
           toc: {
@@ -507,7 +505,7 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
         const sections = toSectionRecords(current);
         applyScalarFields(sections, args, META_FIELDS);
         if (Array.isArray(args.coverlist)) {
-          sections.meta.coverlist = args.coverlist
+          sections.cover.coverlist = args.coverlist
             .filter(item => typeof item === 'object' && item !== null && 'label' in item && 'value' in item)
             .map(item => {
               const entry = item as Record<string, unknown>;
@@ -519,7 +517,7 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
 
         const checks = verifyScalarFields(nextTheme, args, META_FIELDS);
         if (Array.isArray(args.coverlist)) {
-          checks.push({ field: 'coverlist', expected: sections.meta.coverlist, actual: nextTheme.meta.coverlist });
+          checks.push({ field: 'coverlist', expected: sections.cover.coverlist, actual: nextTheme.cover.coverlist });
         }
         return formatUpdateVerification(checks);
       }

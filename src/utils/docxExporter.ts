@@ -45,7 +45,8 @@ function cleanHex(hex: string): string {
 export async function exportToDocx(markdownText: string, theme: DocumentTheme, filename?: string): Promise<void> {
   const { header, footer, toc, style } = theme;
   const meta = theme.meta;
-  const coverTemplate = getCoverTemplate(meta.coverStyle);
+  const cover = theme.cover;
+  const coverTemplate = getCoverTemplate(cover.coverStyle);
   const bodyText = markdownText;
 
   const primaryHex = cleanHex(style.primaryColor);
@@ -245,9 +246,9 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
   };
 
   // 1. Cover Page
-  if (meta.showCover) {
-    const coverListItems = (meta.coverlist && meta.coverlist.length > 0)
-      ? meta.coverlist
+  if (cover.showCover) {
+    const coverListItems = (cover.coverlist && cover.coverlist.length > 0)
+      ? cover.coverlist
       : [
           { label: '撰写团队', value: meta.author },
           { label: '所属部门', value: meta.department },
@@ -255,6 +256,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
 
     sectionsChildren.push(...await coverTemplate.renderDocx({
       meta,
+      cover,
       style,
       coverListItems,
       primaryHex,
@@ -694,7 +696,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
     sections: [
       {
         properties: {
-                    titlePage: meta.showCover && (header.hideOnCover || footer.hideOnCover),
+                    titlePage: cover.showCover && (header.hideOnCover || footer.hideOnCover),
           page: {
             margin: {
               top: 1440, // 1 inch

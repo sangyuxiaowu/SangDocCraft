@@ -231,7 +231,7 @@ describe('AI assistant setting tools', () => {
 
     expect(theme.meta.title).toBe('企业级云原生中台系统架构设计说明书');
     expect(theme.meta.organization).toBe('Sang科技有限公司');
-    expect(theme.meta).toMatchObject({ logo: '@images/img-logo-test', logoHeight: 56, coverListColumns: 2 });
+    expect(theme.cover).toMatchObject({ logoUrl: '@images/img-logo-test', logoHeight: 56, coverListColumns: 2 });
     expect(theme.style).toMatchObject({
       primaryColor: '#0b2545',
       lineHeight: 1.8,
@@ -274,7 +274,7 @@ describe('AI assistant setting tools', () => {
     const state = JSON.parse(await stateTool!.handler({})) as Record<string, unknown>;
     expect(state).toMatchObject({
       meta: { title: '企业级云原生中台系统架构设计说明书', organization: 'Sang科技有限公司' },
-      cover: { logo: '@images/img-logo-test', logoHeight: 56, coverListColumns: 2 },
+      cover: { logoUrl: '@images/img-logo-test', logoHeight: 56, coverListColumns: 2 },
       color: { primaryColor: '#0b2545' },
       style: { lineHeight: 1.8, latinFontFamily: 'Arial', paginationMode: 'manual' },
     });

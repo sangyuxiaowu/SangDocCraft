@@ -14,7 +14,8 @@ describe('themeRegistry', () => {
 
   it.each([1, 2] as const)('renders metadata in %i columns without losing odd or empty fields', async (coverListColumns) => {
     const context = {
-      meta: { ...PRESET_THEMES[0].meta, coverListColumns },
+      meta: PRESET_THEMES[0].meta,
+      cover: { ...PRESET_THEMES[0].cover, coverListColumns },
       style: PRESET_THEMES[0].style,
       coverListItems: [{ label: 'Author', value: 'Alice' }, { label: 'Date:', value: '' }, { label: 'Reviewer', value: 'Bob' }],
     };
@@ -39,10 +40,10 @@ describe('themeRegistry', () => {
   it('registers every preset theme and its cover template', async () => {
     const registry = await loadRegistry();
     expect(registry.getRegisteredThemes().map((theme) => theme.id)).toEqual(PRESET_THEMES.map((theme) => theme.id));
-    expect(registry.getRegisteredThemes().map((theme) => theme.meta.coverStyle)).toEqual(expect.arrayContaining(['signature', 'briefing']));
+    expect(registry.getRegisteredThemes().map((theme) => theme.cover.coverStyle)).toEqual(expect.arrayContaining(['signature', 'briefing']));
     expect(new Set(PRESET_THEMES.map((theme) => theme.id)).size).toBe(PRESET_THEMES.length);
     for (const theme of PRESET_THEMES) {
-      expect(registry.hasCoverTemplate(theme.meta.coverStyle)).toBe(true);
+      expect(registry.hasCoverTemplate(theme.cover.coverStyle)).toBe(true);
     }
   });
 
@@ -66,7 +67,7 @@ describe('themeRegistry', () => {
     const defaultColumns = ['signature', 'briefing'].includes(id) ? 2 : 1;
     expect(plugin.defaultCoverListColumns).toBe(defaultColumns);
     for (const columns of [undefined, 1, 2] as const) {
-      const context = { meta: { ...PRESET_THEMES[0].meta, coverStyle: id, coverListColumns: columns }, style: PRESET_THEMES[0].style, coverListItems: [{ label: 'Author', value: 'Alice' }, { label: 'Date', value: '' }, { label: 'Reviewer', value: 'Bob' }] };
+      const context = { meta: PRESET_THEMES[0].meta, cover: { ...PRESET_THEMES[0].cover, coverStyle: id, coverListColumns: columns }, style: PRESET_THEMES[0].style, coverListItems: [{ label: 'Author', value: 'Alice' }, { label: 'Date', value: '' }, { label: 'Reviewer', value: 'Bob' }] };
       expect(renderToStaticMarkup(plugin.renderPreview(context))).toContain(`data-cover-columns="${columns ?? defaultColumns}"`);
       expect(plugin.renderHtml(context)).toContain(`data-cover-columns="${columns ?? defaultColumns}"`);
       for (const html of [renderToStaticMarkup(plugin.renderPreview(context)), plugin.renderHtml(context)]) {
@@ -83,13 +84,13 @@ describe('themeRegistry', () => {
   it.each(['signature', 'briefing'])('orders and hides optional cover fields in %s', async (id) => {
     const registry = await loadRegistry();
     const plugin = registry.getCoverTemplate(id);
-    const context = { meta: { ...PRESET_THEMES[0].meta, logo: 'brand.png', number: 'DOC-001', title: 'Main title', subtitle: 'Subtitle', organization: 'Company name', date: '2026-09-14' }, style: PRESET_THEMES[0].style, coverListItems: [{ label: 'Author', value: 'Alice' }] };
+    const context = { meta: { ...PRESET_THEMES[0].meta, number: 'DOC-001', title: 'Main title', subtitle: 'Subtitle', organization: 'Company name', date: '2026-09-14' }, cover: { ...PRESET_THEMES[0].cover, logoUrl: 'brand.png' }, style: PRESET_THEMES[0].style, coverListItems: [{ label: 'Author', value: 'Alice' }] };
     for (const html of [renderToStaticMarkup(plugin.renderPreview(context)), plugin.renderHtml(context)]) {
       const positions = ['<img', 'DOC-001', 'Main title', 'Subtitle', 'Alice', 'Company name', '2026-09-14'].map((text) => html.indexOf(text));
       expect(positions.every((position) => position >= 0)).toBe(true);
       expect(positions).toEqual([...positions].sort((left, right) => left - right));
     }
-    const emptyContext = { ...context, meta: { ...context.meta, logo: '', logoUrl: '', number: '', subtitle: '', organization: '', date: '' }, coverListItems: [] };
+    const emptyContext = { ...context, meta: { ...context.meta, number: '', subtitle: '', organization: '', date: '' }, cover: { ...context.cover, logoUrl: '' }, coverListItems: [] };
     for (const html of [renderToStaticMarkup(plugin.renderPreview(emptyContext)), plugin.renderHtml(emptyContext)]) {
       expect(html).toContain('Main title');
       expect(html).not.toMatch(/<img|文档编号|Subtitle|Company name|2026-09-14/);
@@ -100,7 +101,8 @@ describe('themeRegistry', () => {
     const registry = await loadRegistry();
     for (const plugin of registry.getCoverTemplates()) {
       const context = {
-        meta: { ...PRESET_THEMES[0].meta, logo: 'logo.png', logoHeight },
+        meta: PRESET_THEMES[0].meta,
+        cover: { ...PRESET_THEMES[0].cover, logoUrl: 'logo.png', logoHeight },
         style: PRESET_THEMES[0].style,
         coverListItems: [],
       };
@@ -117,7 +119,7 @@ describe('themeRegistry', () => {
     const defaults = { enterprise: [40, 36], modern: [32, 28], spec: [32, 28], minimal: [24, 24], creative: [28, 24], academic: [64, 64] };
     for (const [id, [previewHeight, htmlHeight]] of Object.entries(defaults)) {
       const plugin = registry.getCoverTemplate(id);
-      const context = { meta: { ...PRESET_THEMES[0].meta, logo: 'logo.png' }, style: PRESET_THEMES[0].style, coverListItems: [] };
+      const context = { meta: PRESET_THEMES[0].meta, cover: { ...PRESET_THEMES[0].cover, logoUrl: 'logo.png' }, style: PRESET_THEMES[0].style, coverListItems: [] };
       expect(plugin.defaultLogoHeight).toBe(previewHeight);
       expect(renderToStaticMarkup(plugin.renderPreview(context))).not.toMatch(/style="height:/);
       if (id === 'academic') {
@@ -136,7 +138,8 @@ describe('themeRegistry', () => {
     const registry = await loadRegistry();
     const plugin = registry.getCoverTemplate('creative');
     const context = {
-      meta: { ...PRESET_THEMES[0].meta, coverStyle: 'creative' as const, department: 'FRONTIER EXPLORATION GROUP' },
+      meta: { ...PRESET_THEMES[0].meta, department: 'FRONTIER EXPLORATION GROUP' },
+      cover: { ...PRESET_THEMES[0].cover, coverStyle: 'creative' as const },
       style: PRESET_THEMES[0].style,
       coverListItems: [{ label: '🎨 Author', value: 'Alice' }, { label: 'Reviewer', value: 'Bob' }],
     };
@@ -166,14 +169,14 @@ describe('themeRegistry', () => {
     const customTheme = {
       ...PRESET_THEMES[0],
       id: 'custom-theme',
-      meta: { ...PRESET_THEMES[0].meta, coverStyle: 'custom-cover' },
+      cover: { ...PRESET_THEMES[0].cover, coverStyle: 'custom-cover' },
     };
     registry.registerThemePlugin({ id: customTheme.id, theme: customTheme, source: 'custom' });
     expect(registry.getRegisteredThemes().at(-1)?.id).toBe('custom-theme');
 
     expect(() => registry.registerThemePlugin({
       id: 'invalid-theme',
-      theme: { ...customTheme, id: 'invalid-theme', meta: { ...customTheme.meta, coverStyle: 'missing' } },
+      theme: { ...customTheme, id: 'invalid-theme', cover: { ...customTheme.cover, coverStyle: 'missing' } },
       source: 'custom',
     })).toThrow('未注册的封面模板');
   });

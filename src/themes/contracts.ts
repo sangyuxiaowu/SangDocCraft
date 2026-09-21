@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
 import type { ImageRun, Paragraph, Table } from 'docx';
-import type { CoverListItem, CoverStyle, DocumentMeta, DocumentTheme, StyleConfig } from '../types';
+import type { CoverConfig, CoverListItem, CoverStyle, DocumentMeta, DocumentTheme, StyleConfig } from '../types';
 
 export interface CoverRenderContext {
   meta: DocumentMeta;
+  cover: CoverConfig;
   style: StyleConfig;
   coverListItems: CoverListItem[];
 }

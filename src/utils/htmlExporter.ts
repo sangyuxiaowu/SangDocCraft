@@ -71,7 +71,8 @@ export function generateStandaloneHtml(
 ): string {
   const { header, footer, toc, style } = theme;
   const meta = theme.meta;
-  const coverTemplate = getCoverTemplate(meta.coverStyle);
+  const cover = theme.cover;
+  const coverTemplate = getCoverTemplate(cover.coverStyle);
   const coverStyle = coverTemplate.id;
 
   const fontStack = getDocumentFontStack(style);
@@ -106,25 +107,25 @@ export function generateStandaloneHtml(
         headerShow: header.show,
         footerShow: footer.show,
         fontFamily: fontStack,
-        coverPageCount: meta.showCover ? 1 : 0,
+        coverPageCount: cover.showCover ? 1 : 0,
         contentPageCount: rawContentPages.length,
       })
     : [];
   const tocPageCount = tocChunks.length;
-  const firstContentPageNum = (meta.showCover ? 1 : 0) + (toc.show ? tocPageCount : 0) + 1;
+  const firstContentPageNum = (cover.showCover ? 1 : 0) + (toc.show ? tocPageCount : 0) + 1;
   const tocPages = tocChunks.map((chunk) => assignTocPageNumbers(chunk, firstContentPageNum));
 
   // Calculate total pages
-  const coverCount = meta.showCover ? 1 : 0;
+  const coverCount = cover.showCover ? 1 : 0;
   const tocCount = tocPages.length;
   const contentCount = rawContentPages.length;
   const totalPages = coverCount + tocCount + contentCount;
 
   let pageNumCounter = 1;
-  const coverPageNum = meta.showCover ? pageNumCounter++ : 0;
+  const coverPageNum = cover.showCover ? pageNumCounter++ : 0;
 
-  const coverListItems = (meta.coverlist && meta.coverlist.length > 0)
-    ? meta.coverlist
+  const coverListItems = (cover.coverlist && cover.coverlist.length > 0)
+    ? cover.coverlist
     : [
         { label: '撰写团队', value: meta.author },
         { label: '所属部门', value: meta.department },
@@ -742,7 +743,7 @@ export function generateStandaloneHtml(
 </head>
 <body>
   ${renderWatermarkImageDefinition(style.watermark)}
-  ${meta.showCover ? `
+  ${cover.showCover ? `
   <div class="a4-page cover-page-wrapper">
     ${renderWatermarkHtml(style.watermark, true, 'cover')}
     ${header.show && !header.hideOnCover ? `
@@ -753,7 +754,7 @@ export function generateStandaloneHtml(
     ` : ''}
 
     <div class="cover-page cover-style-${coverStyle}">
-      ${coverTemplate.renderHtml({ meta, style, coverListItems })}
+      ${coverTemplate.renderHtml({ meta, cover, style, coverListItems })}
     </div>
 
     ${footer.show && !footer.hideOnCover ? renderFooterHtml(coverPageNum, totalPages, footer, meta) : ''}
@@ -761,7 +762,7 @@ export function generateStandaloneHtml(
   ` : ''}
 
   ${toc.show ? tocPages.map((chunk, chunkIdx) => {
-    const tocPageNum = (meta.showCover ? 1 : 0) + chunkIdx + 1;
+    const tocPageNum = (cover.showCover ? 1 : 0) + chunkIdx + 1;
     return `
   <div class="a4-page toc-page-wrapper">
     ${renderWatermarkHtml(style.watermark, false, `toc-${chunkIdx}`)}
@@ -798,7 +799,7 @@ export function generateStandaloneHtml(
     const headingCounters = [0, 0, 0, 0];
     const tocAnchorIndex = { value: 0 };
     return rawContentPages.map((pageMd, idx) => {
-      const pageNum = (meta.showCover ? 1 : 0) + (toc.show ? tocPages.length : 0) + idx + 1;
+      const pageNum = (cover.showCover ? 1 : 0) + (toc.show ? tocPages.length : 0) + idx + 1;
       const preprocessed = preprocessMarkdownCaptions(pageMd || '');
       const rawHtml = marked.parse(preprocessed) as string;
       const numberedHtml = addHeadingNumbers(rawHtml, toc.headingNumbering, headingCounters);

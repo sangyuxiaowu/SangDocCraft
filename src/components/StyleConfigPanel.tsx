@@ -22,7 +22,7 @@ import {
   Image as ImageIcon,
   Stamp
 } from 'lucide-react';
-import { DocumentAsset, DocumentTheme, CoverStyle, FontChoice, CoverListItem, HeadingFontStyle, TocLevelStyle, TocTitleFont, WatermarkConfig } from '../types';
+import { DocumentAsset, DocumentTheme, CoverConfig, CoverStyle, FontChoice, CoverListItem, HeadingFontStyle, TocLevelStyle, TocTitleFont, WatermarkConfig } from '../types';
 import { getCoverTemplate, getCoverTemplates } from '../themes/themeRegistry';
 import { getTocLevelStyles, getTocTitleFont } from '../utils/documentStructure';
 import { resolveImageSrc } from '../utils/tauriHelper';
@@ -64,29 +64,29 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
     ? 'bg-[#1A1A1A] hover:bg-[#252525] border-[#333] text-blue-400'
     : 'bg-white hover:bg-slate-100 border-slate-200 text-blue-600 shadow-2xs';
 
-  const updateMeta = (field: string, val: any) => {
-    const newMeta = { ...theme.meta, [field]: val };
+  const updateMeta = (field: keyof DocumentTheme['meta'], value: string | undefined) => {
+    const newMeta = { ...theme.meta, [field]: value };
     onChange({
       ...theme,
       meta: newMeta,
     });
   };
 
-  const updateFullMeta = (newMeta: any) => {
+  const updateCover = <T extends keyof CoverConfig>(field: T, value: CoverConfig[T]) => {
     onChange({
       ...theme,
-      meta: newMeta,
+      cover: { ...theme.cover, [field]: value },
     });
   };
 
   // Cover List Helper
-  const currentCoverList: CoverListItem[] = theme.meta.coverlist || [
+  const currentCoverList: CoverListItem[] = theme.cover.coverlist || [
     { label: '撰写团队', value: theme.meta.author || '' },
     { label: '所属部门', value: theme.meta.department || '' },
   ].filter(item => !!item.value || !!item.label);
 
   const handleUpdateCoverList = (newList: CoverListItem[]) => {
-    updateMeta('coverlist', newList);
+    updateCover('coverlist', newList);
   };
 
   const handleAddCoverListItem = () => {
@@ -455,6 +455,30 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
 
       {/* Tab Panels */}
       <div className="flex-1 overflow-y-auto p-4 space-y-5">
+        {activeTab === 'cover' && (
+          <div className="space-y-4">
+            <div className={`flex items-center gap-1.5 pb-2 border-b text-[10px] font-bold uppercase tracking-widest ${sectionBorderClass} ${labelClass}`}>
+              <FileText className="w-4 h-4 text-blue-500" />
+              文档元数据
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>文档标题</label><input type="text" value={theme.meta.title} onChange={(e) => updateMeta('title', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
+              <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>副标题</label><input type="text" value={theme.meta.subtitle} onChange={(e) => updateMeta('subtitle', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>作者</label><input type="text" value={theme.meta.author} onChange={(e) => updateMeta('author', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
+                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>版本</label><input type="text" value={theme.meta.version || ''} onChange={(e) => updateMeta('version', e.target.value)} className={`w-full rounded px-2.5 py-1.5 font-mono text-[11px] ${inputClass}`} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>文档编号</label><input type="text" value={theme.meta.number || ''} onChange={(e) => updateMeta('number', e.target.value)} className={`w-full rounded px-2.5 py-1.5 font-mono text-[11px] ${inputClass}`} /></div>
+                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>日期</label><input type="text" value={theme.meta.date} onChange={(e) => updateMeta('date', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>所属机构 / 公司</label><input type="text" value={theme.meta.organization} onChange={(e) => updateMeta('organization', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
+                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>部门 / 团队</label><input type="text" value={theme.meta.department} onChange={(e) => updateMeta('department', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* TAB 1: COVER PAGE SETTINGS */}
         {activeTab === 'cover' && (
@@ -467,15 +491,15 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={theme.meta.showCover}
-                  onChange={(e) => updateMeta('showCover', e.target.checked)}
+                  checked={theme.cover.showCover}
+                  onChange={(e) => updateCover('showCover', e.target.checked)}
                   className={`rounded text-blue-600 focus:ring-blue-500 ${isDark ? 'bg-[#0A0A0A] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
                 />
                 <span className={`font-bold text-[11px] ${textSubClass}`}>生成首页封面</span>
               </label>
             </div>
 
-            {theme.meta.showCover && (
+            {theme.cover.showCover && (
               <div className="space-y-4">
                 {/* Visual Cover Style Picker */}
                 <div>
@@ -489,12 +513,12 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   <div className="grid grid-cols-4 gap-1.5">
                     {getCoverTemplates().map((template) => {
                       const opt = { ...template, desc: template.description };
-                      const isSelected = (theme.meta.coverStyle || 'enterprise') === opt.id;
+                      const isSelected = theme.cover.coverStyle === opt.id;
                       return (
                         <button
                           key={opt.id}
                           type="button"
-                          onClick={() => updateMeta('coverStyle', opt.id as CoverStyle)}
+                          onClick={() => updateCover('coverStyle', opt.id as CoverStyle)}
                           title={`${opt.name}：${opt.desc}`}
                           className={`group min-w-0 flex flex-col p-1 rounded-lg border-2 text-left transition-all relative overflow-hidden ${
                             isSelected
@@ -512,7 +536,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                           )}
 
                           <div className="w-full aspect-[3/4] bg-white rounded border border-slate-200 shadow-xs p-0.5 flex flex-col justify-between overflow-hidden relative mb-1 select-none group-hover:scale-[1.02] transition-transform">
-                            {template.renderThumbnail({ meta: theme.meta, style: theme.style, coverListItems: currentCoverList })}
+                            {template.renderThumbnail({ meta: theme.meta, cover: theme.cover, style: theme.style, coverListItems: currentCoverList })}
                           </div>
 
                           {/* Option Details */}
@@ -532,100 +556,6 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                 </div>
 
                 <div className={`grid grid-cols-1 gap-3 pt-3 border-t ${sectionBorderClass}`}>
-                  {/* Title & Subtitle */}
-                  <div>
-                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>文档标题</label>
-                    <input
-                      type="text"
-                      value={theme.meta.title || ''}
-                      onChange={(e) => updateMeta('title', e.target.value)}
-                      placeholder="如：企业级微服务重构方案"
-                      className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
-                    />
-                  </div>
-
-                  <div>
-                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>副标题</label>
-                    <input
-                      type="text"
-                      value={theme.meta.subtitle || ''}
-                      onChange={(e) => updateMeta('subtitle', e.target.value)}
-                      placeholder="如：高可用分层架构与分布式白皮书"
-                      className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
-                    />
-                  </div>
-
-                  {/* Author & Version */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>作者</label>
-                      <input
-                        type="text"
-                        value={theme.meta.author || ''}
-                        onChange={(e) => updateMeta('author', e.target.value)}
-                        placeholder="如：张三"
-                        className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>版本</label>
-                      <input
-                        type="text"
-                        value={theme.meta.version || ''}
-                        onChange={(e) => updateMeta('version', e.target.value)}
-                        placeholder="如：v1.0.0"
-                        className={`w-full rounded px-2.5 py-1.5 font-mono text-[11px] ${inputClass}`}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Document Number & Date */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>文档编号</label>
-                      <input
-                        type="text"
-                        value={theme.meta.number || ''}
-                        onChange={(e) => updateMeta('number', e.target.value)}
-                        placeholder="如：TSRH-TL-RRep-01"
-                        className={`w-full rounded px-2.5 py-1.5 font-mono text-[11px] ${inputClass}`}
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>日期</label>
-                      <input
-                        type="text"
-                        value={theme.meta.date || ''}
-                        onChange={(e) => updateMeta('date', e.target.value)}
-                        placeholder="如：2026年8月"
-                        className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Organization & Department */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>所属机构 / 公司</label>
-                      <input
-                        type="text"
-                        value={theme.meta.organization || ''}
-                        onChange={(e) => updateMeta('organization', e.target.value)}
-                        placeholder="如：某某大学"
-                        className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>部门 / 团队</label>
-                      <input
-                        type="text"
-                        value={theme.meta.department || ''}
-                        onChange={(e) => updateMeta('department', e.target.value)}
-                        placeholder="如：经济管理学院"
-                        className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
-                      />
-                    </div>
-                  </div>
 
                   {/* Document Logo Management */}
                   <section className="space-y-3 pt-1">
@@ -634,15 +564,11 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                         <ImageIcon className="w-4 h-4 text-blue-500" />
                         文档标志 Logo
                       </div>
-                      {(theme.meta.logo || theme.meta.logoUrl) && (
+                      {theme.cover.logoUrl && (
                         <button
                           type="button"
                           onClick={() => {
-                            updateFullMeta({
-                              ...theme.meta,
-                              logo: '',
-                              logoUrl: '',
-                            });
+                            updateCover('logoUrl', '');
                           }}
                           className="text-[10px] text-red-500 hover:text-red-600 font-medium flex items-center gap-1"
                         >
@@ -653,10 +579,10 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                     </div>
 
                     <div className={`flex items-center gap-3 p-2 rounded border ${subCardBgClass}`}>
-                      {(theme.meta.logo || theme.meta.logoUrl) ? (
+                      {theme.cover.logoUrl ? (
                         <>
                         <img
-                          src={resolveImageSrc(theme.meta.logo || theme.meta.logoUrl)}
+                          src={resolveImageSrc(theme.cover.logoUrl)}
                           alt="Logo Preview"
                           className="h-8 max-w-[120px] object-contain bg-slate-100/50 p-1 rounded"
                         />
@@ -671,30 +597,24 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                     <div className="pt-1">
                       <input
                         type="text"
-                        value={theme.meta.logo || theme.meta.logoUrl || ''}
-                        onChange={(e) => {
-                          updateFullMeta({
-                            ...theme.meta,
-                            logo: e.target.value,
-                            logoUrl: e.target.value,
-                          });
-                        }}
+                        value={theme.cover.logoUrl || ''}
+                        onChange={(e) => updateCover('logoUrl', e.target.value)}
                         placeholder="输入图片 URL 或本地相对路径 (如: ./assets/logo.png)"
                         className={`w-full rounded px-2.5 py-1.5 text-[11px] ${inputClass}`}
                       />
                     </div>
-                    {(theme.meta.logo || theme.meta.logoUrl) && (
+                    {theme.cover.logoUrl && (
                       <div className="space-y-2 pt-2">
                         <div className={`flex items-center justify-between gap-2 text-[10px] ${labelClass}`}>
                           <label htmlFor="document-logo-height">Logo 高度 (px)</label>
                           <div className="flex items-center gap-2">
-                            <span>{theme.meta.logoHeight === undefined ? '封面预置' : `${theme.meta.logoHeight}px`}</span>
+                            <span>{theme.cover.logoHeight === undefined ? '封面预置' : `${theme.cover.logoHeight}px`}</span>
                             <button
                               type="button"
                               title="恢复封面预置大小"
                               aria-label="恢复封面预置大小"
-                              disabled={theme.meta.logoHeight === undefined}
-                              onClick={() => updateMeta('logoHeight', undefined)}
+                              disabled={theme.cover.logoHeight === undefined}
+                              onClick={() => updateCover('logoHeight', undefined)}
                               className="p-1 hover:text-blue-500 disabled:opacity-30 disabled:cursor-default"
                             >
                               <RotateCcw className="w-3 h-3" />
@@ -707,8 +627,8 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                           min="20"
                           max="120"
                           step="1"
-                          value={theme.meta.logoHeight ?? getCoverTemplate(theme.meta.coverStyle).defaultLogoHeight ?? 40}
-                          onChange={(e) => updateMeta('logoHeight', Number(e.target.value))}
+                          value={theme.cover.logoHeight ?? getCoverTemplate(theme.cover.coverStyle).defaultLogoHeight ?? 40}
+                          onChange={(e) => updateCover('logoHeight', Number(e.target.value))}
                           className="w-full accent-blue-500"
                         />
                       </div>
@@ -735,18 +655,18 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       </button>
                     </div>
 
-                    {getCoverTemplate(theme.meta.coverStyle).defaultCoverListColumns !== undefined && (
+                    {getCoverTemplate(theme.cover.coverStyle).defaultCoverListColumns !== undefined && (
                       <div className="flex items-center justify-between gap-2">
                         <span className={`text-[11px] ${textSubClass}`}>排列方式</span>
                         <div role="group" aria-label="封面属性排列方式" className={`inline-flex rounded border p-0.5 ${sectionBorderClass}`}>
                           {([1, 2] as const).map((columns) => {
-                            const selected = (theme.meta.coverListColumns ?? getCoverTemplate(theme.meta.coverStyle).defaultCoverListColumns) === columns;
+                            const selected = (theme.cover.coverListColumns ?? getCoverTemplate(theme.cover.coverStyle).defaultCoverListColumns) === columns;
                             return (
                               <button 
                                 key={columns} 
                                 type="button" 
                                 aria-pressed={selected} 
-                                onClick={() => updateMeta('coverListColumns', columns)} 
+                                onClick={() => updateCover('coverListColumns', columns)} 
                                 className={`px-3 py-1 rounded text-[11px] transition ${
                                   selected 
                                     ? 'bg-blue-600 text-white shadow-xs font-semibold' 
@@ -2149,7 +2069,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
         assets={assets}
         currentReference={
           imagePickerTarget === 'cover'
-            ? theme.meta.logo || theme.meta.logoUrl
+            ? theme.cover.logoUrl
             : imagePickerTarget === 'header'
             ? theme.header.logoUrl
             : currentWatermark.imageUrl
@@ -2157,7 +2077,9 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
         isDark={isDark}
         onClose={() => setImagePickerTarget(undefined)}
         onSelect={(reference) => {
-          if (imagePickerTarget === 'cover') updateFullMeta({ ...theme.meta, logo: reference, logoUrl: reference });
+          if (imagePickerTarget === 'cover') {
+            updateCover('logoUrl', reference);
+          }
           if (imagePickerTarget === 'header') updateHeader('logoUrl', reference);
           if (imagePickerTarget === 'watermark') updateWatermark('imageUrl', reference);
           setImagePickerTarget(undefined);

@@ -1,5 +1,5 @@
 import { marked } from 'marked';
-import { TocItem, DocumentMeta, StyleConfig, ImageStyleConfig, TableCaptionConfig, TocConfig } from '../types';
+import { TocItem, CoverConfig, StyleConfig, ImageStyleConfig, TableCaptionConfig, TocConfig } from '../types';
 import {
   getHeadingText,
   getTocChunks,
@@ -785,14 +785,14 @@ export function paginateTocItemsByDom<T extends TocRenderableItem>(items: T[], o
 export function parseTableOfContents(
   markdown: string,
   maxDepth: number = 3,
-  meta?: Partial<DocumentMeta>,
+  cover?: Partial<CoverConfig>,
   tocShow: boolean = true,
   h1PageBreak: boolean = false,
   paginatedContent?: string[],
   headingNumbering: TocConfig['headingNumbering'] = 'none',
   tocPageCountOverride?: number
 ): TocItem[] {
-  const showCover = meta?.showCover !== false;
+  const showCover = cover?.showCover !== false;
   const showToc = tocShow !== false;
 
   const contentPages = paginatedContent || splitContentByPages(markdown, h1PageBreak);

@@ -1,4 +1,4 @@
-import type { CoverConfig, DocumentTheme, StyleConfig, TocConfig } from '../types';
+import type { CoverConfig, DocumentMeta, DocumentTheme, StyleConfig, TocConfig } from '../types';
 
 // 每个模板的 Markdown 正文独立存放在 ./templates/*.md，便于单独维护与编辑。
 import blankMarkdown from './templates/blank.md?raw';
@@ -23,6 +23,8 @@ export interface DocumentTemplateItem {
   /** 必须与内置主题（PRESET_THEMES）中的 id 完全一致，否则新建文档会退回默认主题 */
   recommendedThemeId: string;
   markdown: string;
+  /** 文档属性差异项：仅声明需要偏离推荐主题的字段。 */
+  metaConfig?: Partial<DocumentMeta>;
   /** 封面差异项：仅声明需要偏离推荐主题的字段（如 showCover: false 关闭封面） */
   coverConfig?: Partial<CoverConfig>;
   /** 目录差异项：仅声明需要偏离推荐主题的字段（如 show: false 关闭目录） */
@@ -47,13 +49,13 @@ export function resolveTemplateTheme(
     ...baseTheme,
     meta: {
       ...baseTheme.meta,
-      ...template.coverConfig,
-      title: template.coverConfig?.title || template.title,
-      subtitle: template.coverConfig?.subtitle || template.subtitle,
-      version: template.coverConfig?.version || baseTheme.meta.version || 'v1.0.0',
-      date: template.coverConfig?.date || new Date().toISOString().split('T')[0],
-      showCover: template.coverConfig?.showCover ?? true,
+      ...template.metaConfig,
+      title: template.metaConfig?.title || template.title,
+      subtitle: template.metaConfig?.subtitle || template.subtitle,
+      version: template.metaConfig?.version || baseTheme.meta.version || 'v1.0.0',
+      date: template.metaConfig?.date || new Date().toISOString().split('T')[0],
     },
+    cover: { ...baseTheme.cover, ...template.coverConfig },
     toc: { ...baseTheme.toc, ...template.tocConfig },
     style: { ...baseTheme.style, ...template.styleConfig },
   };
@@ -71,7 +73,7 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     iconName: 'file-text',
     recommendedThemeId: 'minimal-clean',
     markdown: blankMarkdown,
-    coverConfig: {
+    metaConfig: {
       title: '未命名文档',
       subtitle: '在此输入文档副标题',
       author: '作者姓名',
@@ -90,7 +92,7 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     iconName: 'sparkles',
     recommendedThemeId: 'enterprise-standard',
     markdown: systemGuideMarkdown,
-    coverConfig: {
+    metaConfig: {
       title: 'SangDocCraft 文档交付系统',
       subtitle: '全特性排版范本与交付规范指引',
       author: 'SangDocCraft Team',
@@ -109,7 +111,7 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     iconName: 'cpu',
     recommendedThemeId: 'tech-spec',
     markdown: architectureSpecMarkdown,
-    coverConfig: {
+    metaConfig: {
       title: '企业级云原生微服务中台',
       subtitle: '高可用分布式系统总体架构设计说明书',
       author: '核心架构委员会',
@@ -128,7 +130,7 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     iconName: 'palette',
     recommendedThemeId: 'creative-studio',
     markdown: uiDesignTokenMarkdown,
-    coverConfig: {
+    metaConfig: {
       title: '企业级视觉设计语言与规范',
       subtitle: '全终端统一体验原则与 Design Tokens',
       author: '体验设计中心 (UXC)',
@@ -147,7 +149,7 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     iconName: 'briefcase',
     recommendedThemeId: 'business-briefing',
     markdown: businessProposalMarkdown,
-    coverConfig: {
+    metaConfig: {
       title: '企业级智能知识中台立项报告',
       subtitle: '技术创新与商业可行性深度论证',
       author: '战略规划与商业发展部',
@@ -166,7 +168,7 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     iconName: 'graduation-cap',
     recommendedThemeId: 'academic-paper',
     markdown: academicThesisMarkdown,
-    coverConfig: {
+    metaConfig: {
       title: '基于检索增强生成的问答系统研究',
       subtitle: '博士/硕士学位开题报告与实验方案',
       author: '课题研究员',
@@ -185,13 +187,15 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     iconName: 'clipboard-list',
     recommendedThemeId: 'governmental-standard',
     markdown: meetingMinutesMarkdown,
-    coverConfig: {
+    metaConfig: {
       title: '技术架构委员会专项评审纪要',
       subtitle: 'Q3 容量评估与云原生中台演化研讨',
       author: '架构评审秘书处',
       organization: '技术委员会',
       number: '技委会纪〔2026〕37 号',
       version: '第 37 期',
+    },
+    coverConfig: {
       // 纪要类文档无需封面，直接从标题进入正文
       showCover: false,
     },

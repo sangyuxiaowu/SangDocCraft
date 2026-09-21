@@ -20,15 +20,15 @@ function renderThumbnail(briefing = false): React.ReactNode {
 }
 
 function renderPreview(context: CoverRenderContext, briefing = false): React.ReactNode {
-  const { meta, style } = context;
-  const hasTop = Boolean(meta.logo || meta.logoUrl || meta.number);
+  const { meta, cover, style } = context;
+  const hasTop = Boolean(cover.logoUrl || meta.number);
   const hasTitle = Boolean(meta.title || meta.subtitle);
   const hasMeta = Boolean(context.coverListItems?.length);
 
   return <div data-cover-template={briefing ? 'briefing' : 'signature'} style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '24px 20px', textAlign: briefing ? 'left' : 'center', color: style.textColor, overflowWrap: 'anywhere', letterSpacing: 0 }}>
     {hasTop && <div style={{ textAlign: 'left', paddingBottom: briefing ? 20 : 0, borderBottom: briefing ? `2px solid ${style.primaryColor}` : undefined }}>
-      {(meta.logo || meta.logoUrl) && <img src={meta.logo || meta.logoUrl} alt="Logo" style={{ height: meta.logoHeight ?? 64, maxHeight: 'none', width: 'auto', maxWidth: '100%', objectFit: 'contain', objectPosition: 'left', display: 'block' }} />}
-      {meta.number && <div style={{ marginTop: (meta.logo || meta.logoUrl) ? 36 : 0, fontSize: 13 }}>文档编号：{meta.number}</div>}
+      {cover.logoUrl && <img src={cover.logoUrl} alt="Logo" style={{ height: cover.logoHeight ?? 64, maxHeight: 'none', width: 'auto', maxWidth: '100%', objectFit: 'contain', objectPosition: 'left', display: 'block' }} />}
+      {meta.number && <div style={{ marginTop: cover.logoUrl ? 36 : 0, fontSize: 13 }}>文档编号：{meta.number}</div>}
     </div>}
     {hasTitle && <div style={{ margin: briefing ? 'auto 0' : '56px 0 32px', padding: briefing ? '40px 0' : 0 }}>
       {meta.title && <h1 style={{ margin: 0, fontSize: briefing ? 40 : 32, lineHeight: 1.5, fontWeight: briefing ? 700 : 500, color: style.primaryColor }}>{meta.title}</h1>}
@@ -44,15 +44,15 @@ function renderPreview(context: CoverRenderContext, briefing = false): React.Rea
 }
 
 function renderHtml(context: CoverRenderContext, briefing = false): string {
-  const { meta, style } = context;
-  const hasTop = Boolean(meta.logo || meta.logoUrl || meta.number);
+  const { meta, cover, style } = context;
+  const hasTop = Boolean(cover.logoUrl || meta.number);
   const hasTitle = Boolean(meta.title || meta.subtitle);
   const hasMeta = Boolean(context.coverListItems?.length);
 
   return `<div data-cover-template="${briefing ? 'briefing' : 'signature'}" style="flex:1;display:flex;flex-direction:column;padding:24px 20px;text-align:${briefing ? 'left' : 'center'};color:${style.textColor};overflow-wrap:anywhere;letter-spacing:0;">
     ${hasTop ? `<div style="text-align:left;${briefing ? `padding-bottom:20px;border-bottom:2px solid ${style.primaryColor};` : ''}">
-      ${(meta.logo || meta.logoUrl) ? `<img src="${meta.logo || meta.logoUrl}" alt="Logo" style="height:${meta.logoHeight ?? 64}px;max-height:none;width:auto;max-width:100%;object-fit:contain;object-position:left;display:block;" />` : ''}
-      ${meta.number ? `<div style="margin-top:${(meta.logo || meta.logoUrl) ? 36 : 0}px;font-size:13px;">文档编号：${meta.number}</div>` : ''}
+      ${cover.logoUrl ? `<img src="${cover.logoUrl}" alt="Logo" style="height:${cover.logoHeight ?? 64}px;max-height:none;width:auto;max-width:100%;object-fit:contain;object-position:left;display:block;" />` : ''}
+      ${meta.number ? `<div style="margin-top:${cover.logoUrl ? 36 : 0}px;font-size:13px;">文档编号：${meta.number}</div>` : ''}
     </div>` : ''}
     ${hasTitle ? `<div style="margin:${briefing ? 'auto 0;padding:40px 0' : '56px 0 32px'};">
       ${meta.title ? `<h1 style="margin:0;font-size:${briefing ? 40 : 32}px;line-height:1.5;font-weight:${briefing ? 700 : 500};color:${style.primaryColor};">${meta.title}</h1>` : ''}
@@ -68,12 +68,12 @@ function renderHtml(context: CoverRenderContext, briefing = false): string {
 }
 
 async function renderDocx(context: CoverDocxRenderContext, briefing = false): Promise<(Paragraph | Table)[]> {
-  const { meta, primaryHex, accentHex, textHex, fontName, createImageRun } = context;
+  const { meta, cover, primaryHex, accentHex, textHex, fontName, createImageRun } = context;
   const alignment = briefing ? AlignmentType.LEFT : AlignmentType.CENTER;
   const children: (Paragraph | Table)[] = [];
-  const logoSource = meta.logo || meta.logoUrl;
+  const logoSource = cover.logoUrl;
   if (logoSource) {
-    const logo = await createImageRun(logoSource, '文档标志', undefined, meta.logoHeight ?? 64);
+    const logo = await createImageRun(logoSource, '文档标志', undefined, cover.logoHeight ?? 64);
     if (logo) children.push(new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 400 }, children: [logo] }));
   }
   if (meta.number) children.push(new Paragraph({ spacing: { after: 400 }, children: [new TextRun({ text: `文档编号：${meta.number}`, size: 22, color: textHex, font: fontName })] }));
