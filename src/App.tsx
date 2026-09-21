@@ -823,10 +823,6 @@ export default function App() {
     markdown,
     theme,
     settings: documentSettings,
-    onUpdateMarkdown: (newMd) => {
-      setMarkdown(newMd);
-      setIsDocumentDirty(true);
-    },
     onUpdateTheme: (update) => {
       setTheme(update);
       setIsDocumentDirty(true);

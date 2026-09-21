@@ -48,7 +48,6 @@ export interface AiToolContext {
   markdown: string;
   theme: DocumentTheme;
   settings: DocumentSettings;
-  onUpdateMarkdown: (newMarkdown: string) => void;
   onUpdateTheme: (update: SetStateAction<DocumentTheme>) => void;
   onUpdateSettings: (update: SetStateAction<DocumentSettings>) => void;
   onSetHistory: React.Dispatch<React.SetStateAction<any[]>>;
