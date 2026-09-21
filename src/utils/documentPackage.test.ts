@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { unzipSync, zipSync } from 'fflate';
+import { strToU8, unzipSync, zipSync } from 'fflate';
 import { getRegisteredThemes } from '../themes/themeRegistry';
 import type { SangDocument } from '../types';
-import { createDocumentAsset, packSangDocument, unpackSangDocument } from './documentPackage';
+import { createDocumentAsset, packSangDocument, SANG_DOCUMENT_FORMAT_VERSION, unpackSangDocument } from './documentPackage';
 
 describe('SangDocCraft document package', () => {
   it('round-trips document content and stores duplicate image data once', async () => {
@@ -34,6 +34,7 @@ describe('SangDocCraft document package', () => {
 
     const packed = packSangDocument(document);
     const files = unzipSync(packed);
+    expect(JSON.parse(new TextDecoder().decode(files['manifest.json'])).formatVersion).toBe(SANG_DOCUMENT_FORMAT_VERSION);
     expect(Object.keys(files).filter((path) => path.startsWith('images/'))).toHaveLength(1);
 
     const unpacked = await unpackSangDocument(packed);
@@ -86,11 +87,13 @@ describe('SangDocCraft document package', () => {
     const files = unzipSync(packSangDocument(document));
     const legacyTheme = { ...document.theme, meta: { ...document.theme.meta, logoUrl: 'https://example.com/old-logo.png' } } as Record<string, unknown>;
     delete legacyTheme.cover;
-    files['theme.json'] = new TextEncoder().encode(JSON.stringify(legacyTheme));
+    files['manifest.json'] = strToU8(JSON.stringify({ ...JSON.parse(new TextDecoder().decode(files['manifest.json'])), formatVersion: 1 }));
+    files['theme.json'] = strToU8(JSON.stringify(legacyTheme));
 
     const unpacked = await unpackSangDocument(zipSync(files));
 
     expect(unpacked.theme.cover).toEqual(getRegisteredThemes()[0].cover);
     expect(unpacked.theme.meta.title).toBe(document.theme.meta.title);
+    expect(unpacked.theme.meta).not.toHaveProperty('logoUrl');
   });
 });

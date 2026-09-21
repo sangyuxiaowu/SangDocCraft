@@ -9,10 +9,11 @@ import type {
   SangDocument,
 } from '../types';
 import type { DocumentChatSession } from '../types/ai';
+import { CURRENT_DOCUMENT_FORMAT_VERSION, migrateDocumentData } from './documentMigrations';
 
 export const SANG_DOCUMENT_EXTENSION = 'sdc';
 export const SANG_DOCUMENT_MIME_TYPE = 'application/vnd.sangdoccraft.document+zip';
-export const SANG_DOCUMENT_FORMAT_VERSION = 1;
+export const SANG_DOCUMENT_FORMAT_VERSION = CURRENT_DOCUMENT_FORMAT_VERSION;
 
 interface DocumentManifest {
   format: 'SangDocCraft';
@@ -118,7 +119,7 @@ export async function unpackSangDocument(data: Uint8Array): Promise<SangDocument
     throw new Error('无法读取文档包，请确认文件是有效的 .sdc 文件');
   }
   const manifest = parseJson<DocumentManifest>(files, 'manifest.json');
-  if (manifest.format !== 'SangDocCraft' || manifest.formatVersion !== SANG_DOCUMENT_FORMAT_VERSION) {
+  if (manifest.format !== 'SangDocCraft' || manifest.formatVersion < 1 || manifest.formatVersion > SANG_DOCUMENT_FORMAT_VERSION) {
     throw new Error(`不支持的 SangDocCraft 文档版本: ${manifest.formatVersion}`);
   }
   const markdownFile = files['document.md'];
@@ -132,15 +133,19 @@ export async function unpackSangDocument(data: Uint8Array): Promise<SangDocument
     }
     return { ...metadata, data: assetData };
   }));
+  const migrated = migrateDocumentData(manifest.formatVersion, {
+    theme: parseJson<DocumentTheme>(files, 'theme.json'),
+    history: files['history.json'] ? parseJson<DocumentHistoryEntry[]>(files, 'history.json') : [],
+  });
   return {
     id: manifest.documentId,
     title: manifest.title,
     createdAt: manifest.createdAt,
     modifiedAt: manifest.modifiedAt,
     markdown: strFromU8(markdownFile),
-    theme: parseJson<DocumentTheme>(files, 'theme.json'),
+    theme: migrated.theme,
     settings: parseJson<DocumentSettings>(files, 'settings.json'),
-    history: files['history.json'] ? parseJson<DocumentHistoryEntry[]>(files, 'history.json') : [],
+    history: migrated.history,
     chatSessions: files['chats.json'] ? parseJson<DocumentChatSession[]>(files, 'chats.json') : [],
     assets,
   };
