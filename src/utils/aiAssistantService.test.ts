@@ -5,13 +5,13 @@ import { buildAiTools } from './aiAssistantService';
 
 describe('AI assistant setting tools', () => {
   const createTools = (markdown: string, sessions: string[] = []) => {
-    const theme = structuredClone(getRegisteredThemes()[0]);
+    let theme = structuredClone(getRegisteredThemes()[0]);
     const settings: DocumentSettings = { historyEnabled: true, historyIdleMinutes: 10 };
     return buildAiTools({
       markdown,
-      theme,
+      getTheme: () => theme,
       settings,
-      onUpdateTheme: () => undefined,
+      onUpdateTheme: update => { theme = typeof update === 'function' ? update(theme) : update; },
       onUpdateSettings: () => undefined,
       onSetHistory: () => undefined,
       onStartDiffReview: session => {
@@ -77,7 +77,7 @@ describe('AI assistant setting tools', () => {
     const theme = structuredClone(getRegisteredThemes()[0]);
     const tools = buildAiTools({
       markdown,
-      theme,
+      getTheme: () => theme,
       settings: { historyEnabled: true, historyIdleMinutes: 10 },
       onUpdateTheme: () => undefined,
       onUpdateSettings: () => undefined,
@@ -113,9 +113,10 @@ describe('AI assistant setting tools', () => {
 
   it('keeps a Markdown tool pending until its review finishes', async () => {
     let finishReview: (() => void) | undefined;
+    const theme = structuredClone(getRegisteredThemes()[0]);
     const tools = buildAiTools({
       markdown: '# 标题',
-      theme: structuredClone(getRegisteredThemes()[0]),
+      getTheme: () => theme,
       settings: { historyEnabled: true, historyIdleMinutes: 10 },
       onUpdateTheme: () => undefined,
       onUpdateSettings: () => undefined,
@@ -143,7 +144,7 @@ describe('AI assistant setting tools', () => {
     const theme = structuredClone(getRegisteredThemes()[0]);
     const tools = buildAiTools({
       markdown,
-      theme,
+      getTheme: () => theme,
       settings: { historyEnabled: true, historyIdleMinutes: 10 },
       onUpdateTheme: () => undefined,
       onUpdateSettings: () => undefined,
@@ -169,7 +170,7 @@ describe('AI assistant setting tools', () => {
     let history: unknown[] = [];
     const tools = buildAiTools({
       markdown: '# Test',
-      theme,
+      getTheme: () => theme,
       settings,
       onUpdateTheme: update => {
         theme = typeof update === 'function' ? update(theme) : update;
@@ -334,7 +335,7 @@ describe('AI assistant setting tools', () => {
     let history: DocumentHistoryEntry[] = [];
     const tools = buildAiTools({
       markdown: '# 标题\n正文',
-      theme,
+      getTheme: () => theme,
       settings,
       onUpdateTheme: update => { theme = typeof update === 'function' ? update(theme) : update; },
       onUpdateSettings: update => { settings = typeof update === 'function' ? update(settings) : update; },
@@ -423,5 +424,36 @@ describe('AI assistant setting tools', () => {
     await replaceTool.handler({ oldText: 'E = mc^2', newText: '$$\nE = mc^2\n$$\n' });
 
     expect(sessions).toEqual(['# 标题\n$$\nE = mc^2\n$$\n']);
+  });
+
+  it('applies theme updates on top of the latest theme instead of a stale snapshot', async () => {
+    let theme: DocumentTheme = structuredClone(getRegisteredThemes()[0]);
+    const tools = buildAiTools({
+      markdown: '# Test',
+      getTheme: () => theme,
+      settings: { historyEnabled: true, historyIdleMinutes: 10 },
+      onUpdateTheme: update => { theme = typeof update === 'function' ? update(theme) : update; },
+      onUpdateSettings: () => undefined,
+      onSetHistory: () => undefined,
+      onStartDiffReview: session => Promise.resolve({ markdown: session.modifiedText, acceptedCount: 1, rejectedCount: 0, cancelled: false }),
+      onCancelDiffReview: () => undefined,
+    });
+    const styleTool = tools.find(item => item.definition.function.name === 'update_document_style')!;
+
+    // 模拟用户在 AI 本轮进行中手动改了水印：工具必须以实时主题为基线，不能把它覆盖回旧值。
+    theme = {
+      ...theme,
+      style: {
+        ...theme.style,
+        watermark: {
+          show: true, type: 'text', text: '用户手改', fontSize: 40, color: '#dc2626',
+          opacity: 0.1, rotate: 45, layout: 'repeat', repeatGap: 120, hideOnCover: false,
+        },
+      },
+    };
+
+    await expect(styleTool.handler({ lineHeight: 1.9 })).resolves.toBe('更新成功');
+    expect(theme.style.lineHeight).toBe(1.9);
+    expect(theme.style.watermark?.text).toBe('用户手改');
   });
 });

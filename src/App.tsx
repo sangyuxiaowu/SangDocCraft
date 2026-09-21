@@ -100,10 +100,25 @@ export default function App() {
     } : null);
   };
 
-  const handleApplyResolution = () => {
-    if (!diffReviewSession) return;
-    const finalMarkdown = reconstructFromHunks(diffReviewSession.hunks);
-    const changeHunks = diffReviewSession.hunks.filter(hunk => hunk.type === 'change');
+  const handleApplyResolution = async () => {
+    const session = diffReviewSessionRef.current;
+    if (!session) return;
+    // 审查期间用户可能手动改过正文：直接应用会用审查结果整体覆盖那些改动，必须先确认。
+    if (markdown !== session.originalText) {
+      const ok = await modal.confirm({
+        title: '文档已被修改',
+        message: '审查开始后正文发生了变化（可能是手动编辑）。继续应用会用审查结果覆盖这些改动，是否继续？',
+        confirmText: '仍然应用',
+        cancelText: '放弃应用',
+        variant: 'danger',
+      });
+      if (!ok) {
+        handleCancelReview();
+        return;
+      }
+    }
+    const finalMarkdown = reconstructFromHunks(session.hunks);
+    const changeHunks = session.hunks.filter(hunk => hunk.type === 'change');
     setMarkdown(finalMarkdown);
     setIsDocumentDirty(true);
     setDiffReviewSession(null);
@@ -148,6 +163,12 @@ export default function App() {
     }
     return getRegisteredThemes()[0];
   });
+
+  // 主题的实时镜像：AI 工具写入后需要立即读回真实值，不能等 React 状态提交（提交是异步的）。
+  const themeRef = useRef(theme);
+  useEffect(() => {
+    themeRef.current = theme;
+  }, [theme]);
 
   const [markdown, setMarkdown] = useState('');
 
@@ -821,10 +842,13 @@ export default function App() {
 
   const aiToolContext: AiToolContext = {
     markdown,
-    theme,
+    getTheme: () => themeRef.current,
     settings: documentSettings,
     onUpdateTheme: (update) => {
-      setTheme(update);
+      // 同步写回 ref，工具才能立即读回真实主题（校验用它，而不是自己维护的镜像）。
+      const nextTheme = typeof update === 'function' ? update(themeRef.current) : update;
+      themeRef.current = nextTheme;
+      setTheme(nextTheme);
       setIsDocumentDirty(true);
     },
     onUpdateSettings: (update) => {

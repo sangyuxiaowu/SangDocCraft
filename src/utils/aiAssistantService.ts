@@ -46,7 +46,8 @@ export const SYSTEM_PROMPT = DEFAULT_SYSTEM_PROMPT;
 
 export interface AiToolContext {
   markdown: string;
-  theme: DocumentTheme;
+  /** 读取当前真实主题（App 侧的 ref 实时值）：工具必须以它为基线，避免闭包里的旧快照覆盖用户改动 */
+  getTheme: () => DocumentTheme;
   settings: DocumentSettings;
   onUpdateTheme: (update: SetStateAction<DocumentTheme>) => void;
   onUpdateSettings: (update: SetStateAction<DocumentSettings>) => void;
@@ -154,7 +155,6 @@ function pickTocFontFields(value: unknown): Partial<TocLevelStyle> {
 
 export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
   let currentMarkdown = context.markdown;
-  let currentTheme = context.theme;
   let currentSettings = context.settings;
 
   const submitMarkdownEdit = async (newMarkdown: string, description: string): Promise<string> => {
@@ -172,7 +172,7 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
     }
 
     // 同一轮里主题可能已被前面的调用改过，快照必须记录最新主题，否则回滚会带回旧样式。
-    const snapshot = await createHistoryEntry(currentMarkdown, currentTheme, 'manual');
+    const snapshot = await createHistoryEntry(currentMarkdown, context.getTheme(), 'manual');
     context.onSetHistory(prev => appendUniqueHistory(prev, snapshot));
 
     const reviewResult = await context.onStartDiffReview({
@@ -198,8 +198,9 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
       definition: AI_TOOL_DEFINITIONS.get_document_state,
       handler: async () => {
         // 按配置分区返回，避免扁平字段与完整对象重复；meta 拆出 cover 是为了对齐封面展示项。
-        const { title, subtitle, author, department, organization, date, version, number, ...cover } = currentTheme.meta;
-        const { primaryColor, accentColor, textColor, backgroundColor, coverBgColor, watermark, ...style } = currentTheme.style;
+        const theme = context.getTheme();
+        const { title, subtitle, author, department, organization, date, version, number, ...cover } = theme.meta;
+        const { primaryColor, accentColor, textColor, backgroundColor, coverBgColor, watermark, ...style } = theme.style;
         return JSON.stringify({
           markdownLength: currentMarkdown.length,
           totalLines: getMarkdownLines(currentMarkdown).length,
@@ -207,12 +208,12 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
           outline: getMarkdownOutline(currentMarkdown),
           meta: { title, subtitle, author, department, organization, date, version, number },
           cover,
-          header: currentTheme.header,
-          footer: currentTheme.footer,
+          header: theme.header,
+          footer: theme.footer,
           toc: {
-            ...currentTheme.toc,
-            titleFont: getTocTitleFont(currentTheme.toc),
-            levelStyles: getTocLevelStyles(currentTheme.toc)
+            ...theme.toc,
+            titleFont: getTocTitleFont(theme.toc),
+            levelStyles: getTocLevelStyles(theme.toc)
           },
           color: { primaryColor, accentColor, textColor, backgroundColor, coverBgColor },
           style,
@@ -456,9 +457,9 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
           return { ...theme, meta: updatedMeta };
         };
 
-        currentTheme = applyUpdate(currentTheme);
-        context.onUpdateTheme(applyUpdate);
-        const updatedMeta = currentTheme.meta;
+        const nextTheme = applyUpdate(context.getTheme());
+        context.onUpdateTheme(nextTheme);
+        const updatedMeta = nextTheme.meta;
 
         const checks: UpdateVerification[] = [];
         const fieldMap: Record<string, keyof typeof updatedMeta> = {
@@ -522,9 +523,9 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
           return { ...theme, style: updatedStyle };
         };
 
-        currentTheme = applyUpdate(currentTheme);
-        context.onUpdateTheme(applyUpdate);
-        const updatedStyle = currentTheme.style;
+        const nextTheme = applyUpdate(context.getTheme());
+        context.onUpdateTheme(nextTheme);
+        const updatedStyle = nextTheme.style;
         const checks: UpdateVerification[] = [];
         const scalarFields: Array<[string, keyof DocumentTheme['style']]> = [
           ['primaryColor', 'primaryColor'], ['accentColor', 'accentColor'], ['textColor', 'textColor'],
@@ -575,9 +576,9 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
           return { ...theme, header: nextHeader, footer: nextFooter };
         };
 
-        currentTheme = applyUpdate(currentTheme);
-        context.onUpdateTheme(applyUpdate);
-        const { header: nextHeader, footer: nextFooter } = currentTheme;
+        const nextTheme = applyUpdate(context.getTheme());
+        context.onUpdateTheme(nextTheme);
+        const { header: nextHeader, footer: nextFooter } = nextTheme;
 
         const checks: UpdateVerification[] = [];
         const fields: Array<[string, 'header' | 'footer', string]> = [
@@ -633,9 +634,9 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
           return { ...theme, toc: nextToc };
         };
 
-        currentTheme = applyUpdate(currentTheme);
-        context.onUpdateTheme(applyUpdate);
-        const nextToc = currentTheme.toc;
+        const nextTheme = applyUpdate(context.getTheme());
+        context.onUpdateTheme(nextTheme);
+        const nextToc = nextTheme.toc;
         const checks: UpdateVerification[] = [];
         const scalarFields: Array<[string, unknown]> = [
           ['show', nextToc.show], ['title', nextToc.title], ['titleCenter', nextToc.titleCenter],
