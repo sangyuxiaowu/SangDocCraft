@@ -61,7 +61,7 @@ export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
     type: 'function',
     function: {
       name: 'edit_markdown_content',
-      description: '原子批量编辑 Markdown 正文，一次调用只触发一次审查。所有 replace 区间都基于批次开始时的原文行号且不可重叠；append 在 replace 完成后按 operations 顺序追加；full 只能单独使用。同一批 toolCalls 仅允许调用一次本工具。',
+      description: '原子批量编辑 Markdown 正文，一次调用只触发一次审查。所有 replace 区间都基于批次开始时的原文行号且不可重叠；append 在 replace 完成后按 operations 顺序追加；full 只能单独使用。同一批 toolCalls 仅允许调用一次本工具。仅用于大段重写，零散文本替换请优先用 replace_markdown_section。',
       parameters: {
         type: 'object',
         properties: {
@@ -107,12 +107,13 @@ export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
     type: 'function',
     function: {
       name: 'replace_markdown_section',
-      description: '精确替换 Markdown 中的字符串。默认要求 oldText 唯一；需要全局替换时必须显式设置 replaceAll=true。',
+      description: '精确替换 Markdown 正文片段：默认要求 oldText 唯一（匹配多处时报错并给出候选位置），需要全局替换时显式设置 replaceAll=true；useRegex=true 时 oldText 按正则处理。零散文本改动优先用本工具，大段重写才用 edit_markdown_content。',
       parameters: {
         type: 'object',
         properties: {
-          oldText: { type: 'string', minLength: 1, description: '要精确匹配的原始文本。' },
-          newText: { type: 'string', description: '替换后的文本。' },
+          oldText: { type: 'string', minLength: 1, description: '要匹配的原始文本；useRegex=true 时为正则表达式（不能匹配空字符串）。' },
+          newText: { type: 'string', description: '替换后的文本；正则模式下可用 $1…$9 与 $& 反向引用，要输出字面 $ 写 $$。' },
+          useRegex: { type: 'boolean', description: '把 oldText 当作正则表达式处理，默认 false（按纯文本精确匹配）。' },
           replaceAll: { type: 'boolean', description: '显式声明替换所有匹配项，默认 false。' },
           description: { type: 'string', description: '本次修改的简要描述。' }
         },

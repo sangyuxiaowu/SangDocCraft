@@ -370,16 +370,43 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
           throw new AiToolExecutionError('invalid_arguments', 'newText 必须是字符串。');
         }
 
+        const oldText = args.oldText;
+        const newText = args.newText;
+        const replaceAll = args.replaceAll === true;
+        let pattern: RegExp | undefined;
+        if (args.useRegex === true) {
+          try {
+            pattern = new RegExp(oldText, 'g');
+          } catch (error) {
+            throw new AiToolExecutionError(
+              'invalid_arguments',
+              `oldText 不是合法的正则表达式：${error instanceof Error ? error.message : String(error)}`
+            );
+          }
+          if (new RegExp(pattern.source).test('')) {
+            throw new AiToolExecutionError('invalid_arguments', 'oldText 正则不能匹配空字符串，请改用更具体的模式。');
+          }
+        }
+
         const indexes: number[] = [];
-        let index = currentMarkdown.indexOf(args.oldText);
-        while (index !== -1) {
-          indexes.push(index);
-          index = currentMarkdown.indexOf(args.oldText, index + args.oldText.length);
+        if (pattern) {
+          for (const match of currentMarkdown.matchAll(pattern)) {
+            indexes.push(match.index ?? 0);
+          }
+        } else {
+          let index = currentMarkdown.indexOf(oldText);
+          while (index !== -1) {
+            indexes.push(index);
+            index = currentMarkdown.indexOf(oldText, index + oldText.length);
+          }
         }
         if (indexes.length === 0) {
-          throw new AiToolExecutionError('invalid_arguments', '未找到与 oldText 完全匹配的内容。');
+          throw new AiToolExecutionError(
+            'invalid_arguments',
+            pattern ? '未找到与 oldText 正则匹配的内容。' : '未找到与 oldText 完全匹配的内容。'
+          );
         }
-        if (indexes.length > 1 && args.replaceAll !== true) {
+        if (indexes.length > 1 && !replaceAll) {
           const candidates = indexes.map(matchIndex => {
             const before = currentMarkdown.slice(0, matchIndex);
             const lines = before.split(/\r?\n/);
@@ -391,9 +418,10 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
           );
         }
 
-        const newMarkdown = args.replaceAll === true
-          ? currentMarkdown.split(args.oldText).join(args.newText)
-          : currentMarkdown.replace(args.oldText, args.newText);
+        // 纯文本模式用 split/join：否则 newText 里的 $$、$& 会被 replace 当成替换语法吃掉（交付文档里的 LaTeX 公式很容易踩到）。
+        const newMarkdown = pattern
+          ? currentMarkdown.replace(replaceAll ? pattern : new RegExp(pattern.source), newText)
+          : currentMarkdown.split(oldText).join(newText);
         const description = typeof args.description === 'string' ? args.description : 'AI 建议的精确内容替换';
         return submitMarkdownEdit(newMarkdown, description);
       },

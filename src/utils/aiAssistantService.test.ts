@@ -4,7 +4,7 @@ import type { DocumentHistoryEntry, DocumentSettings, DocumentTheme } from '../t
 import { buildAiTools } from './aiAssistantService';
 
 describe('AI assistant setting tools', () => {
-  const createTools = (markdown: string) => {
+  const createTools = (markdown: string, sessions: string[] = []) => {
     const theme = structuredClone(getRegisteredThemes()[0]);
     const settings: DocumentSettings = { historyEnabled: true, historyIdleMinutes: 10 };
     return buildAiTools({
@@ -15,7 +15,10 @@ describe('AI assistant setting tools', () => {
       onUpdateTheme: () => undefined,
       onUpdateSettings: () => undefined,
       onSetHistory: () => undefined,
-      onStartDiffReview: session => Promise.resolve({ markdown: session.modifiedText, acceptedCount: 1, rejectedCount: 0, cancelled: false }),
+      onStartDiffReview: session => {
+        sessions.push(session.modifiedText);
+        return Promise.resolve({ markdown: session.modifiedText, acceptedCount: 1, rejectedCount: 0, cancelled: false });
+      },
       onCancelDiffReview: () => undefined,
     });
   };
@@ -392,5 +395,39 @@ describe('AI assistant setting tools', () => {
     expect(style).not.toHaveProperty('watermark');
     expect(state).not.toHaveProperty('title');
     expect(state).not.toHaveProperty('primaryColor');
+  });
+
+  it('supports regex replacement with capture groups when useRegex is set', async () => {
+    const markdown = '# 标题\n版本 v1.0.0 于 2026-01-01 发布\n版本 v2.3.1 于 2026-05-20 发布';
+    const sessions: string[] = [];
+    const replaceTool = createTools(markdown, sessions)
+      .find(item => item.definition.function.name === 'replace_markdown_section')!;
+
+    await expect(replaceTool.handler({ oldText: 'v\\d+\\.\\d+\\.\\d+', newText: 'v9.9.9', useRegex: true }))
+      .rejects.toThrow('匹配到 2 处');
+    expect(sessions).toEqual([]);
+
+    await replaceTool.handler({
+      oldText: '版本 (v\\d+\\.\\d+\\.\\d+)',
+      newText: '版本 $1（已归档）',
+      useRegex: true,
+      replaceAll: true,
+    });
+    expect(sessions).toEqual(['# 标题\n版本 v1.0.0（已归档） 于 2026-01-01 发布\n版本 v2.3.1（已归档） 于 2026-05-20 发布']);
+
+    await expect(replaceTool.handler({ oldText: '([', newText: 'x', useRegex: true }))
+      .rejects.toThrow('不是合法的正则表达式');
+    await expect(replaceTool.handler({ oldText: 'x*', newText: 'y', useRegex: true }))
+      .rejects.toThrow('不能匹配空字符串');
+  });
+
+  it('keeps dollar signs literal in plain text replacement', async () => {
+    const sessions: string[] = [];
+    const replaceTool = createTools('# 标题\nE = mc^2', sessions)
+      .find(item => item.definition.function.name === 'replace_markdown_section')!;
+
+    await replaceTool.handler({ oldText: 'E = mc^2', newText: '$$\nE = mc^2\n$$\n' });
+
+    expect(sessions).toEqual(['# 标题\n$$\nE = mc^2\n$$\n']);
   });
 });
