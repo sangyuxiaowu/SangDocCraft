@@ -1,8 +1,12 @@
 import { 
   DocumentSettings, 
   DocumentTheme,
-  TocLevelStyle,
-  TocTitleFont
+  DocumentMeta,
+  HeaderConfig,
+  FooterConfig,
+  TocConfig,
+  StyleConfig,
+  TocLevelStyle
 } from '../types';
 import { 
   AiToolRuntime, 
@@ -11,6 +15,23 @@ import {
 } from '../types/ai';
 import type { SetStateAction } from 'react';
 import { AI_TOOL_DEFINITIONS } from './aiToolDefinitions';
+import { 
+  FOOTER_FIELDS,
+  HEADER_FIELDS,
+  HEADING_FONT_FIELDS,
+  IMAGE_CONFIG_FIELDS,
+  META_FIELDS,
+  STYLE_FIELDS,
+  TABLE_CAPTION_FIELDS,
+  TOC_FIELDS,
+  TOC_LEVEL_FONT_FIELDS,
+  WATERMARK_FIELDS,
+  pickSubFields,
+  readFieldValue,
+  type ScalarFieldSpec,
+  type SubFieldSpecs,
+  type ThemeSection
+} from './aiToolFieldSpecs';
 import { createDiffHunks } from './diffUtils';
 import { appendUniqueHistory, createHistoryEntry } from './documentHistory';
 import { getTocLevelStyles, getTocTitleFont } from './documentStructure';
@@ -109,24 +130,6 @@ interface UpdateVerification {
   actual: unknown;
 }
 
-function addUpdateVerification(
-  checks: UpdateVerification[],
-  field: string,
-  expected: unknown,
-  actual: unknown,
-): void {
-  if (
-    typeof expected === 'object' && expected !== null && !Array.isArray(expected)
-    && typeof actual === 'object' && actual !== null && !Array.isArray(actual)
-  ) {
-    Object.entries(expected).forEach(([key, value]) => {
-      addUpdateVerification(checks, `${field}.${key}`, value, (actual as Record<string, unknown>)[key]);
-    });
-    return;
-  }
-  checks.push({ field, expected, actual });
-}
-
 function formatUpdateVerification(checks: UpdateVerification[]): string {
   if (checks.length === 0) return '更新成功';
   const failed = checks.filter(({ expected, actual }) => JSON.stringify(expected) !== JSON.stringify(actual));
@@ -137,20 +140,89 @@ function formatUpdateVerification(checks: UpdateVerification[]): string {
   }, null, 2);
 }
 
-/** 仅提取目录字体/层级样式的已知字段，避免上游多余键污染主题配置 */
-function pickTocFontFields(value: unknown): Partial<TocLevelStyle> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
-  const source = value as Record<string, unknown>;
-  const picked: Partial<TocLevelStyle> = {};
-  if (typeof source.fontFamily === 'string') picked.fontFamily = source.fontFamily;
-  if (typeof source.fontSize === 'number') picked.fontSize = source.fontSize;
-  if (typeof source.bold === 'boolean') picked.bold = source.bold;
-  if (typeof source.italic === 'boolean') picked.italic = source.italic;
-  if (typeof source.underline === 'boolean') picked.underline = source.underline;
-  if (typeof source.marginBefore === 'number') picked.marginBefore = source.marginBefore;
-  if (typeof source.marginAfter === 'number') picked.marginAfter = source.marginAfter;
-  if (typeof source.paddingLeft === 'number') picked.paddingLeft = source.paddingLeft;
-  return picked;
+type SectionRecords = Record<ThemeSection, Record<string, unknown>>;
+
+function toSectionRecords(theme: DocumentTheme): SectionRecords {
+  return {
+    meta: { ...theme.meta },
+    header: { ...theme.header },
+    footer: { ...theme.footer },
+    toc: { ...theme.toc },
+    style: { ...theme.style },
+  };
+}
+
+function fromSectionRecords(theme: DocumentTheme, sections: SectionRecords): DocumentTheme {
+  return {
+    ...theme,
+    meta: sections.meta as unknown as DocumentMeta,
+    header: sections.header as unknown as HeaderConfig,
+    footer: sections.footer as unknown as FooterConfig,
+    toc: sections.toc as unknown as TocConfig,
+    style: sections.style as unknown as StyleConfig,
+  };
+}
+
+/**
+ * 按规格表写入字段：只处理规格表里声明过的参数，且逐个做类型/枚举/范围校验，
+ * 模型多传的未知键会被忽略，非法值会抛 invalid_arguments 让模型自行纠正。
+ */
+function applyScalarFields(
+  sections: SectionRecords,
+  args: Record<string, unknown>,
+  specs: readonly ScalarFieldSpec[],
+): void {
+  specs.forEach(spec => {
+    const raw = args[spec.argument];
+    if (raw === undefined) return;
+    const value = readFieldValue(spec.argument, spec, raw);
+    const target = sections[spec.section];
+    target[spec.field ?? spec.argument] = value;
+    spec.also?.forEach(alias => { target[alias] = value; });
+  });
+}
+
+/** 写入后的字段级回读校验（只覆盖本次请求到的字段） */
+function verifyScalarFields(
+  theme: DocumentTheme,
+  args: Record<string, unknown>,
+  specs: readonly ScalarFieldSpec[],
+): UpdateVerification[] {
+  const checks: UpdateVerification[] = [];
+  const sections = theme as unknown as SectionRecords;
+  specs.forEach(spec => {
+    const raw = args[spec.argument];
+    if (raw === undefined) return;
+    const value = readFieldValue(spec.argument, spec, raw);
+    const section = sections[spec.section];
+    const field = spec.field ?? spec.argument;
+    checks.push({ field: spec.argument, expected: value, actual: section[field] });
+    spec.also?.forEach(alias => {
+      checks.push({ field: `${spec.argument}→${alias}`, expected: value, actual: section[alias] });
+    });
+  });
+  return checks;
+}
+
+/** 合并白名单子对象（如 watermark / imageConfig）：未声明的键直接丢弃，避免污染持久化的主题 */
+function applySubFields(target: unknown, requested: unknown, specs: SubFieldSpecs): Record<string, unknown> {
+  const base = typeof target === 'object' && target !== null ? target as Record<string, unknown> : {};
+  return { ...base, ...pickSubFields(requested, specs) };
+}
+
+/** 校验白名单子对象里实际请求到的字段 */
+function verifySubFields(
+  checks: UpdateVerification[],
+  prefix: string,
+  requested: unknown,
+  actual: unknown,
+  specs: SubFieldSpecs,
+): void {
+  const picked = pickSubFields(requested, specs);
+  const actualRecord = typeof actual === 'object' && actual !== null ? actual as Record<string, unknown> : {};
+  Object.entries(picked).forEach(([key, value]) => {
+    checks.push({ field: `${prefix}.${key}`, expected: value, actual: actualRecord[key] });
+  });
 }
 
 export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
@@ -431,232 +503,117 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
     {
       definition: AI_TOOL_DEFINITIONS.update_document_meta,
       handler: async (args) => {
-        const applyUpdate = (theme: DocumentTheme): DocumentTheme => {
-          const updatedMeta = { ...theme.meta };
-          if (args.title !== undefined) updatedMeta.title = String(args.title);
-          if (args.subtitle !== undefined) updatedMeta.subtitle = String(args.subtitle);
-          if (args.author !== undefined) updatedMeta.author = String(args.author);
-          if (args.department !== undefined) updatedMeta.department = String(args.department);
-          if (args.organization !== undefined) updatedMeta.organization = String(args.organization);
-          if (args.date !== undefined) updatedMeta.date = String(args.date);
-          if (args.version !== undefined) updatedMeta.version = String(args.version);
-          if (args.number !== undefined) updatedMeta.number = String(args.number);
-          if (args.showCover !== undefined) updatedMeta.showCover = Boolean(args.showCover);
-          if (args.coverStyle !== undefined) updatedMeta.coverStyle = String(args.coverStyle);
-          if (args.logoUrl !== undefined) {
-            updatedMeta.logo = String(args.logoUrl);
-            updatedMeta.logoUrl = String(args.logoUrl);
-          }
-          if (typeof args.logoHeight === 'number') updatedMeta.logoHeight = args.logoHeight;
-          if (args.coverListColumns === 1 || args.coverListColumns === 2) updatedMeta.coverListColumns = args.coverListColumns;
-          if (Array.isArray(args.coverlist)) {
-            updatedMeta.coverlist = args.coverlist
-              .filter(item => typeof item === 'object' && item !== null && 'label' in item && 'value' in item)
-              .map(item => ({ label: String(item.label), value: String(item.value) }));
-          }
-          return { ...theme, meta: updatedMeta };
-        };
-
-        const nextTheme = applyUpdate(context.getTheme());
+        const current = context.getTheme();
+        const sections = toSectionRecords(current);
+        applyScalarFields(sections, args, META_FIELDS);
+        if (Array.isArray(args.coverlist)) {
+          sections.meta.coverlist = args.coverlist
+            .filter(item => typeof item === 'object' && item !== null && 'label' in item && 'value' in item)
+            .map(item => {
+              const entry = item as Record<string, unknown>;
+              return { label: String(entry.label), value: String(entry.value) };
+            });
+        }
+        const nextTheme = fromSectionRecords(current, sections);
         context.onUpdateTheme(nextTheme);
-        const updatedMeta = nextTheme.meta;
 
-        const checks: UpdateVerification[] = [];
-        const fieldMap: Record<string, keyof typeof updatedMeta> = {
-          title: 'title', subtitle: 'subtitle', author: 'author', department: 'department', organization: 'organization',
-          date: 'date', version: 'version', number: 'number', showCover: 'showCover', coverStyle: 'coverStyle',
-          logoUrl: 'logoUrl', logoHeight: 'logoHeight', coverListColumns: 'coverListColumns', coverlist: 'coverlist',
-        };
-        Object.entries(fieldMap).forEach(([argument, metaField]) => {
-          if (args[argument] !== undefined) addUpdateVerification(checks, argument, args[argument], updatedMeta[metaField]);
-        });
+        const checks = verifyScalarFields(nextTheme, args, META_FIELDS);
+        if (Array.isArray(args.coverlist)) {
+          checks.push({ field: 'coverlist', expected: sections.meta.coverlist, actual: nextTheme.meta.coverlist });
+        }
         return formatUpdateVerification(checks);
       }
     },
     {
       definition: AI_TOOL_DEFINITIONS.update_document_style,
       handler: async (args) => {
-        const applyUpdate = (theme: DocumentTheme): DocumentTheme => {
-          const updatedStyle = { ...theme.style };
-          if (args.primaryColor !== undefined) updatedStyle.primaryColor = String(args.primaryColor);
-          if (args.accentColor !== undefined) updatedStyle.accentColor = String(args.accentColor);
-          if (args.textColor !== undefined) updatedStyle.textColor = String(args.textColor);
-          if (typeof args.fontSize === 'number') updatedStyle.fontSize = args.fontSize;
-          if (typeof args.lineHeight === 'number') updatedStyle.lineHeight = args.lineHeight;
-          if (args.backgroundColor !== undefined) updatedStyle.backgroundColor = String(args.backgroundColor);
-          if (args.coverBgColor !== undefined) updatedStyle.coverBgColor = String(args.coverBgColor);
-          if (args.fontFamily) updatedStyle.fontFamily = args.fontFamily as any;
-          if (args.latinFontFamily !== undefined) updatedStyle.latinFontFamily = String(args.latinFontFamily);
-          if (args.bodyFontFamily !== undefined) updatedStyle.bodyFontFamily = String(args.bodyFontFamily);
-          if (args.h1Style) updatedStyle.h1Style = args.h1Style as any;
-          if (args.h2Style) updatedStyle.h2Style = args.h2Style as any;
-          if (args.h3Style) updatedStyle.h3Style = args.h3Style as any;
-          if (args.indentParagraph !== undefined) updatedStyle.indentParagraph = Boolean(args.indentParagraph);
-          if (args.h1PageBreak !== undefined) updatedStyle.h1PageBreak = Boolean(args.h1PageBreak);
-          if (args.h1Center !== undefined) updatedStyle.h1Center = Boolean(args.h1Center);
-          if (args.paginationMode) updatedStyle.paginationMode = args.paginationMode as any;
-          if (args.bulletStyle) updatedStyle.bulletStyle = args.bulletStyle as any;
-          if (args.numberStyle) updatedStyle.numberStyle = args.numberStyle as any;
-          if (args.codeTheme) updatedStyle.codeTheme = args.codeTheme as any;
-          if (args.tableStyle) updatedStyle.tableStyle = args.tableStyle as any;
-          if (typeof args.headingFonts === 'object' && args.headingFonts !== null) {
-            const headingFonts = args.headingFonts as Record<string, unknown>;
-            (['h1', 'h2', 'h3', 'h4'] as const).forEach(level => {
-              const update = headingFonts[level];
-              if (typeof update === 'object' && update !== null) {
-                updatedStyle.headingFonts = {
-                  ...updatedStyle.headingFonts,
-                  [level]: { ...updatedStyle.headingFonts[level], ...update }
-                };
-              }
-            });
-          }
-          if (typeof args.imageConfig === 'object' && args.imageConfig !== null) {
-            updatedStyle.imageConfig = { ...updatedStyle.imageConfig, ...args.imageConfig } as NonNullable<DocumentTheme['style']['imageConfig']>;
-          }
-          if (typeof args.tableCaptionConfig === 'object' && args.tableCaptionConfig !== null) {
-            updatedStyle.tableCaptionConfig = { ...updatedStyle.tableCaptionConfig, ...args.tableCaptionConfig } as NonNullable<DocumentTheme['style']['tableCaptionConfig']>;
-          }
-          if (typeof args.watermark === 'object' && args.watermark !== null) {
-            updatedStyle.watermark = { ...updatedStyle.watermark, ...args.watermark } as NonNullable<DocumentTheme['style']['watermark']>;
-          }
-          return { ...theme, style: updatedStyle };
-        };
+        const current = context.getTheme();
+        const sections = toSectionRecords(current);
+        applyScalarFields(sections, args, STYLE_FIELDS);
 
-        const nextTheme = applyUpdate(context.getTheme());
+        const requestedHeadingFonts = typeof args.headingFonts === 'object' && args.headingFonts !== null
+          ? args.headingFonts as Record<string, unknown>
+          : undefined;
+        if (requestedHeadingFonts) {
+          const headingFonts = { ...sections.style.headingFonts as Record<string, Record<string, unknown>> };
+          (['h1', 'h2', 'h3', 'h4'] as const).forEach(level => {
+            headingFonts[level] = applySubFields(headingFonts[level], requestedHeadingFonts[level], HEADING_FONT_FIELDS);
+          });
+          sections.style.headingFonts = headingFonts;
+        }
+        if (typeof args.imageConfig === 'object' && args.imageConfig !== null) {
+          sections.style.imageConfig = applySubFields(sections.style.imageConfig, args.imageConfig, IMAGE_CONFIG_FIELDS);
+        }
+        if (typeof args.tableCaptionConfig === 'object' && args.tableCaptionConfig !== null) {
+          sections.style.tableCaptionConfig = applySubFields(sections.style.tableCaptionConfig, args.tableCaptionConfig, TABLE_CAPTION_FIELDS);
+        }
+        if (typeof args.watermark === 'object' && args.watermark !== null) {
+          sections.style.watermark = applySubFields(sections.style.watermark, args.watermark, WATERMARK_FIELDS);
+        }
+
+        const nextTheme = fromSectionRecords(current, sections);
         context.onUpdateTheme(nextTheme);
-        const updatedStyle = nextTheme.style;
-        const checks: UpdateVerification[] = [];
-        const scalarFields: Array<[string, keyof DocumentTheme['style']]> = [
-          ['primaryColor', 'primaryColor'], ['accentColor', 'accentColor'], ['textColor', 'textColor'],
-          ['fontSize', 'fontSize'], ['lineHeight', 'lineHeight'], ['backgroundColor', 'backgroundColor'],
-          ['coverBgColor', 'coverBgColor'], ['fontFamily', 'fontFamily'], ['latinFontFamily', 'latinFontFamily'],
-          ['bodyFontFamily', 'bodyFontFamily'], ['h1Style', 'h1Style'], ['h2Style', 'h2Style'], ['h3Style', 'h3Style'],
-          ['indentParagraph', 'indentParagraph'], ['h1PageBreak', 'h1PageBreak'], ['h1Center', 'h1Center'],
-          ['paginationMode', 'paginationMode'], ['bulletStyle', 'bulletStyle'], ['numberStyle', 'numberStyle'],
-          ['codeTheme', 'codeTheme'], ['tableStyle', 'tableStyle'],
-        ];
-        scalarFields.forEach(([argument, styleField]) => {
-          if (args[argument] !== undefined) checks.push({ field: argument, expected: args[argument], actual: updatedStyle[styleField] });
-        });
-        (['headingFonts', 'imageConfig', 'tableCaptionConfig', 'watermark'] as const).forEach(section => {
-          const requested = args[section];
-          const actual = updatedStyle[section];
-          if (typeof requested !== 'object' || requested === null || Array.isArray(requested)) return;
-          addUpdateVerification(checks, section, requested, actual);
-        });
 
+        const checks = verifyScalarFields(nextTheme, args, STYLE_FIELDS);
+        if (requestedHeadingFonts) {
+          (['h1', 'h2', 'h3', 'h4'] as const).forEach(level => {
+            verifySubFields(checks, `headingFonts.${level}`, requestedHeadingFonts[level], nextTheme.style.headingFonts[level], HEADING_FONT_FIELDS);
+          });
+        }
+        verifySubFields(checks, 'imageConfig', args.imageConfig, nextTheme.style.imageConfig, IMAGE_CONFIG_FIELDS);
+        verifySubFields(checks, 'tableCaptionConfig', args.tableCaptionConfig, nextTheme.style.tableCaptionConfig, TABLE_CAPTION_FIELDS);
+        verifySubFields(checks, 'watermark', args.watermark, nextTheme.style.watermark, WATERMARK_FIELDS);
         return formatUpdateVerification(checks);
       }
     },
     {
       definition: AI_TOOL_DEFINITIONS.update_header_footer_config,
       handler: async (args) => {
-        const applyUpdate = (theme: DocumentTheme): DocumentTheme => {
-          const nextHeader = { ...theme.header };
-          const nextFooter = { ...theme.footer };
-          if (args.headerShow !== undefined) nextHeader.show = Boolean(args.headerShow);
-          if (args.headerLeftText !== undefined) nextHeader.leftText = String(args.headerLeftText);
-          if (args.headerCenterText !== undefined) nextHeader.centerText = String(args.headerCenterText);
-          if (args.headerRightText !== undefined) nextHeader.rightText = String(args.headerRightText);
-          if (args.headerLineStyle) nextHeader.lineStyle = args.headerLineStyle as any;
-          if (args.headerHideOnCover !== undefined) nextHeader.hideOnCover = Boolean(args.headerHideOnCover);
-          if (args.headerLogoUrl !== undefined) nextHeader.logoUrl = String(args.headerLogoUrl);
-          if (typeof args.headerLogoHeight === 'number') nextHeader.logoHeight = args.headerLogoHeight;
-          if (typeof args.headerLogoOpacity === 'number') nextHeader.logoOpacity = args.headerLogoOpacity;
-          if (typeof args.headerLeftTextOffset === 'number') nextHeader.leftTextOffset = args.headerLeftTextOffset;
-          if (typeof args.headerLogoTopOffset === 'number') nextHeader.logoTopOffset = args.headerLogoTopOffset;
-          if (args.footerShow !== undefined) nextFooter.show = Boolean(args.footerShow);
-          if (args.footerLeftText !== undefined) nextFooter.leftText = String(args.footerLeftText);
-          if (args.footerCenterText !== undefined) nextFooter.centerText = String(args.footerCenterText);
-          if (args.footerRightText !== undefined) nextFooter.rightText = String(args.footerRightText);
-          if (args.footerHideOnCover !== undefined) nextFooter.hideOnCover = Boolean(args.footerHideOnCover);
-          if (args.pageNumberFormat) nextFooter.pageNumberFormat = args.pageNumberFormat as any;
-          if (args.pageNumberPosition) nextFooter.pageNumberPosition = args.pageNumberPosition as any;
-          return { ...theme, header: nextHeader, footer: nextFooter };
-        };
-
-        const nextTheme = applyUpdate(context.getTheme());
+        const current = context.getTheme();
+        const sections = toSectionRecords(current);
+        applyScalarFields(sections, args, HEADER_FIELDS);
+        applyScalarFields(sections, args, FOOTER_FIELDS);
+        const nextTheme = fromSectionRecords(current, sections);
         context.onUpdateTheme(nextTheme);
-        const { header: nextHeader, footer: nextFooter } = nextTheme;
 
-        const checks: UpdateVerification[] = [];
-        const fields: Array<[string, 'header' | 'footer', string]> = [
-          ['headerShow', 'header', 'show'], ['headerLeftText', 'header', 'leftText'], ['headerCenterText', 'header', 'centerText'],
-          ['headerRightText', 'header', 'rightText'], ['headerLineStyle', 'header', 'lineStyle'], ['headerHideOnCover', 'header', 'hideOnCover'],
-          ['headerLogoUrl', 'header', 'logoUrl'], ['headerLogoHeight', 'header', 'logoHeight'], ['headerLogoOpacity', 'header', 'logoOpacity'],
-          ['headerLeftTextOffset', 'header', 'leftTextOffset'], ['headerLogoTopOffset', 'header', 'logoTopOffset'],
-          ['footerShow', 'footer', 'show'], ['footerLeftText', 'footer', 'leftText'], ['footerCenterText', 'footer', 'centerText'],
-          ['footerRightText', 'footer', 'rightText'], ['footerHideOnCover', 'footer', 'hideOnCover'],
-          ['pageNumberFormat', 'footer', 'pageNumberFormat'], ['pageNumberPosition', 'footer', 'pageNumberPosition'],
+        const checks = [
+          ...verifyScalarFields(nextTheme, args, HEADER_FIELDS),
+          ...verifyScalarFields(nextTheme, args, FOOTER_FIELDS),
         ];
-        fields.forEach(([argument, section, field]) => {
-          if (args[argument] !== undefined) {
-            const source = section === 'header' ? nextHeader : nextFooter;
-            checks.push({ field: argument, expected: args[argument], actual: (source as unknown as Record<string, unknown>)[field] });
-          }
-        });
         return formatUpdateVerification(checks);
       }
     },
     {
       definition: AI_TOOL_DEFINITIONS.update_toc_config,
       handler: async (args) => {
-        const applyUpdate = (theme: DocumentTheme): DocumentTheme => {
-          const nextToc = { ...theme.toc };
-          if (args.show !== undefined) nextToc.show = Boolean(args.show);
-          if (args.title !== undefined) nextToc.title = String(args.title);
-          if (args.titleCenter !== undefined) nextToc.titleCenter = Boolean(args.titleCenter);
-          if (args.titleStyle) nextToc.titleStyle = args.titleStyle as any;
-          if (typeof args.titleFont === 'object' && args.titleFont !== null) {
-            nextToc.titleFont = {
-              ...getTocTitleFont(theme.toc),
-              ...pickTocFontFields(args.titleFont)
-            } as TocTitleFont;
-          }
-          if (Array.isArray(args.levelStyles)) {
-            const levelStyles = getTocLevelStyles(theme.toc);
-            args.levelStyles.forEach((update: unknown, index: number) => {
-              if (index >= levelStyles.length) return;
-              const fields = pickTocFontFields(update);
-              if (Object.keys(fields).length > 0) {
-                levelStyles[index] = { ...levelStyles[index], ...fields };
-              }
-            });
-            nextToc.levelStyles = levelStyles;
-          }
-          if (typeof args.maxDepth === 'number') nextToc.maxDepth = args.maxDepth as any;
-          if (args.headingNumbering) nextToc.headingNumbering = args.headingNumbering as any;
-          if (args.leaderStyle) nextToc.leaderStyle = args.leaderStyle as any;
-          if (args.showPageNumbers !== undefined) nextToc.showPageNumbers = Boolean(args.showPageNumbers);
-          if (args.pageBreakAfter !== undefined) nextToc.pageBreakAfter = Boolean(args.pageBreakAfter);
-          if (args.titleOnEveryPage !== undefined) nextToc.titleOnEveryPage = Boolean(args.titleOnEveryPage);
-          return { ...theme, toc: nextToc };
-        };
+        const current = context.getTheme();
+        const sections = toSectionRecords(current);
+        applyScalarFields(sections, args, TOC_FIELDS);
 
-        const nextTheme = applyUpdate(context.getTheme());
-        context.onUpdateTheme(nextTheme);
-        const nextToc = nextTheme.toc;
-        const checks: UpdateVerification[] = [];
-        const scalarFields: Array<[string, unknown]> = [
-          ['show', nextToc.show], ['title', nextToc.title], ['titleCenter', nextToc.titleCenter],
-          ['titleStyle', nextToc.titleStyle], ['maxDepth', nextToc.maxDepth],
-          ['headingNumbering', nextToc.headingNumbering], ['leaderStyle', nextToc.leaderStyle],
-          ['showPageNumbers', nextToc.showPageNumbers], ['pageBreakAfter', nextToc.pageBreakAfter],
-          ['titleOnEveryPage', nextToc.titleOnEveryPage],
-        ];
-        scalarFields.forEach(([argument, actual]) => {
-          if (args[argument] !== undefined) checks.push({ field: argument, expected: args[argument], actual });
-        });
         if (typeof args.titleFont === 'object' && args.titleFont !== null) {
-          addUpdateVerification(checks, 'titleFont', pickTocFontFields(args.titleFont), getTocTitleFont(nextToc));
+          sections.toc.titleFont = applySubFields(getTocTitleFont(current.toc), args.titleFont, HEADING_FONT_FIELDS);
         }
         if (Array.isArray(args.levelStyles)) {
-          const levelStyles = getTocLevelStyles(nextToc);
+          const levelStyles = getTocLevelStyles(current.toc);
           args.levelStyles.forEach((update, index) => {
-            const fields = pickTocFontFields(update);
-            if (index >= levelStyles.length || Object.keys(fields).length === 0) return;
-            addUpdateVerification(checks, `levelStyles[${index}]`, fields, levelStyles[index]);
+            if (index >= levelStyles.length) return;
+            levelStyles[index] = { ...levelStyles[index], ...pickSubFields(update, TOC_LEVEL_FONT_FIELDS) } as TocLevelStyle;
+          });
+          sections.toc.levelStyles = levelStyles;
+        }
+
+        const nextTheme = fromSectionRecords(current, sections);
+        context.onUpdateTheme(nextTheme);
+
+        const checks = verifyScalarFields(nextTheme, args, TOC_FIELDS);
+        const nextLevelStyles = getTocLevelStyles(nextTheme.toc);
+        if (typeof args.titleFont === 'object' && args.titleFont !== null) {
+          verifySubFields(checks, 'titleFont', args.titleFont, getTocTitleFont(nextTheme.toc), HEADING_FONT_FIELDS);
+        }
+        if (Array.isArray(args.levelStyles)) {
+          args.levelStyles.forEach((update, index) => {
+            if (index >= nextLevelStyles.length) return;
+            verifySubFields(checks, `levelStyles[${index}]`, update, nextLevelStyles[index], TOC_LEVEL_FONT_FIELDS);
           });
         }
         return formatUpdateVerification(checks);

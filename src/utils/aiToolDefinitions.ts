@@ -1,4 +1,42 @@
 import { AiToolDefinition } from '../types/ai';
+import {
+  FOOTER_FIELDS,
+  HEADER_FIELDS,
+  HEADING_FONT_FIELDS,
+  IMAGE_CONFIG_FIELDS,
+  META_FIELDS,
+  STYLE_FIELDS,
+  TABLE_CAPTION_FIELDS,
+  TOC_FIELDS,
+  TOC_LEVEL_FONT_FIELDS,
+  WATERMARK_FIELDS,
+  type FieldConstraint,
+  type ScalarFieldSpec,
+  type SubFieldSpecs
+} from './aiToolFieldSpecs';
+
+/** 由字段规格表生成单个属性的 JSON Schema，避免 schema 与写入/校验逻辑各维护一份清单 */
+function describeField(constraint: FieldConstraint, description?: string): Record<string, unknown> {
+  const property: Record<string, unknown> = {};
+  if (constraint.kind === 'enum') {
+    property.type = typeof constraint.values?.[0] === 'number' ? 'number' : 'string';
+    property.enum = [...(constraint.values ?? [])];
+  } else {
+    property.type = constraint.kind;
+    if (constraint.min !== undefined) property.minimum = constraint.min;
+    if (constraint.max !== undefined) property.maximum = constraint.max;
+  }
+  if (description) property.description = description;
+  return property;
+}
+
+function buildProperties(specs: readonly ScalarFieldSpec[]): Record<string, unknown> {
+  return Object.fromEntries(specs.map(spec => [spec.argument, describeField(spec, spec.description)]));
+}
+
+function buildSubProperties(specs: SubFieldSpecs): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(specs).map(([key, spec]) => [key, describeField(spec, spec.description)]));
+}
 
 /** AI 工具名，同时作为 AI_TOOL_DEFINITIONS 的键 */
 export type AiToolName =
@@ -129,19 +167,7 @@ export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
       parameters: {
         type: 'object',
         properties: {
-          title: { type: 'string', description: '主标题' },
-          subtitle: { type: 'string', description: '副标题' },
-          author: { type: 'string', description: '作者姓名' },
-          department: { type: 'string', description: '所属部门' },
-          organization: { type: 'string', description: '机构/公司名称' },
-          date: { type: 'string', description: '日期 (如 2025-05-20)' },
-          version: { type: 'string', description: '版本号 (如 v1.0.0)' },
-          number: { type: 'string', description: '文档编号 (如 DOC-2025-001)' },
-          showCover: { type: 'boolean', description: '是否展示独立封面页' },
-          coverStyle: { type: 'string', description: '封面样式风格，值应来自当前可用封面模板 ID' },
-          logoUrl: { type: 'string', description: '封面 Logo 的图片 URL 或 @images/@library 引用，空字符串表示清除' },
-          logoHeight: { type: 'number', description: '封面 Logo 高度，单位 px，范围 20-120' },
-          coverListColumns: { type: 'number', enum: [1, 2], description: '封面属性列表列数' },
+          ...buildProperties(META_FIELDS),
           coverlist: {
             type: 'array',
             description: '封面自定义属性字段列表，文档信息元数据，会展示在封面上',
@@ -166,101 +192,29 @@ export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
       parameters: {
         type: 'object',
         properties: {
-          primaryColor: { type: 'string', description: '主色调 hex (如 #1e293b, #0369a1)' },
-          accentColor: { type: 'string', description: '强调色 hex (如 #2563eb, #0ea5e9)' },
-          textColor: { type: 'string', description: '正文文字颜色 hex (如 #0f172a, #334155)' },
-          fontSize: { type: 'number', description: '正文基础字号，单位 px (如 13, 14, 15)' },
-          lineHeight: { type: 'number', description: '行高比例 (如 1.6, 1.8)' },
-          paragraphMarginBefore: { type: 'number', description: '正文段前间距，单位 px，默认 0' },
-          paragraphMarginAfter: { type: 'number', description: '正文段后间距，单位 px，默认 6' },
-          backgroundColor: { type: 'string', description: '正文页面背景色 hex' },
-          coverBgColor: { type: 'string', description: '封面背景色 hex' },
-          fontFamily: { 
-            type: 'string', 
-            enum: ['sans', 'serif', 'kaiti', 'heiti', 'mono'],
-            description: '正文字体类型' 
-          },
-          h1Style: {
-            type: 'string',
-            enum: ['underline', 'accent-block', 'badge', 'minimal'],
-            description: '一级标题外观风格'
-          },
-          h2Style: {
-            type: 'string',
-            enum: ['border-left', 'number-prefix', 'underline-subtle', 'plain'],
-            description: '二级标题外观风格'
-          },
-          h3Style: {
-            type: 'string',
-            enum: ['bullet', 'bold', 'plain'],
-            description: '三级标题外观风格'
-          },
-          latinFontFamily: { type: 'string', description: '英文与数字字体名称，如 Times New Roman' },
-          bodyFontFamily: { type: 'string', description: '正文字体 CSS font-family，inherit 表示跟随文档字体' },
-          indentParagraph: { type: 'boolean', description: '正文首行缩进 2 字符' },
-          h1PageBreak: { type: 'boolean', description: '一级标题自动另起一页' },
-          h1Center: { type: 'boolean', description: '一级标题居中' },
-          paginationMode: { type: 'string', enum: ['auto', 'manual'], description: '自动分页或仅按 pagebreak 手动分页' },
-          bulletStyle: { type: 'string', enum: ['dot', 'square', 'checkmark', 'arrow'], description: '无序列表图标样式' },
-          numberStyle: { type: 'string', enum: ['decimal', 'paren', 'chinese'], description: '有序列表编号样式' },
-          codeTheme: { type: 'string', enum: ['dark', 'light', 'github'], description: '代码块主题' },
-          tableStyle: { type: 'string', enum: ['striped', 'bordered', 'minimal'], description: '表格样式' },
+          ...buildProperties(STYLE_FIELDS),
           headingFonts: {
             type: 'object',
             description: 'H1-H4 标题详细字体设置，可仅提供需要修改的级别和字段',
             properties: Object.fromEntries(['h1', 'h2', 'h3', 'h4'].map(level => [level, {
               type: 'object',
-              properties: {
-                fontFamily: { type: 'string' },
-                fontSize: { type: 'number' },
-                bold: { type: 'boolean' },
-                italic: { type: 'boolean' },
-                underline: { type: 'boolean' },
-                marginBefore: { type: 'number' },
-                marginAfter: { type: 'number' }
-              }
+              properties: buildSubProperties(HEADING_FONT_FIELDS)
             }]))
           },
           imageConfig: {
             type: 'object',
             description: '图片边框和题注配置',
-            properties: {
-              borderStyle: { type: 'string', enum: ['none', 'solid', 'subtle', 'shadow', 'card', 'rounded'] },
-              borderColor: { type: 'string' },
-              showCaption: { type: 'boolean' },
-              autoNumber: { type: 'boolean' },
-              numberPrefix: { type: 'string' },
-              captionAlign: { type: 'string', enum: ['center', 'left', 'right'] }
-            }
+            properties: buildSubProperties(IMAGE_CONFIG_FIELDS)
           },
           tableCaptionConfig: {
             type: 'object',
             description: '表格题注配置',
-            properties: {
-              showCaption: { type: 'boolean' },
-              autoNumber: { type: 'boolean' },
-              numberPrefix: { type: 'string' },
-              captionPosition: { type: 'string', enum: ['top', 'bottom'] },
-              captionAlign: { type: 'string', enum: ['center', 'left', 'right'] }
-            }
+            properties: buildSubProperties(TABLE_CAPTION_FIELDS)
           },
           watermark: {
             type: 'object',
             description: '文档水印配置',
-            properties: {
-              show: { type: 'boolean' },
-              type: { type: 'string', enum: ['text', 'image'] },
-              text: { type: 'string' },
-              fontSize: { type: 'number' },
-              color: { type: 'string' },
-              opacity: { type: 'number' },
-              rotate: { type: 'number' },
-              layout: { type: 'string', enum: ['single', 'repeat'] },
-              repeatGap: { type: 'number' },
-              hideOnCover: { type: 'boolean' },
-              imageUrl: { type: 'string' },
-              imageWidth: { type: 'number' }
-            }
+            properties: buildSubProperties(WATERMARK_FIELDS)
           }
         }
       }
@@ -274,32 +228,8 @@ export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
       parameters: {
         type: 'object',
         properties: {
-          headerShow: { type: 'boolean', description: '是否展示页眉' },
-          headerLeftText: { type: 'string', description: '页眉左侧文本' },
-          headerCenterText: { type: 'string', description: '页眉居中文本' },
-          headerRightText: { type: 'string', description: '页眉右侧文本' },
-          headerLineStyle: { type: 'string', enum: ['solid', 'accent', 'double', 'none'], description: '页眉分隔线样式' },
-          headerHideOnCover: { type: 'boolean', description: '封面是否隐藏页眉' },
-          headerLogoUrl: { type: 'string', description: '页眉 Logo 的图片 URL 或 @images/@library 引用，空字符串表示清除' },
-          headerLogoHeight: { type: 'number', description: '页眉 Logo 高度，单位 px，范围 10-70' },
-          headerLogoOpacity: { type: 'number', description: '页眉 Logo 透明度，范围 0-1' },
-          headerLeftTextOffset: { type: 'number', description: '页眉左侧文本水平偏移，单位 px' },
-          headerLogoTopOffset: { type: 'number', description: '页眉 Logo 顶部偏移，单位 px' },
-          footerShow: { type: 'boolean', description: '是否展示页脚' },
-          footerLeftText: { type: 'string', description: '页脚左侧文本' },
-          footerCenterText: { type: 'string', description: '页脚居中文本' },
-          footerRightText: { type: 'string', description: '页脚右侧文本' },
-          footerHideOnCover: { type: 'boolean', description: '封面是否隐藏页脚' },
-          pageNumberFormat: {
-            type: 'string',
-            enum: ['page', 'pageOfTotal', 'hyphen', 'simple', 'none'],
-            description: '页码显示格式 (page: "第 X 页", pageOfTotal: "第 X 页 / 共 Y 页", hyphen: "- X -", simple: "X / Y", none: "无")'
-          },
-          pageNumberPosition: {
-            type: 'string',
-            enum: ['left', 'center', 'right'],
-            description: '页码位置'
-          }
+          ...buildProperties(HEADER_FIELDS),
+          ...buildProperties(FOOTER_FIELDS)
         }
       }
     }
@@ -312,58 +242,20 @@ export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
       parameters: {
         type: 'object',
         properties: {
-          show: { type: 'boolean', description: '是否生成并展示文档目录' },
-          title: { type: 'string', description: '目录标题文本 (如 "目 录")' },
-          titleCenter: { type: 'boolean', description: '目录标题是否居中' },
-          titleStyle: {
-            type: 'string',
-            enum: ['underline', 'accent-block', 'badge', 'minimal'],
-            description: '目录标题表达形式'
-          },
+          ...buildProperties(TOC_FIELDS),
           titleFont: {
             type: 'object',
             description: '目录页标题的字体、字号、字形与段前段后，可仅提供需要修改的字段',
-            properties: {
-              fontFamily: { type: 'string', description: '字体名称，inherit 表示跟随文档字体' },
-              fontSize: { type: 'number', description: '字号 px' },
-              bold: { type: 'boolean', description: '是否加粗' },
-              italic: { type: 'boolean', description: '是否倾斜' },
-              underline: { type: 'boolean', description: '是否加下划线' },
-              marginBefore: { type: 'number', description: '段前间距 px' },
-              marginAfter: { type: 'number', description: '段后间距 px' }
-            }
+            properties: buildSubProperties(HEADING_FONT_FIELDS)
           },
           levelStyles: {
             type: 'array',
             description: '1~4 级目录项的字体与样式，数组第 0~3 项分别对应 1~4 级目录项，可仅提供需要修改的级别与字段',
             items: {
               type: 'object',
-              properties: {
-                fontFamily: { type: 'string', description: '字体名称，inherit 表示跟随文档字体' },
-                fontSize: { type: 'number', description: '字号 px' },
-                bold: { type: 'boolean', description: '是否加粗' },
-                italic: { type: 'boolean', description: '是否倾斜' },
-                underline: { type: 'boolean', description: '是否加下划线' },
-                marginBefore: { type: 'number', description: '段前间距 px' },
-                marginAfter: { type: 'number', description: '段后间距 px' },
-                paddingLeft: { type: 'number', description: '左缩进 px' }
-              }
+              properties: buildSubProperties(TOC_LEVEL_FONT_FIELDS)
             }
-          },
-          maxDepth: { type: 'number', enum: [1, 2, 3, 4], description: '目录提取的最大标题深度' },
-          headingNumbering: {
-            type: 'string',
-            enum: ['none', 'decimal', 'chinese', 'decimal-skip-h1'],
-            description: '目录和标题的自动编号方式'
-          },
-          leaderStyle: {
-            type: 'string',
-            enum: ['dots', 'dashes', 'line', 'none'],
-            description: '目录项与页码之间的连接引导线样式'
-          },
-          showPageNumbers: { type: 'boolean', description: '是否显示目录项页码' },
-          pageBreakAfter: { type: 'boolean', description: '目录页结束后是否强制分页另起一页' },
-          titleOnEveryPage: { type: 'boolean', description: '目录分成多页时是否每页都显示目录标题（默认 false，仅第一页显示）' }
+          }
         }
       }
     }

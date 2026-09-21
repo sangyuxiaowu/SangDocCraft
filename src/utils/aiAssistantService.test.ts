@@ -456,4 +456,57 @@ describe('AI assistant setting tools', () => {
     expect(theme.style.lineHeight).toBe(1.9);
     expect(theme.style.watermark?.text).toBe('用户手改');
   });
+
+  it('validates enum values and numeric ranges declared in the field spec', async () => {
+    const tools = createTools('# Test');
+    const styleTool = tools.find(item => item.definition.function.name === 'update_document_style')!;
+    const headerFooterTool = tools.find(item => item.definition.function.name === 'update_header_footer_config')!;
+
+    await expect(styleTool.handler({ h1Style: 'underlined' }))
+      .rejects.toThrow('可选值：underline、accent-block、badge、minimal');
+    await expect(styleTool.handler({ fontSize: -2 })).rejects.toThrow('fontSize 不能小于 1');
+    await expect(styleTool.handler({ watermark: { opacity: 1.5 } })).rejects.toThrow('opacity 不能大于 1');
+    await expect(headerFooterTool.handler({ headerLogoOpacity: 2 })).rejects.toThrow('headerLogoOpacity 不能大于 1');
+    await expect(styleTool.handler({ lineHeight: 1.7 })).resolves.toBe('更新成功');
+
+    // schema 与校验同源：枚举与范围会同时出现在下发给模型的 parameters 里
+    const styleProperties = styleTool.definition.function.parameters.properties as Record<string, Record<string, unknown>>;
+    expect(styleProperties.h1Style).toMatchObject({ type: 'string', enum: ['underline', 'accent-block', 'badge', 'minimal'] });
+    expect(styleProperties.lineHeight).toMatchObject({ type: 'number', minimum: 0.5, maximum: 5 });
+    expect(styleProperties.watermark).toMatchObject({
+      type: 'object',
+      properties: { opacity: { type: 'number', minimum: 0, maximum: 1 } },
+    });
+  });
+
+  it('drops unknown keys of nested config objects instead of persisting them', async () => {
+    let theme: DocumentTheme = structuredClone(getRegisteredThemes()[0]);
+    const tools = buildAiTools({
+      markdown: '# Test',
+      getTheme: () => theme,
+      settings: { historyEnabled: true, historyIdleMinutes: 10 },
+      onUpdateTheme: update => { theme = typeof update === 'function' ? update(theme) : update; },
+      onUpdateSettings: () => undefined,
+      onSetHistory: () => undefined,
+      onStartDiffReview: session => Promise.resolve({ markdown: session.modifiedText, acceptedCount: 1, rejectedCount: 0, cancelled: false }),
+      onCancelDiffReview: () => undefined,
+    });
+    const styleTool = tools.find(item => item.definition.function.name === 'update_document_style')!;
+
+    await expect(styleTool.handler({
+      watermark: { show: true, text: '机密', opacity: 0.2, typoField: 'should-be-dropped' },
+    })).resolves.toBe('更新成功');
+
+    expect(theme.style.watermark).toMatchObject({ show: true, text: '机密', opacity: 0.2 });
+    expect(theme.style.watermark).not.toHaveProperty('typoField');
+  });
+
+  it('reports invalid enum values instead of a misleading incomplete update', async () => {
+    const tools = createTools('# Test');
+    const tocTool = tools.find(item => item.definition.function.name === 'update_toc_config')!;
+
+    // 旧实现把 '' 当成「未提供」而不写入，却仍参与校验，最终报出误导性的「更新未完成」
+    await expect(tocTool.handler({ titleStyle: '' })).rejects.toThrow('titleStyle 取值非法');
+    await expect(tocTool.handler({ title: '' })).resolves.toBe('更新成功');
+  });
 });
