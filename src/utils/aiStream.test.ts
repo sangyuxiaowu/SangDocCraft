@@ -105,6 +105,35 @@ describe('AI tool execution flow', () => {
     expect(result.assistantMessage.content).toBe('边界测试完成');
   });
 
+  it('skips get_document_summary when the same batch also requests get_document_state', async () => {
+    const stateHandler = vi.fn(async () => '{"meta":{"title":"文档"}}');
+    const summaryHandler = vi.fn(async () => '{"markdownLength":0}');
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(streamResponse({
+        tool_calls: [
+          { index: 0, id: 'call-state', function: { name: 'get_document_state', arguments: '{}' } },
+          { index: 1, id: 'call-summary', function: { name: 'get_document_summary', arguments: '{}' } },
+        ],
+      }))
+      .mockResolvedValueOnce(streamResponse({ content: '已完成' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await streamConversation({
+      config,
+      messages: [{ role: 'user', content: '看下当前配置' }],
+      tools: [runtime('get_document_state', stateHandler), runtime('get_document_summary', summaryHandler)],
+    });
+
+    expect(stateHandler).toHaveBeenCalledOnce();
+    expect(summaryHandler).not.toHaveBeenCalled();
+    const toolMessages = result.transcript.filter(message => message.role === 'tool');
+    expect(toolMessages).toMatchObject([
+      { toolCallId: 'call-state', content: '{"meta":{"title":"文档"}}', toolStatus: 'success' },
+      { toolCallId: 'call-summary', toolStatus: 'success' },
+    ]);
+    expect(toolMessages[1].content).toContain('跳过');
+  });
+
   it('rejects an entire tool-call batch containing multiple Markdown editors', async () => {
     const editHandler = vi.fn(async () => 'edited');
     const stateHandler = vi.fn(async () => 'state');

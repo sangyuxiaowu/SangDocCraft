@@ -383,6 +383,8 @@ async function executeAssistantToolCalls(
   const toolMessages: AiChatMessage[] = [];
   const toolCalls = assistantMessage.toolCalls || [];
   const markdownEditCount = toolCalls.filter(toolCall => toolCall.function.name === 'edit_markdown_content').length;
+  // get_document_state 已包含 get_document_summary 的全部字段，同批同时调用时跳过后者的重复执行。
+  const hasDocumentState = toolCalls.some(toolCall => toolCall.function.name === 'get_document_state');
 
   if (markdownEditCount > 1) {
     const message = formatToolErrorMessage(
@@ -425,6 +427,20 @@ async function executeAssistantToolCalls(
         toolStatus: 'error'
       });
       return { completed: false, toolMessages };
+    }
+
+    if (hasDocumentState && toolName === 'get_document_summary') {
+      const skippedResult = 'get_document_state 已包含 get_document_summary 的全部字段，本次重复调用已跳过。';
+      options.onToolResult?.({ id: toolCall.id, name: toolName, result: skippedResult, isError: false });
+      toolMessages.push({
+        role: 'tool',
+        toolCallId: toolCall.id,
+        name: toolName,
+        content: skippedResult,
+        toolStatus: 'success',
+        toolRetryable: false
+      });
+      continue;
     }
 
     try {
