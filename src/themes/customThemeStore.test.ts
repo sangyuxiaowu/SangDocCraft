@@ -28,7 +28,7 @@ describe('customThemeStore', () => {
   it('rejects themes with unknown cover templates', () => {
     expect(() => validateTheme({
       ...PRESET_THEMES[0],
-      meta: { ...PRESET_THEMES[0].meta, coverStyle: 'missing-cover' },
+      cover: { ...PRESET_THEMES[0].cover, coverStyle: 'missing-cover' },
     })).toThrow('未注册的封面模板');
   });
 });
