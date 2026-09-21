@@ -361,6 +361,10 @@ export const AiAssistantFloat: React.FC<AiAssistantFloatProps> = ({
     setSessions([]);
   };
 
+  // 每次请求都基于最新文档状态新建一套工具：工具 handler 会持有正文/主题基线，不能跨请求复用。
+  // 统一在此构造，避免多个调用点各自实现导致行为漂移。
+  const createRequestTools = () => buildAiTools(toolContext);
+
   const generateResponse = async (baseMessages: AiChatMessage[], targetSessionId: string) => {
     const requestConfig = toAiRequestConfig(config);
     if (!requestConfig || !requestConfig.apiKey) {
@@ -382,7 +386,7 @@ export const AiAssistantFloat: React.FC<AiAssistantFloatProps> = ({
       const result = await streamConversation({
         config: requestConfig,
         messages: [{ role: 'system', content: systemPrompt }, ...baseMessages],
-        tools: buildAiTools(toolContext),
+        tools: createRequestTools(),
         signal: abortController.signal,
         onReasoningChunk: chunk => setCurrentReasoning(previous => previous + chunk),
         onTextChunk: chunk => setCurrentText(previous => previous + chunk),
@@ -484,7 +488,7 @@ export const AiAssistantFloat: React.FC<AiAssistantFloatProps> = ({
       const result = await retryPendingToolCalls({
         config: requestConfig,
         messages: [{ role: 'system', content: systemPrompt }, ...messages],
-        tools: buildAiTools(toolContext),
+        tools: createRequestTools(),
         signal: abortController.signal,
         onReasoningChunk: chunk => setCurrentReasoning(previous => previous + chunk),
         onTextChunk: chunk => setCurrentText(previous => previous + chunk),
