@@ -46,6 +46,7 @@ describe('AI assistant setting tools', () => {
     expect(JSON.parse(await summaryTool!.handler({}))).toEqual({
       markdownLength: 7,
       totalLines: 2,
+      historyEnabled: true,
       outline: [{ level: 1, text: '标题', line: 1 }],
     });
   });
@@ -273,8 +274,10 @@ describe('AI assistant setting tools', () => {
     const stateTool = tools.find(item => item.definition.function.name === 'get_document_state');
     const state = JSON.parse(await stateTool!.handler({})) as Record<string, unknown>;
     expect(state).toMatchObject({
-      title: '企业级云原生中台系统架构设计说明书',
-      primaryColor: '#0b2545',
+      meta: { title: '企业级云原生中台系统架构设计说明书', organization: 'Sang科技有限公司' },
+      cover: { logo: '@images/img-logo-test', logoHeight: 56, coverListColumns: 2 },
+      color: { primaryColor: '#0b2545' },
+      style: { lineHeight: 1.8, latinFontFamily: 'Arial', paginationMode: 'manual' },
     });
 
     const tocTool = tools.find(item => item.definition.function.name === 'update_toc_config');
@@ -357,5 +360,37 @@ describe('AI assistant setting tools', () => {
     expect(history).toHaveLength(1);
     expect(history[0].theme.style.primaryColor).toBe('#0b2545');
     expect(history[0].markdown).toBe('# 标题\n正文');
+  });
+
+  it('groups the document state into meta, cover, header, footer, toc, color, style and watermark', async () => {
+    const tools = createTools('# 标题');
+    const stateTool = tools.find(item => item.definition.function.name === 'get_document_state')!;
+    const state = JSON.parse(await stateTool.handler({})) as Record<string, unknown>;
+    const style = state.style as Record<string, unknown>;
+
+    expect(state).toMatchObject({
+      markdownLength: 4,
+      totalLines: 1,
+      historyEnabled: true,
+      outline: [{ level: 1, text: '标题', line: 1 }],
+      meta: { title: expect.any(String), department: expect.any(String) },
+      cover: { showCover: expect.any(Boolean), coverStyle: expect.any(String) },
+      header: { show: expect.any(Boolean), lineStyle: expect.any(String) },
+      footer: { show: expect.any(Boolean), pageNumberFormat: expect.any(String) },
+      toc: { maxDepth: expect.any(Number), levelStyles: expect.any(Array) },
+      color: {
+        primaryColor: expect.any(String),
+        accentColor: expect.any(String),
+        textColor: expect.any(String),
+        backgroundColor: expect.any(String),
+        coverBgColor: expect.any(String),
+      },
+      watermark: null,
+    });
+    expect(style).toMatchObject({ fontFamily: expect.any(String), fontSize: expect.any(Number), h1Style: expect.any(String) });
+    expect(style).not.toHaveProperty('primaryColor');
+    expect(style).not.toHaveProperty('watermark');
+    expect(state).not.toHaveProperty('title');
+    expect(state).not.toHaveProperty('primaryColor');
   });
 });

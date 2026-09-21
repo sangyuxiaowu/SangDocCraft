@@ -23,7 +23,7 @@ export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
     type: 'function',
     function: {
       name: 'get_document_state',
-      description: '获取当前交付文档的配置状态、Markdown 长度、总行数和章节骨架。',
+      description: '获取当前交付文档的总体配置状态：正文撰写情况（正文统计长度、总行数、历史记录开关和章节大纲）、文档元数据（标题/副标题/作者/部门/机构/日期/版本/编号）、封面配置信息、header、footer、toc、color（配色）、style（字体/字号/行高/标题与列表样式/图片与表格题注等排版项）、watermark',
       parameters: {
         type: 'object',
         properties: {}
@@ -34,7 +34,7 @@ export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
     type: 'function',
     function: {
       name: 'get_document_summary',
-      description: '获取当前 Markdown 的长度、总行数和章节大纲，用于在正文修改完成后快速确认最新文档结构。',
+      description: '获取当前正文统计长度、总行数、历史记录开关和章节大纲，用于在正文修改完成后快速确认最新文档结构。本工具是 get_document_state 的子集',
       parameters: {
         type: 'object',
         properties: {}

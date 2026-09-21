@@ -198,22 +198,16 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
     {
       definition: AI_TOOL_DEFINITIONS.get_document_state,
       handler: async () => {
+        // 按配置分区返回，避免扁平字段与完整对象重复；meta 拆出 cover 是为了对齐封面展示项。
+        const { title, subtitle, author, department, organization, date, version, number, ...cover } = currentTheme.meta;
+        const { primaryColor, accentColor, textColor, backgroundColor, coverBgColor, watermark, ...style } = currentTheme.style;
         return JSON.stringify({
-          title: currentTheme.meta.title,
-          subtitle: currentTheme.meta.subtitle,
-          author: currentTheme.meta.author,
-          organization: currentTheme.meta.organization,
-          version: currentTheme.meta.version,
-          date: currentTheme.meta.date,
-          coverStyle: currentTheme.meta.coverStyle,
-          showCover: currentTheme.meta.showCover,
-          primaryColor: currentTheme.style.primaryColor,
-          accentColor: currentTheme.style.accentColor,
-          fontFamily: currentTheme.style.fontFamily,
-          fontSize: currentTheme.style.fontSize,
-          h1Style: currentTheme.style.h1Style,
-          indentParagraph: currentTheme.style.indentParagraph,
-          h1PageBreak: currentTheme.style.h1PageBreak,
+          markdownLength: currentMarkdown.length,
+          totalLines: getMarkdownLines(currentMarkdown).length,
+          historyEnabled: currentSettings.historyEnabled,
+          outline: getMarkdownOutline(currentMarkdown),
+          meta: { title, subtitle, author, department, organization, date, version, number },
+          cover,
           header: currentTheme.header,
           footer: currentTheme.footer,
           toc: {
@@ -221,12 +215,9 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
             titleFont: getTocTitleFont(currentTheme.toc),
             levelStyles: getTocLevelStyles(currentTheme.toc)
           },
-          meta: currentTheme.meta,
-          style: currentTheme.style,
-          historyEnabled: currentSettings.historyEnabled,
-          markdownLength: currentMarkdown.length,
-          totalLines: getMarkdownLines(currentMarkdown).length,
-          outline: getMarkdownOutline(currentMarkdown)
+          color: { primaryColor, accentColor, textColor, backgroundColor, coverBgColor },
+          style,
+          watermark: watermark ?? null
         }, null, 2);
       }
     },
@@ -235,6 +226,7 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
       handler: async () => JSON.stringify({
         markdownLength: currentMarkdown.length,
         totalLines: getMarkdownLines(currentMarkdown).length,
+        historyEnabled: currentSettings.historyEnabled,
         outline: getMarkdownOutline(currentMarkdown)
       }, null, 2)
     },
