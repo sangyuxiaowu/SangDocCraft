@@ -22,34 +22,36 @@ describe('AI assistant setting tools', () => {
     });
   };
 
-  it('returns document size and outline without Markdown content', async () => {
+  it('returns document summary with meta but without Markdown content', async () => {
     const markdown = '# 项目概述\n正文\n\n## 背景说明\n细节';
     const tools = createTools(markdown);
-    const stateTool = tools.find(item => item.definition.function.name === 'get_document_state');
+    const summaryTool = tools.find(item => item.definition.function.name === 'get_document_summary');
 
-    const state = JSON.parse(await stateTool!.handler({})) as Record<string, unknown>;
+    const summary = JSON.parse(await summaryTool!.handler({})) as Record<string, unknown>;
 
-    expect(state).toMatchObject({
+    expect(summary).toMatchObject({
       markdownLength: markdown.length,
       totalLines: 5,
       outline: [
         { level: 1, text: '项目概述', line: 1 },
         { level: 2, text: '背景说明', line: 4 },
       ],
+      meta: { title: expect.any(String), department: expect.any(String) },
     });
-    expect(state).not.toHaveProperty('markdownPreview');
-    expect(JSON.stringify(state)).not.toContain('正文');
+    expect(summary).not.toHaveProperty('markdownPreview');
+    expect(JSON.stringify(summary)).not.toContain('正文');
   });
 
-  it('returns only the lightweight Markdown summary fields', async () => {
+  it('returns lightweight Markdown summary fields and meta', async () => {
     const tools = createTools('# 标题\n正文');
     const summaryTool = tools.find(item => item.definition.function.name === 'get_document_summary');
 
-    expect(JSON.parse(await summaryTool!.handler({}))).toEqual({
+    expect(JSON.parse(await summaryTool!.handler({}))).toMatchObject({
       markdownLength: 7,
       totalLines: 2,
       historyEnabled: true,
       outline: [{ level: 1, text: '标题', line: 1 }],
+      meta: expect.any(Object),
     });
   });
 
@@ -270,9 +272,9 @@ describe('AI assistant setting tools', () => {
       ],
     });
 
-    const stateTool = tools.find(item => item.definition.function.name === 'get_document_state');
-    const state = JSON.parse(await stateTool!.handler({})) as Record<string, unknown>;
-    expect(state).toMatchObject({
+    const configTool = tools.find(item => item.definition.function.name === 'get_document_config');
+    const config = JSON.parse(await configTool!.handler({ types: ['meta', 'cover', 'color', 'style'] })) as Record<string, unknown>;
+    expect(config).toMatchObject({
       meta: { title: '企业级云原生中台系统架构设计说明书', organization: 'Sang科技有限公司' },
       cover: { logoUrl: '@images/img-logo-test', logoHeight: 56, coverListColumns: 2 },
       color: { primaryColor: '#0b2545' },
@@ -360,17 +362,13 @@ describe('AI assistant setting tools', () => {
     expect(history[0].markdown).toBe('# 标题\n正文');
   });
 
-  it('groups the document state into meta, cover, header, footer, toc, color, style and watermark', async () => {
+  it('returns selected document config sections and supports all', async () => {
     const tools = createTools('# 标题');
-    const stateTool = tools.find(item => item.definition.function.name === 'get_document_state')!;
-    const state = JSON.parse(await stateTool.handler({})) as Record<string, unknown>;
-    const style = state.style as Record<string, unknown>;
+    const configTool = tools.find(item => item.definition.function.name === 'get_document_config')!;
+    const config = JSON.parse(await configTool.handler({ types: ['all'] })) as Record<string, unknown>;
+    const style = config.style as Record<string, unknown>;
 
-    expect(state).toMatchObject({
-      markdownLength: 4,
-      totalLines: 1,
-      historyEnabled: true,
-      outline: [{ level: 1, text: '标题', line: 1 }],
+    expect(config).toMatchObject({
       meta: { title: expect.any(String), department: expect.any(String) },
       cover: { showCover: expect.any(Boolean), coverStyle: expect.any(String) },
       header: { show: expect.any(Boolean), lineStyle: expect.any(String) },
@@ -388,8 +386,11 @@ describe('AI assistant setting tools', () => {
     expect(style).toMatchObject({ fontFamily: expect.any(String), fontSize: expect.any(Number), h1Style: expect.any(String) });
     expect(style).not.toHaveProperty('primaryColor');
     expect(style).not.toHaveProperty('watermark');
-    expect(state).not.toHaveProperty('title');
-    expect(state).not.toHaveProperty('primaryColor');
+    expect(config).not.toHaveProperty('title');
+    expect(config).not.toHaveProperty('primaryColor');
+
+    const selected = JSON.parse(await configTool.handler({ types: ['meta', 'watermark'] })) as Record<string, unknown>;
+    expect(selected).toEqual({ meta: expect.any(Object), watermark: null });
   });
 
   it('supports regex replacement with capture groups when useRegex is set', async () => {

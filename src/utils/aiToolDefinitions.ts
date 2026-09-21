@@ -40,7 +40,7 @@ function buildSubProperties(specs: SubFieldSpecs): Record<string, unknown> {
 
 /** AI 工具名，同时作为 AI_TOOL_DEFINITIONS 的键 */
 export type AiToolName =
-  | 'get_document_state'
+  | 'get_document_config'
   | 'get_document_summary'
   | 'get_markdown_content'
   | 'edit_markdown_content'
@@ -57,14 +57,24 @@ export type AiToolName =
  * 避免每次 buildAiTools 都重建整套 schema；新增或调整字段只需改这里。
  */
 export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
-  get_document_state: {
+  get_document_config: {
     type: 'function',
     function: {
-      name: 'get_document_state',
-      description: '获取当前交付文档的总体配置状态：正文撰写情况（正文统计长度、总行数、历史记录开关和章节大纲）、文档元数据（标题/副标题/作者/部门/机构/日期/版本/编号）、封面配置信息、header、footer、toc、color（配色）、style（字体/字号/行高/标题与列表样式/图片与表格题注等排版项）、watermark',
+      name: 'get_document_config',
+      description: '获取当前交付文档的配置信息。可按类型读取文档元数据、封面、页眉、页脚、目录、配色、排版样式或水印；省略 types 或提供 all 时返回全部配置。',
       parameters: {
         type: 'object',
-        properties: {}
+        properties: {
+          types: {
+            type: 'array',
+            description: '要获取的配置类型。可选 meta、cover、header、footer、toc、color、style、watermark；传入 all 或不传时返回全部配置。',
+            items: {
+              type: 'string',
+              enum: ['all', 'meta', 'cover', 'header', 'footer', 'toc', 'color', 'style', 'watermark']
+            },
+            minItems: 1
+          }
+        }
       }
     }
   },
@@ -72,7 +82,7 @@ export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
     type: 'function',
     function: {
       name: 'get_document_summary',
-      description: '获取当前正文统计长度、总行数、历史记录开关和章节大纲，用于在正文修改完成后快速确认最新文档结构。本工具是 get_document_state 的子集',
+      description: '获取当前正文统计长度、总行数、历史记录开关、章节大纲和文档元数据，用于在正文修改完成后快速确认最新文档结构。',
       parameters: {
         type: 'object',
         properties: {}

@@ -91,6 +91,22 @@ interface MarkdownHeading {
   line: number;
 }
 
+const DOCUMENT_CONFIG_TYPES = ['meta', 'cover', 'header', 'footer', 'toc', 'color', 'style', 'watermark'] as const;
+type DocumentConfigType = typeof DOCUMENT_CONFIG_TYPES[number];
+
+function readDocumentConfigTypes(value: unknown): DocumentConfigType[] {
+  if (value === undefined) return [...DOCUMENT_CONFIG_TYPES];
+  if (!Array.isArray(value) || value.length === 0 || value.some(type => typeof type !== 'string')) {
+    throw new AiToolExecutionError('invalid_arguments', 'types 必须是包含至少一个配置类型的数组。');
+  }
+  if (value.includes('all')) return [...DOCUMENT_CONFIG_TYPES];
+  const invalidTypes = value.filter(type => !DOCUMENT_CONFIG_TYPES.includes(type as DocumentConfigType));
+  if (invalidTypes.length > 0) {
+    throw new AiToolExecutionError('invalid_arguments', `不支持的配置类型：${invalidTypes.join(', ')}。`);
+  }
+  return [...new Set(value)] as DocumentConfigType[];
+}
+
 function getMarkdownLines(markdown: string): string[] {
   return markdown.split(/\r?\n/);
 }
@@ -266,16 +282,12 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
 
   return [
     {
-      definition: AI_TOOL_DEFINITIONS.get_document_state,
-      handler: async () => {
-        // 按配置分区返回，避免扁平字段与完整对象重复。
+      definition: AI_TOOL_DEFINITIONS.get_document_config,
+      handler: async (args) => {
+        const types = readDocumentConfigTypes(args.types);
         const theme = context.getTheme();
         const { primaryColor, accentColor, textColor, backgroundColor, coverBgColor, watermark, ...style } = theme.style;
-        return JSON.stringify({
-          markdownLength: currentMarkdown.length,
-          totalLines: getMarkdownLines(currentMarkdown).length,
-          historyEnabled: currentSettings.historyEnabled,
-          outline: getMarkdownOutline(currentMarkdown),
+        const config: Record<DocumentConfigType, unknown> = {
           meta: theme.meta,
           cover: theme.cover,
           header: theme.header,
@@ -288,7 +300,8 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
           color: { primaryColor, accentColor, textColor, backgroundColor, coverBgColor },
           style,
           watermark: watermark ?? null
-        }, null, 2);
+        };
+        return JSON.stringify(Object.fromEntries(types.map(type => [type, config[type]])), null, 2);
       }
     },
     {
@@ -297,7 +310,8 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
         markdownLength: currentMarkdown.length,
         totalLines: getMarkdownLines(currentMarkdown).length,
         historyEnabled: currentSettings.historyEnabled,
-        outline: getMarkdownOutline(currentMarkdown)
+        outline: getMarkdownOutline(currentMarkdown),
+        meta: context.getTheme().meta
       }, null, 2)
     },
     {

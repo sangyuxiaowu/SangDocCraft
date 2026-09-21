@@ -105,13 +105,13 @@ describe('AI tool execution flow', () => {
     expect(result.assistantMessage.content).toBe('边界测试完成');
   });
 
-  it('skips get_document_summary when the same batch also requests get_document_state', async () => {
-    const stateHandler = vi.fn(async () => '{"meta":{"title":"文档"}}');
+  it('executes get_document_summary and get_document_config in the same batch', async () => {
+    const configHandler = vi.fn(async () => '{"meta":{"title":"文档"}}');
     const summaryHandler = vi.fn(async () => '{"markdownLength":0}');
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(streamResponse({
         tool_calls: [
-          { index: 0, id: 'call-state', function: { name: 'get_document_state', arguments: '{}' } },
+          { index: 0, id: 'call-config', function: { name: 'get_document_config', arguments: '{}' } },
           { index: 1, id: 'call-summary', function: { name: 'get_document_summary', arguments: '{}' } },
         ],
       }))
@@ -121,17 +121,16 @@ describe('AI tool execution flow', () => {
     const result = await streamConversation({
       config,
       messages: [{ role: 'user', content: '看下当前配置' }],
-      tools: [runtime('get_document_state', stateHandler), runtime('get_document_summary', summaryHandler)],
+      tools: [runtime('get_document_config', configHandler), runtime('get_document_summary', summaryHandler)],
     });
 
-    expect(stateHandler).toHaveBeenCalledOnce();
-    expect(summaryHandler).not.toHaveBeenCalled();
+    expect(configHandler).toHaveBeenCalledOnce();
+    expect(summaryHandler).toHaveBeenCalledOnce();
     const toolMessages = result.transcript.filter(message => message.role === 'tool');
     expect(toolMessages).toMatchObject([
-      { toolCallId: 'call-state', content: '{"meta":{"title":"文档"}}', toolStatus: 'success' },
-      { toolCallId: 'call-summary', toolStatus: 'success' },
+      { toolCallId: 'call-config', content: '{"meta":{"title":"文档"}}', toolStatus: 'success' },
+      { toolCallId: 'call-summary', content: '{"markdownLength":0}', toolStatus: 'success' },
     ]);
-    expect(toolMessages[1].content).toContain('跳过');
   });
 
   it('rejects an entire tool-call batch containing multiple Markdown editors', async () => {
