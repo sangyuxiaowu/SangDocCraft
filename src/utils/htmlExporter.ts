@@ -657,6 +657,18 @@ export function generateStandaloneHtml(
     .doc-img-border-rounded { border-radius: 12px; border: 1px solid #cbd5e1; }
     .doc-image-caption { margin-top: 6px; font-size: 0.85em; color: #64748b; font-weight: 600; line-height: 1.4; }
     .doc-table-caption { margin-top: 4px; margin-bottom: 6px; font-size: 0.88em; color: #475569; font-weight: 600; line-height: 1.4; }
+    .export-attribution{
+      text-align: center;
+      color: #d3d3d3;
+      font-size: 11px;
+    }
+    .export-attribution a {
+      color: #d3d3d3;
+      text-decoration: none;
+    }
+    .export-attribution a:hover {
+      text-decoration: underline;
+    }
 
     ${getMarkdownBodyCss('.markdown-content', style)}
 
@@ -737,6 +749,10 @@ export function generateStandaloneHtml(
         z-index: 1;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+      }
+
+      .export-attribution {
+        display: none !important;
       }
     }
   </style>
@@ -828,6 +844,9 @@ export function generateStandaloneHtml(
   `;
     }).join('');
   })()}
+  <div class="export-attribution">
+    本文档由 SangDocCraft 生成 · 开源地址：<a href="https://github.com/sangyuxiaowu/SangDocCraft?wt.mc_id=DT-MVP-5005195">https://github.com/sangyuxiaowu/SangDocCraft</a> · 工具版本：v${__APP_VERSION__}
+  </div>
 </body>
 </html>`;
 }

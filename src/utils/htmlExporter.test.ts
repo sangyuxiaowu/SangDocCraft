@@ -5,6 +5,19 @@ import { generateStandaloneHtml } from './htmlExporter';
 import { containsMath, ensureMathLoaded } from './mathRenderer';
 
 describe('generateStandaloneHtml', () => {
+  it('adds a non-printing attribution after all document pages', () => {
+    const html = generateStandaloneHtml('# Body', PRESET_THEMES[0]);
+    document.documentElement.innerHTML = html;
+
+    const attribution = document.querySelector('.export-attribution')!;
+    expect(document.body.lastElementChild).toBe(attribution);
+    expect(attribution.textContent).toContain('SangDocCraft');
+    expect(attribution.textContent).toMatch(/工具版本：v\d/);
+    expect(attribution.querySelector('a')?.href).toBe('https://github.com/sangyuxiaowu/SangDocCraft?wt.mc_id=DT-MVP-5005195');
+    expect(html).toContain('.export-attribution {\n        display: none !important;');
+    document.documentElement.innerHTML = '';
+  });
+
   it('embeds rendered LaTeX formulas as self-contained SVG', async () => {
     await ensureMathLoaded();
     expect(containsMath('公式 $E = mc^2$ 与 $\\alpha$')).toBe(true);
