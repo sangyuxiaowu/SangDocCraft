@@ -159,6 +159,12 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
   let currentSettings = context.settings;
 
   const submitMarkdownEdit = async (newMarkdown: string, description: string): Promise<string> => {
+    const hunks = createDiffHunks(currentMarkdown, newMarkdown);
+    const changeHunks = hunks.filter(h => h.type === 'change');
+    if (changeHunks.length === 0) {
+      return '正文内容与原文档完全一致，无需进行变更。';
+    }
+
     let historyNotice = '';
     if (!currentSettings.historyEnabled) {
       currentSettings = { ...currentSettings, historyEnabled: true };
@@ -166,14 +172,9 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
       historyNotice = '（已自动开启版本历史记录并为原文档创建了安全存档快照）';
     }
 
-    const snapshot = await createHistoryEntry(currentMarkdown, context.theme, 'manual');
+    // 同一轮里主题可能已被前面的调用改过，快照必须记录最新主题，否则回滚会带回旧样式。
+    const snapshot = await createHistoryEntry(currentMarkdown, currentTheme, 'manual');
     context.onSetHistory(prev => appendUniqueHistory(prev, snapshot));
-
-    const hunks = createDiffHunks(currentMarkdown, newMarkdown);
-    const changeHunks = hunks.filter(h => h.type === 'change');
-    if (changeHunks.length === 0) {
-      return `正文内容与原文档完全一致，无需进行变更。${historyNotice}`;
-    }
 
     const reviewResult = await context.onStartDiffReview({
       id: `diff-${Date.now()}`,
@@ -251,7 +252,8 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
           if (args.offset !== undefined || args.limit !== undefined) {
             throw new AiToolExecutionError('invalid_arguments', 'heading 与 offset/limit 不可同时使用。');
           }
-          const matches = getMarkdownOutline(currentMarkdown).filter(item => item.text === heading);
+          const outline = getMarkdownOutline(currentMarkdown);
+          const matches = outline.filter(item => item.text === heading);
           if (matches.length !== 1) {
             throw new AiToolExecutionError(
               'invalid_arguments',
@@ -261,8 +263,7 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
             );
           }
           const selected = matches[0];
-          const nextHeading = getMarkdownOutline(currentMarkdown)
-            .find(item => item.line > selected.line && item.level <= selected.level);
+          const nextHeading = outline.find(item => item.line > selected.line && item.level <= selected.level);
           startLine = selected.line;
           endLine = nextHeading ? nextHeading.line - 1 : lines.length;
         }
@@ -616,16 +617,28 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
         currentTheme = applyUpdate(currentTheme);
         context.onUpdateTheme(applyUpdate);
         const nextToc = currentTheme.toc;
-        const titleFont = getTocTitleFont(nextToc);
-        const levelStyles = getTocLevelStyles(nextToc);
         const checks: UpdateVerification[] = [];
-        const fieldMap: Record<string, unknown> = {
-          show: nextToc.show, title: nextToc.title, titleCenter: nextToc.titleCenter, titleStyle: nextToc.titleStyle,
-          titleFont, levelStyles, maxDepth: nextToc.maxDepth, headingNumbering: nextToc.headingNumbering,
-          leaderStyle: nextToc.leaderStyle, showPageNumbers: nextToc.showPageNumbers,
-          pageBreakAfter: nextToc.pageBreakAfter, titleOnEveryPage: nextToc.titleOnEveryPage,
-        };
-        Object.entries(args).forEach(([field, expected]) => addUpdateVerification(checks, field, expected, fieldMap[field]));
+        const scalarFields: Array<[string, unknown]> = [
+          ['show', nextToc.show], ['title', nextToc.title], ['titleCenter', nextToc.titleCenter],
+          ['titleStyle', nextToc.titleStyle], ['maxDepth', nextToc.maxDepth],
+          ['headingNumbering', nextToc.headingNumbering], ['leaderStyle', nextToc.leaderStyle],
+          ['showPageNumbers', nextToc.showPageNumbers], ['pageBreakAfter', nextToc.pageBreakAfter],
+          ['titleOnEveryPage', nextToc.titleOnEveryPage],
+        ];
+        scalarFields.forEach(([argument, actual]) => {
+          if (args[argument] !== undefined) checks.push({ field: argument, expected: args[argument], actual });
+        });
+        if (typeof args.titleFont === 'object' && args.titleFont !== null) {
+          addUpdateVerification(checks, 'titleFont', pickTocFontFields(args.titleFont), getTocTitleFont(nextToc));
+        }
+        if (Array.isArray(args.levelStyles)) {
+          const levelStyles = getTocLevelStyles(nextToc);
+          args.levelStyles.forEach((update, index) => {
+            const fields = pickTocFontFields(update);
+            if (index >= levelStyles.length || Object.keys(fields).length === 0) return;
+            addUpdateVerification(checks, `levelStyles[${index}]`, fields, levelStyles[index]);
+          });
+        }
         return formatUpdateVerification(checks);
       }
     }

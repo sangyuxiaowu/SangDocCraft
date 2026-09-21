@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { getRegisteredThemes } from '../themes/themeRegistry';
-import type { DocumentSettings, DocumentTheme } from '../types';
+import type { DocumentHistoryEntry, DocumentSettings, DocumentTheme } from '../types';
 import { buildAiTools } from './aiAssistantService';
 
 describe('AI assistant setting tools', () => {
@@ -314,5 +314,48 @@ describe('AI assistant setting tools', () => {
 
     await expect(headerFooterTool.handler({ headerLeftText: '内部资料' }))
       .resolves.toBe('更新成功');
+  });
+
+  it('reports success for partial TOC updates and ignores fields that were not requested', async () => {
+    const tools = createTools('# Test');
+    const tocTool = tools.find(item => item.definition.function.name === 'update_toc_config')!;
+
+    await expect(tocTool.handler({
+      levelStyles: [{ fontSize: 15 }, undefined, { bold: true, paddingLeft: 48 }],
+      titleFont: { fontSize: 26, unknownFontField: 'ignored' },
+      unknownTopLevelField: 'ignored',
+    })).resolves.toBe('更新成功');
+  });
+
+  it('snapshots the latest theme and skips history when Markdown is unchanged', async () => {
+    let theme: DocumentTheme = structuredClone(getRegisteredThemes()[0]);
+    let settings: DocumentSettings = { historyEnabled: false, historyIdleMinutes: 10 };
+    let history: DocumentHistoryEntry[] = [];
+    const tools = buildAiTools({
+      markdown: '# 标题\n正文',
+      theme,
+      settings,
+      onUpdateMarkdown: () => undefined,
+      onUpdateTheme: update => { theme = typeof update === 'function' ? update(theme) : update; },
+      onUpdateSettings: update => { settings = typeof update === 'function' ? update(settings) : update; },
+      onSetHistory: update => { history = typeof update === 'function' ? update(history) : update; },
+      onStartDiffReview: session => Promise.resolve({ markdown: session.modifiedText, acceptedCount: 1, rejectedCount: 0, cancelled: false }),
+      onCancelDiffReview: () => undefined,
+    });
+    const styleTool = tools.find(item => item.definition.function.name === 'update_document_style')!;
+    const editTool = tools.find(item => item.definition.function.name === 'edit_markdown_content')!;
+
+    await expect(editTool.handler({ operations: [{ op: 'replace', content: '正文', range: { startLine: 2, endLine: 2 } }] }))
+      .resolves.toBe('正文内容与原文档完全一致，无需进行变更。');
+    expect(settings.historyEnabled).toBe(false);
+    expect(history).toEqual([]);
+
+    await styleTool.handler({ primaryColor: '#0b2545' });
+    await editTool.handler({ operations: [{ op: 'replace', content: '改写后的正文', range: { startLine: 2, endLine: 2 } }] });
+
+    expect(settings.historyEnabled).toBe(true);
+    expect(history).toHaveLength(1);
+    expect(history[0].theme.style.primaryColor).toBe('#0b2545');
+    expect(history[0].markdown).toBe('# 标题\n正文');
   });
 });
