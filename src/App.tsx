@@ -61,6 +61,8 @@ export default function App() {
   const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false);
   const [diffReviewSession, setDiffReviewSession] = useState<DiffReviewSession | null>(null);
   const diffReviewResolverRef = useRef<((result: DiffReviewResult) => void) | null>(null);
+  // 取消审查可能由流式请求中断触发（异步、跳转多次渲染），必须用 ref 读当前会话，否则会用上旧闭包里的 null。
+  const diffReviewSessionRef = useRef<DiffReviewSession | null>(null);
 
   useEffect(() => {
     void loadAiConfigWithSecrets().then(setAiConfig);
@@ -105,6 +107,7 @@ export default function App() {
     setMarkdown(finalMarkdown);
     setIsDocumentDirty(true);
     setDiffReviewSession(null);
+    diffReviewSessionRef.current = null;
     diffReviewResolverRef.current?.({
       markdown: finalMarkdown,
       acceptedCount: changeHunks.filter(hunk => hunk.status !== 'rejected').length,
@@ -115,15 +118,18 @@ export default function App() {
   };
 
   const handleCancelReview = () => {
-    if (!diffReviewSession) return;
+    const session = diffReviewSessionRef.current;
+    const resolve = diffReviewResolverRef.current;
+    if (!session || !resolve) return;
+    diffReviewSessionRef.current = null;
+    diffReviewResolverRef.current = null;
     setDiffReviewSession(null);
-    diffReviewResolverRef.current?.({
-      markdown: diffReviewSession.originalText,
+    resolve({
+      markdown: session.originalText,
       acceptedCount: 0,
-      rejectedCount: diffReviewSession.hunks.filter(hunk => hunk.type === 'change').length,
+      rejectedCount: session.hunks.filter(hunk => hunk.type === 'change').length,
       cancelled: true
     });
-    diffReviewResolverRef.current = null;
   };
 
   // Welcome Dashboard State
@@ -831,6 +837,7 @@ export default function App() {
     onSetHistory: setHistory,
     onStartDiffReview: (session) => new Promise(resolve => {
       diffReviewResolverRef.current = resolve;
+      diffReviewSessionRef.current = session;
       setDiffReviewSession(session);
     }),
     onCancelDiffReview: handleCancelReview

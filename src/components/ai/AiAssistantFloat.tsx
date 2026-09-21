@@ -365,6 +365,13 @@ export const AiAssistantFloat: React.FC<AiAssistantFloatProps> = ({
   // 统一在此构造，避免多个调用点各自实现导致行为漂移。
   const createRequestTools = () => buildAiTools(toolContext);
 
+  // 点「停止生成」时一并收起可能挂起的正文审查，否则审查面板会悬空等待（工具超时上限 10 分钟）。
+  const createAbortController = () => {
+    const controller = new AbortController();
+    controller.signal.addEventListener('abort', () => toolContext.onCancelDiffReview(), { once: true });
+    return controller;
+  };
+
   const generateResponse = async (baseMessages: AiChatMessage[], targetSessionId: string) => {
     const requestConfig = toAiRequestConfig(config);
     if (!requestConfig || !requestConfig.apiKey) {
@@ -379,7 +386,7 @@ export const AiAssistantFloat: React.FC<AiAssistantFloatProps> = ({
     setLiveToolCalls([]);
     await persistSession(baseMessages, targetSessionId);
 
-    const abortController = new AbortController();
+    const abortController = createAbortController();
     abortControllerRef.current = abortController;
 
     try {
@@ -482,7 +489,7 @@ export const AiAssistantFloat: React.FC<AiAssistantFloatProps> = ({
     setCurrentText('');
     setLiveToolCalls([]);
 
-    const abortController = new AbortController();
+    const abortController = createAbortController();
     abortControllerRef.current = abortController;
     try {
       const result = await retryPendingToolCalls({
