@@ -1,4 +1,6 @@
 import type { DocumentHistoryEntry, DocumentSettings, DocumentTheme } from '../types';
+import { PRESET_THEMES } from '../data/presetThemes';
+import { CURRENT_DOCUMENT_FORMAT_VERSION, migrateDocumentData } from './documentMigrations';
 import {
   clearDocumentAssets,
   cleanupOrphanDocumentAssets,
@@ -8,8 +10,10 @@ import {
 
 const DATABASE_NAME = 'sangdoccraft-drafts';
 const STORE_NAME = 'drafts';
+export const CURRENT_DRAFT_FORMAT_VERSION = CURRENT_DOCUMENT_FORMAT_VERSION;
 
 export interface DocumentDraft {
+  formatVersion: typeof CURRENT_DRAFT_FORMAT_VERSION;
   documentId: string;
   createdAt: string;
   updatedAt: string;
@@ -19,6 +23,21 @@ export interface DocumentDraft {
   settings: DocumentSettings;
   history: DocumentHistoryEntry[];
   savedToSdc?: boolean;
+}
+
+interface StoredDocumentDraft extends Omit<DocumentDraft, 'formatVersion' | 'theme' | 'history'> {
+  formatVersion?: number;
+  theme: unknown;
+  history?: DocumentHistoryEntry[];
+}
+
+export interface DocumentDraftSummary {
+  documentId: string;
+  updatedAt: string;
+  title: string;
+  themeName: string;
+  charCount: number;
+  lineCount: number;
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -37,16 +56,74 @@ function requestResult<T>(request: IDBRequest<T>): Promise<T> {
   });
 }
 
+async function getStoredDrafts(): Promise<StoredDocumentDraft[]> {
+  const database = await openDatabase();
+  const transaction = database.transaction(STORE_NAME, 'readonly');
+  return requestResult(transaction.objectStore(STORE_NAME).getAll()) as Promise<StoredDocumentDraft[]>;
+}
+
+function migrateStoredDraft(stored: StoredDocumentDraft): { draft: DocumentDraft; needsWrite: boolean } {
+  const fromVersion = stored.formatVersion ?? 1;
+  let recovered = false;
+  let migrated: Pick<DocumentDraft, 'theme' | 'history'>;
+  try {
+    migrated = migrateDocumentData(fromVersion, {
+      theme: stored.theme as DocumentTheme,
+      history: stored.history ?? [],
+    });
+  } catch (error) {
+    recovered = true;
+    console.error(`Draft ${stored.documentId} theme migration failed, using the default theme:`, error);
+    migrated = {
+      theme: structuredClone(PRESET_THEMES[0]),
+      history: [],
+    };
+  }
+
+  return {
+    draft: {
+      ...stored,
+      ...migrated,
+      formatVersion: CURRENT_DOCUMENT_FORMAT_VERSION,
+    },
+    needsWrite: recovered || stored.formatVersion !== CURRENT_DOCUMENT_FORMAT_VERSION,
+  };
+}
+
+function summarizeDraft(stored: StoredDocumentDraft): DocumentDraftSummary {
+  const markdown = typeof stored.markdown === 'string' ? stored.markdown : '';
+  const rawTheme = stored.theme && typeof stored.theme === 'object'
+    ? stored.theme as { name?: unknown; meta?: { title?: unknown } }
+    : undefined;
+  const metaTitle = typeof rawTheme?.meta?.title === 'string' ? rawTheme.meta.title.trim() : '';
+  const markdownTitle = markdown.match(/^#\s+(.+)$/m)?.[1]?.trim() || '';
+  return {
+    documentId: stored.documentId,
+    updatedAt: stored.updatedAt,
+    title: metaTitle && metaTitle !== '未命名文档' ? metaTitle : markdownTitle || '未命名草稿',
+    themeName: typeof rawTheme?.name === 'string' ? rawTheme.name : '默认主题',
+    charCount: markdown.length,
+    lineCount: markdown ? markdown.split('\n').length : 0,
+  };
+}
+
 export async function saveDraft(draft: DocumentDraft): Promise<void> {
   const database = await openDatabase();
   const transaction = database.transaction(STORE_NAME, 'readwrite');
-  transaction.objectStore(STORE_NAME).put(draft);
+  await requestResult(transaction.objectStore(STORE_NAME).put({
+    ...draft,
+    formatVersion: CURRENT_DOCUMENT_FORMAT_VERSION,
+  }));
 }
 
 export async function getDraft(documentId: string): Promise<DocumentDraft | undefined> {
   const database = await openDatabase();
   const transaction = database.transaction(STORE_NAME, 'readonly');
-  return requestResult(transaction.objectStore(STORE_NAME).get(documentId));
+  const stored = await requestResult(transaction.objectStore(STORE_NAME).get(documentId)) as StoredDocumentDraft | undefined;
+  if (!stored) return undefined;
+  const { draft, needsWrite } = migrateStoredDraft(stored);
+  if (needsWrite) await saveDraft(draft);
+  return draft;
 }
 
 export async function deleteDraft(documentId: string): Promise<void> {
@@ -56,9 +133,10 @@ export async function deleteDraft(documentId: string): Promise<void> {
 }
 
 export async function getAllDrafts(): Promise<DocumentDraft[]> {
-  const database = await openDatabase();
-  const transaction = database.transaction(STORE_NAME, 'readonly');
-  const drafts = await requestResult(transaction.objectStore(STORE_NAME).getAll()) as DocumentDraft[];
+  const storedDrafts = await getStoredDrafts();
+  const migratedDrafts = storedDrafts.map(migrateStoredDraft);
+  await Promise.all(migratedDrafts.map(({ draft, needsWrite }) => needsWrite ? saveDraft(draft) : Promise.resolve()));
+  const drafts = migratedDrafts.map(({ draft }) => draft);
   return drafts.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
 
@@ -66,6 +144,14 @@ export async function getUnsavedDrafts(): Promise<DocumentDraft[]> {
   const drafts = await getAllDrafts();
   // Filter out drafts that were already exported/saved to .sdc file
   return drafts.filter((d) => !d.savedToSdc);
+}
+
+export async function getUnsavedDraftSummaries(): Promise<DocumentDraftSummary[]> {
+  const drafts = await getStoredDrafts();
+  return drafts
+    .filter((draft) => !draft.savedToSdc)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+    .map(summarizeDraft);
 }
 
 export async function markDraftSaved(documentId: string, saved = true): Promise<void> {
@@ -94,7 +180,7 @@ export async function deleteDraftWithAssets(documentId: string): Promise<void> {
  * 清空草稿及关联图片与对话（可选择保留当前正在编辑的 activeDocumentId）
  */
 export async function clearAllDraftsWithAssets(preserveDocumentId?: string): Promise<void> {
-  const drafts = await getAllDrafts();
+  const drafts = await getStoredDrafts();
   for (const draft of drafts) {
     if (draft.documentId !== preserveDocumentId) {
       await deleteDraft(draft.documentId);
@@ -113,7 +199,7 @@ export async function clearAllDraftsWithAssets(preserveDocumentId?: string): Pro
  * 清理图片库与对话库中所有属于未知/已删文档的孤立残留数据
  */
 export async function runStorageGC(activeDocumentId?: string): Promise<number> {
-  const drafts = await getAllDrafts();
+  const drafts = await getStoredDrafts();
   const validIds = new Set<string>(drafts.map((d) => d.documentId));
   if (activeDocumentId) {
     validIds.add(activeDocumentId);

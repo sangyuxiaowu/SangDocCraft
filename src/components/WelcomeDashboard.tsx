@@ -27,7 +27,7 @@ import {
   ZoomIn
 } from 'lucide-react';
 import { DOCUMENT_TEMPLATES, type DocumentTemplateCategory, type DocumentTemplateItem } from '../data/documentTemplates';
-import type { DocumentDraft } from '../utils/draftStore';
+import type { DocumentDraftSummary } from '../utils/draftStore';
 import type { RecentDocumentItem } from '../utils/recentDocumentsStore';
 import type { ThemeMode } from '../types';
 
@@ -46,8 +46,8 @@ interface WelcomeDashboardProps {
   onOpenLocalFile: () => void;
   onOpenAbout: () => void;
   // Web Mode: Unsaved Drafts
-  drafts: DocumentDraft[];
-  onRestoreDraft: (draft: DocumentDraft) => void;
+  drafts: DocumentDraftSummary[];
+  onRestoreDraft: (draft: DocumentDraftSummary) => void;
   onDeleteDraft: (documentId: string) => void;
   onClearAllDrafts: () => void;
   // Tauri Mode: Recent Documents
@@ -151,17 +151,6 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
     } catch {
       return isoString;
     }
-  };
-
-  const getDraftTitle = (draft: DocumentDraft) => {
-    if (draft.theme?.meta?.title && draft.theme.meta.title !== '未命名文档') {
-      return draft.theme.meta.title;
-    }
-    const match = draft.markdown.match(/^#\s+(.+)$/m);
-    if (match?.[1]) {
-      return match[1].trim();
-    }
-    return '未命名草稿';
   };
 
   return (
@@ -600,11 +589,6 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {drafts.map((draft) => {
-                  const title = getDraftTitle(draft);
-                  const charCount = draft.markdown?.length || 0;
-                  const lineCount = draft.markdown?.split('\n').length || 0;
-                  const themeName = draft.theme?.name || '默认主题';
-
                   return (
                     <div
                       key={draft.documentId}
@@ -617,14 +601,14 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <h4 className="text-xs font-bold tracking-tight truncate group-hover:text-blue-500 transition-colors">
-                            {title}
+                            {draft.title}
                           </h4>
                           <div className={`text-[11px] mt-1 flex items-center gap-2 ${
                             isDark ? 'text-zinc-500' : 'text-slate-400'
                           }`}>
                             <span>修改于 {formatRelativeTime(draft.updatedAt)}</span>
                             <span>•</span>
-                            <span>{themeName}</span>
+                            <span>{draft.themeName}</span>
                           </div>
                         </div>
 
@@ -643,7 +627,7 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
                       {/* Content stats & action */}
                       <div className="flex items-center justify-between pt-2 border-t border-zinc-800/40 dark:border-zinc-800/60">
                         <span className={`text-[11px] ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>
-                          约 {charCount} 字 / {lineCount} 行
+                          约 {draft.charCount} 字 / {draft.lineCount} 行
                         </span>
 
                         <button

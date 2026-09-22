@@ -1,25 +1,21 @@
 import type { DocumentTheme } from '../types';
+import { CURRENT_THEME_FORMAT_VERSION, inferThemeFormatVersion, migrateThemeData } from '../utils/documentMigrations';
 import { hasCoverTemplate } from './themeRegistry';
 
 export const CUSTOM_THEMES_STORAGE_KEY = 'sangdoccraft_custom_themes';
 
-export function validateTheme(value: unknown): DocumentTheme {
-  if (!value || typeof value !== 'object') {
-    throw new Error('主题必须是有效的 JSON 对象');
-  }
+interface CustomThemeStorage {
+  schemaVersion: number;
+  themes: unknown[];
+}
 
-  const theme = value as Partial<DocumentTheme>;
-  if (!theme.id?.trim() || !theme.name?.trim()) {
-    throw new Error('主题必须包含非空的 id 和 name');
-  }
-  if (!theme.meta || !theme.cover || !theme.header || !theme.footer || !theme.toc || !theme.style) {
-    throw new Error('主题缺少 meta、cover、header、footer、toc 或 style 配置');
-  }
+export function validateTheme(value: unknown, fromVersion = inferThemeFormatVersion(value)): DocumentTheme {
+  const theme = migrateThemeData(fromVersion, value);
   if (!hasCoverTemplate(theme.cover.coverStyle)) {
     throw new Error(`未注册的封面模板：${theme.cover.coverStyle || '未指定'}`);
   }
 
-  return theme as DocumentTheme;
+  return theme;
 }
 
 export function createCustomTheme(source: DocumentTheme, existingIds: string[]): DocumentTheme {
@@ -42,10 +38,15 @@ export function loadCustomThemes(): DocumentTheme[] {
     const stored = localStorage.getItem(CUSTOM_THEMES_STORAGE_KEY);
     if (!stored) return [];
     const parsed = JSON.parse(stored);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.flatMap((value) => {
+    const storage: CustomThemeStorage = Array.isArray(parsed)
+      ? { schemaVersion: 0, themes: parsed }
+      : parsed;
+    if (!storage || !Array.isArray(storage.themes)) return [];
+    if (storage.schemaVersion > CURRENT_THEME_FORMAT_VERSION) return [];
+    const storedThemeVersion = storage.schemaVersion === 0 ? undefined : storage.schemaVersion;
+    return storage.themes.flatMap((value) => {
       try {
-        return [validateTheme(value)];
+        return [validateTheme(value, storedThemeVersion)];
       } catch {
         return [];
       }
@@ -56,5 +57,8 @@ export function loadCustomThemes(): DocumentTheme[] {
 }
 
 export function saveCustomThemes(themes: DocumentTheme[]): void {
-  localStorage.setItem(CUSTOM_THEMES_STORAGE_KEY, JSON.stringify(themes));
+  localStorage.setItem(CUSTOM_THEMES_STORAGE_KEY, JSON.stringify({
+    schemaVersion: CURRENT_THEME_FORMAT_VERSION,
+    themes,
+  } satisfies CustomThemeStorage));
 }

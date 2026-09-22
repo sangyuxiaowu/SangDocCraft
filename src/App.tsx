@@ -14,6 +14,7 @@ import { modal } from './utils/modalDialog';
 import { DocumentAsset, DocumentHistoryEntry, DocumentTheme, ThemeMode, ViewMode } from './types';
 import { getRegisteredThemes } from './themes/themeRegistry';
 import { loadCustomThemes, saveCustomThemes } from './themes/customThemeStore';
+import { loadCurrentTheme, saveCurrentTheme } from './themes/currentThemeCache';
 import { mergeThemePreservingDocumentText } from './themes/themeSelection';
 import { clearDocumentAssets, clearDocumentChatSessions, listChatSessions, listDocumentAssets, listLibraryAssets } from './utils/imageRepository';
 import { registerAssetUrls } from './utils/assetUrlRegistry';
@@ -28,11 +29,13 @@ import {
   deleteDraft,
   deleteDraftWithAssets, 
   saveDraft, 
-  getUnsavedDrafts, 
+  getDraft,
+  getUnsavedDraftSummaries,
   markDraftSaved, 
   clearAllDraftsWithAssets,
   runStorageGC, 
-  type DocumentDraft 
+  CURRENT_DRAFT_FORMAT_VERSION,
+  type DocumentDraftSummary,
 } from './utils/draftStore';
 import { getRecentDocuments, addRecentDocument, removeRecentDocument, clearRecentDocuments, type RecentDocumentItem } from './utils/recentDocumentsStore';
 import { WelcomeDashboard } from './components/WelcomeDashboard';
@@ -150,19 +153,11 @@ export default function App() {
   // Welcome Dashboard State
   const [isWelcomeOpen, setIsWelcomeOpen] = useState(true);
   const [hasActiveDocument, setHasActiveDocument] = useState(false);
-  const [unsavedDrafts, setUnsavedDrafts] = useState<DocumentDraft[]>([]);
+  const [unsavedDrafts, setUnsavedDrafts] = useState<DocumentDraftSummary[]>([]);
   const [recentDocuments, setRecentDocuments] = useState<RecentDocumentItem[]>([]);
 
-  // Load initial theme from localStorage or fallback to enterprise default
-  const [theme, setTheme] = useState<DocumentTheme>(() => {
-    try {
-      const saved = localStorage.getItem('sangdoccraft_current_theme') || localStorage.getItem('docucraft_current_theme');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      // ignore
-    }
-    return getRegisteredThemes()[0];
-  });
+  // 只从版本化缓存恢复主题 ID；完整文档主题必须来自模板、草稿或 .sdc 的迁移入口。
+  const [theme, setTheme] = useState<DocumentTheme>(() => loadCurrentTheme([...builtinThemes, ...customThemes]));
 
   // 主题的实时镜像：AI 工具写入后需要立即读回真实值，不能等 React 状态提交（提交是异步的）。
   const themeRef = useRef(theme);
@@ -247,8 +242,15 @@ export default function App() {
   };
 
   useEffect(() => {
-    void refreshAssets();
-  }, [documentId]);
+    if (!hasActiveDocument) {
+      setAssets([]);
+      return;
+    }
+    void Promise.all([
+      refreshAssets(),
+      runStorageGC(documentId),
+    ]);
+  }, [documentId, hasActiveDocument]);
 
   useEffect(() => {
     setSaveStatus('saved');
@@ -279,7 +281,7 @@ export default function App() {
 
   const refreshUnsavedDrafts = async () => {
     try {
-      const drafts = await getUnsavedDrafts();
+      const drafts = await getUnsavedDraftSummaries();
       setUnsavedDrafts(drafts);
     } catch (e) {
       console.error('Failed to load unsaved drafts:', e);
@@ -331,8 +333,6 @@ export default function App() {
           await applyOpenedDocument(opened);
           return;
         }
-        // 启动时自动执行孤立资产垃圾回收，回收已被彻底删除的草稿遗留图片
-        await runStorageGC();
         // Load unsaved drafts and recent documents for the Welcome Dashboard
         await refreshUnsavedDrafts();
         refreshRecentDocs();
@@ -344,10 +344,10 @@ export default function App() {
     })();
   }, []);
 
-  // Auto-save to localStorage
+  // 当前主题缓存只保存稳定 ID，不持久化会随版本演进的完整主题结构。
   useEffect(() => {
     try {
-      localStorage.setItem('sangdoccraft_current_theme', JSON.stringify(theme));
+      saveCurrentTheme(theme.id);
     } catch (e) {}
   }, [theme]);
 
@@ -489,8 +489,8 @@ export default function App() {
     registerAssetUrls(libraryAssets);
   };
 
-  const handleRestoreDraft = async (draft: DocumentDraft) => {
-    if (isDocumentDirty && draft.documentId !== documentId) {
+  const handleRestoreDraft = async (summary: DocumentDraftSummary) => {
+    if (isDocumentDirty && summary.documentId !== documentId) {
       const ok = await modal.confirm({
         title: '恢复草稿确认',
         message: '当前文档有未保存的修改，恢复其他草稿将覆盖当前工作区。是否继续？',
@@ -499,6 +499,12 @@ export default function App() {
         variant: 'primary',
       });
       if (!ok) return;
+    }
+
+    const draft = await getDraft(summary.documentId);
+    if (!draft) {
+      await refreshUnsavedDrafts();
+      return;
     }
 
     // 释放旧文档内存引用，加载目标草稿在 IndexedDB 中的图片资产
@@ -660,6 +666,7 @@ export default function App() {
       if (!isTauriEnvironment()) {
         // Web 模式：仅保存内容至本地数据库 (IndexedDB 草稿)，不触发文件下载（导出时才会下载）
         await saveDraft({
+          formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
           documentId,
           createdAt: documentCreatedAt,
           updatedAt: new Date().toISOString(),
@@ -738,6 +745,7 @@ export default function App() {
         });
       } else {
         void saveDraft({
+          formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
           documentId,
           createdAt: documentCreatedAt,
           updatedAt: new Date().toISOString(),
@@ -771,6 +779,7 @@ export default function App() {
           void buildCurrentDocument(nextHistory).then(doc => saveSangDocument(doc, documentPath));
         } else if (nextHistory !== history) {
           void saveDraft({
+            formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
             documentId,
             createdAt: documentCreatedAt,
             updatedAt: new Date().toISOString(),
@@ -835,7 +844,7 @@ export default function App() {
     : themeMode;
   const uiMode = effectiveUiMode;
   const isDark = effectiveUiMode === 'dark';
-  const previewTheme = structuredClone(theme);
+  const previewTheme = structuredClone(hasActiveDocument ? theme : builtinThemes[0]);
   if (previewTheme.cover.logoUrl) previewTheme.cover.logoUrl = resolveImageSrc(previewTheme.cover.logoUrl);
   if (previewTheme.header.logoUrl) previewTheme.header.logoUrl = resolveImageSrc(previewTheme.header.logoUrl);
 

@@ -6,10 +6,12 @@ import { listDocumentAssets, putDocumentAsset } from './imageRepository';
 import {
   clearAllDrafts,
   clearAllDraftsWithAssets,
+  CURRENT_DRAFT_FORMAT_VERSION,
   deleteDraftWithAssets,
   getAllDrafts,
   getDraft,
   getUnsavedDrafts,
+  getUnsavedDraftSummaries,
   markDraftSaved,
   runStorageGC,
   saveDraft,
@@ -18,12 +20,26 @@ import {
 describe('draftStore and multi-document asset management', () => {
   const theme = getRegisteredThemes()[0];
 
+  const putStoredDraft = async (draft: object) => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('sangdoccraft-drafts', 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const request = database.transaction('drafts', 'readwrite').objectStore('drafts').put(draft);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  };
+
   beforeEach(async () => {
     await clearAllDrafts();
   });
 
   it('supports multiple independent drafts without overwriting each other', async () => {
     await saveDraft({
+      formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
       documentId: 'draft-1',
       createdAt: new Date().toISOString(),
       updatedAt: '2026-09-16T01:00:00.000Z',
@@ -35,6 +51,7 @@ describe('draftStore and multi-document asset management', () => {
     });
 
     await saveDraft({
+      formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
       documentId: 'draft-2',
       createdAt: new Date().toISOString(),
       updatedAt: '2026-09-16T02:00:00.000Z',
@@ -59,6 +76,7 @@ describe('draftStore and multi-document asset management', () => {
 
   it('marks draft as saved and filters in getUnsavedDrafts', async () => {
     await saveDraft({
+      formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
       documentId: 'draft-export',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -79,6 +97,7 @@ describe('draftStore and multi-document asset management', () => {
 
   it('deletes draft and cleans up its associated assets together', async () => {
     await saveDraft({
+      formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
       documentId: 'doc-to-delete',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -104,6 +123,7 @@ describe('draftStore and multi-document asset management', () => {
 
   it('cleans up orphan assets using runStorageGC without removing valid drafts', async () => {
     await saveDraft({
+      formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
       documentId: 'draft-kept',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -129,6 +149,7 @@ describe('draftStore and multi-document asset management', () => {
 
   it('clearAllDraftsWithAssets respects active document if specified', async () => {
     await saveDraft({
+      formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
       documentId: 'doc-active',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -138,6 +159,7 @@ describe('draftStore and multi-document asset management', () => {
       history: [],
     });
     await saveDraft({
+      formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
       documentId: 'doc-other',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -158,5 +180,54 @@ describe('draftStore and multi-document asset management', () => {
     expect(await getDraft('doc-other')).toBeUndefined();
     expect(await listDocumentAssets('doc-active')).toHaveLength(1);
     expect(await listDocumentAssets('doc-other')).toHaveLength(0);
+  });
+
+  it('migrates a legacy draft once and writes it back with the current version', async () => {
+    const legacyTheme = { ...theme, meta: { ...theme.meta, logoUrl: 'old-logo.png' } } as Record<string, unknown>;
+    delete legacyTheme.cover;
+    await putStoredDraft({
+      documentId: 'legacy-draft',
+      createdAt: '2026-09-01T00:00:00.000Z',
+      updatedAt: '2026-09-01T01:00:00.000Z',
+      markdown: '# Legacy',
+      theme: legacyTheme,
+      settings: { historyEnabled: false, historyIdleMinutes: 10 },
+      history: [],
+    });
+
+    const restored = await getDraft('legacy-draft');
+    expect(restored?.formatVersion).toBe(CURRENT_DRAFT_FORMAT_VERSION);
+    expect(restored?.theme.cover).toEqual(theme.cover);
+    expect(restored?.markdown).toBe('# Legacy');
+
+    const stored = await getDraft('legacy-draft');
+    expect(stored?.formatVersion).toBe(CURRENT_DRAFT_FORMAT_VERSION);
+  });
+
+  it('lists an incomplete draft safely and preserves its body while filling theme defaults', async () => {
+    await putStoredDraft({
+      formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
+      documentId: 'broken-theme',
+      createdAt: '2026-09-01T00:00:00.000Z',
+      updatedAt: '2026-09-01T01:00:00.000Z',
+      markdown: '# Recover Me',
+      theme: { id: 'broken', name: 'Broken' },
+      settings: { historyEnabled: false, historyIdleMinutes: 10 },
+      history: [],
+    });
+
+    expect(await getUnsavedDraftSummaries()).toEqual([expect.objectContaining({
+      documentId: 'broken-theme',
+      title: 'Recover Me',
+      themeName: 'Broken',
+    })]);
+    const restored = await getDraft('broken-theme');
+    expect(restored?.markdown).toBe('# Recover Me');
+    expect(restored?.theme).toEqual(expect.objectContaining({
+      id: 'broken',
+      name: 'Broken',
+      cover: theme.cover,
+      style: theme.style,
+    }));
   });
 });

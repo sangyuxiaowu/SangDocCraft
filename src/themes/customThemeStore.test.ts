@@ -16,13 +16,19 @@ describe('customThemeStore', () => {
     expect(custom.style).not.toBe(source.style);
   });
 
-  it('persists valid themes and ignores invalid stored entries', () => {
+  it('persists valid themes and fills missing fields in stored entries', () => {
     const custom = createCustomTheme(PRESET_THEMES[0], []);
     saveCustomThemes([custom]);
     expect(loadCustomThemes()).toEqual([custom]);
 
     localStorage.setItem(CUSTOM_THEMES_STORAGE_KEY, JSON.stringify([custom, { id: 'broken' }]));
-    expect(loadCustomThemes()).toEqual([custom]);
+    const loaded = loadCustomThemes();
+    expect(loaded[0]).toEqual(custom);
+    expect(loaded[1]).toEqual(expect.objectContaining({
+      id: 'broken',
+      cover: PRESET_THEMES[0].cover,
+      style: PRESET_THEMES[0].style,
+    }));
   });
 
   it('rejects themes with unknown cover templates', () => {
