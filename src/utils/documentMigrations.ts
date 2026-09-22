@@ -1,10 +1,18 @@
 import { PRESET_THEMES } from '../data/presetThemes';
-import type { DocumentHistoryEntry, DocumentTheme } from '../types';
+import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
+import type { DocumentHistoryEntry, DocumentMeta, DocumentTheme } from '../types';
 
 export const CURRENT_DOCUMENT_FORMAT_VERSION = 2;
 export const CURRENT_THEME_FORMAT_VERSION = 2;
 
 interface VersionedDocumentData {
+  meta?: unknown;
+  theme: unknown;
+  history: Array<Partial<DocumentHistoryEntry> & { theme: unknown }>;
+}
+
+interface MigratedDocumentData {
+  meta: DocumentMeta;
   theme: DocumentTheme;
   history: DocumentHistoryEntry[];
 }
@@ -31,8 +39,20 @@ function mergeMissingFields<T>(defaults: T, value: unknown): T {
 function migrateV1Theme(theme: DocumentTheme): DocumentTheme {
   const source: Record<string, unknown> = isRecord(theme) ? theme : {};
   const legacyMeta = isRecord(source.meta) ? source.meta : {};
-  const { showCover, coverStyle, logoUrl, logoHeight, coverlist, coverListColumns, ...meta } = legacyMeta;
-  return { ...source, meta, cover: { ...PRESET_THEMES[0].cover } } as unknown as DocumentTheme;
+  const { meta: _, ...themeWithoutMeta } = source;
+  const { showCover, coverStyle, logoUrl, logoHeight, coverlist, coverListColumns } = legacyMeta;
+  return {
+    ...themeWithoutMeta,
+    cover: {
+      ...PRESET_THEMES[0].cover,
+      ...(typeof showCover === 'boolean' ? { showCover } : {}),
+      ...(typeof coverStyle === 'string' ? { coverStyle } : {}),
+      ...(typeof logoUrl === 'string' ? { logoUrl } : {}),
+      ...(typeof logoHeight === 'number' ? { logoHeight } : {}),
+      ...(Array.isArray(coverlist) ? { coverlist } : {}),
+      ...(coverListColumns === 1 || coverListColumns === 2 ? { coverListColumns } : {}),
+    },
+  } as unknown as DocumentTheme;
 }
 
 const themeMigrations: Record<number, (theme: DocumentTheme) => DocumentTheme> = {
@@ -53,7 +73,8 @@ export function migrateThemeData(fromVersion: number, value: unknown): DocumentT
     if (!migrate) throw new Error(`缺少主题格式 v${version} 到 v${version + 1} 的升级逻辑`);
     migrated = migrate(migrated);
   }
-  const normalized = mergeMissingFields(PRESET_THEMES[0], migrated);
+  const { meta: _, ...themeOnly } = migrated as unknown as Record<string, unknown>;
+  const normalized = mergeMissingFields(PRESET_THEMES[0], themeOnly);
   console.info('[SangDocCraft] 主题处理完成', {
     fromVersion,
     toVersion: CURRENT_THEME_FORMAT_VERSION,
@@ -68,20 +89,56 @@ export function inferThemeFormatVersion(value: unknown): number {
   return 'cover' in value ? CURRENT_THEME_FORMAT_VERSION : 1;
 }
 
-function migrateV1ToV2(document: VersionedDocumentData): VersionedDocumentData {
-
+export function normalizeDocumentMeta(value: unknown): DocumentMeta {
+  const source = isRecord(value) ? value : {};
+  const text = (key: keyof DocumentMeta): string => typeof source[key] === 'string' ? source[key] : '';
+  const optionalText = (key: 'number' | 'version'): string | undefined => (
+    typeof source[key] === 'string' ? source[key] : undefined
+  );
   return {
-    theme: migrateThemeData(1, document.theme),
-    history: document.history.map((entry) => ({ ...entry, theme: migrateThemeData(1, entry.theme) })),
+    ...DEFAULT_DOCUMENT_META,
+    title: text('title'),
+    subtitle: text('subtitle'),
+    author: text('author'),
+    department: text('department'),
+    organization: text('organization'),
+    date: text('date'),
+    number: optionalText('number'),
+    version: optionalText('version'),
   };
 }
 
-const migrations: Record<number, (document: VersionedDocumentData) => VersionedDocumentData> = {
+function extractEmbeddedMeta(theme: unknown): unknown {
+  return isRecord(theme) ? theme.meta : undefined;
+}
+
+function migrateHistoryEntry(entry: VersionedDocumentData['history'][number], themeVersion: number): DocumentHistoryEntry {
+  return {
+    id: typeof entry.id === 'string' ? entry.id : crypto.randomUUID(),
+    createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : new Date().toISOString(),
+    reason: entry.reason === 'manual' ? 'manual' : 'idle',
+    contentHash: typeof entry.contentHash === 'string' ? entry.contentHash : '',
+    markdown: typeof entry.markdown === 'string' ? entry.markdown : '',
+    meta: normalizeDocumentMeta(entry.meta ?? extractEmbeddedMeta(entry.theme)),
+    theme: migrateThemeData(themeVersion, entry.theme),
+  };
+}
+
+function migrateV1ToV2(document: VersionedDocumentData): MigratedDocumentData {
+
+  return {
+    meta: normalizeDocumentMeta(document.meta ?? extractEmbeddedMeta(document.theme)),
+    theme: migrateThemeData(1, document.theme),
+    history: document.history.map((entry) => migrateHistoryEntry(entry, 1)),
+  };
+}
+
+const migrations: Record<number, (document: VersionedDocumentData) => MigratedDocumentData> = {
   1: migrateV1ToV2,
 };
 
 /** 按版本顺序升级解包后的文档数据到当前格式。 */
-export function migrateDocumentData(fromVersion: number, document: VersionedDocumentData): VersionedDocumentData {
+export function migrateDocumentData(fromVersion: number, document: VersionedDocumentData): MigratedDocumentData {
   let migrated = document;
   for (let version = fromVersion; version < CURRENT_DOCUMENT_FORMAT_VERSION; version++) {
     const migrate = migrations[version];
@@ -89,10 +146,8 @@ export function migrateDocumentData(fromVersion: number, document: VersionedDocu
     migrated = migrate(migrated);
   }
   return {
+    meta: normalizeDocumentMeta(migrated.meta ?? extractEmbeddedMeta(migrated.theme)),
     theme: migrateThemeData(CURRENT_THEME_FORMAT_VERSION, migrated.theme),
-    history: migrated.history.map((entry) => ({
-      ...entry,
-      theme: migrateThemeData(CURRENT_THEME_FORMAT_VERSION, entry.theme),
-    })),
+    history: migrated.history.map((entry) => migrateHistoryEntry(entry, CURRENT_THEME_FORMAT_VERSION)),
   };
 }

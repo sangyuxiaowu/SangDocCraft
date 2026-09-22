@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { getRegisteredThemes } from '../themes/themeRegistry';
+import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
 import { createDocumentAsset } from './documentPackage';
 import { listDocumentAssets, putDocumentAsset } from './imageRepository';
 import {
@@ -19,6 +20,7 @@ import {
 
 describe('draftStore and multi-document asset management', () => {
   const theme = getRegisteredThemes()[0];
+  const meta = { ...DEFAULT_DOCUMENT_META, title: '测试草稿' };
 
   const putStoredDraft = async (draft: object) => {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -44,6 +46,7 @@ describe('draftStore and multi-document asset management', () => {
       createdAt: new Date().toISOString(),
       updatedAt: '2026-09-16T01:00:00.000Z',
       markdown: '# Draft 1',
+      meta,
       theme,
       settings: { historyEnabled: false, historyIdleMinutes: 10 },
       history: [],
@@ -56,6 +59,7 @@ describe('draftStore and multi-document asset management', () => {
       createdAt: new Date().toISOString(),
       updatedAt: '2026-09-16T02:00:00.000Z',
       markdown: '# Draft 2',
+      meta,
       theme,
       settings: { historyEnabled: false, historyIdleMinutes: 10 },
       history: [],
@@ -81,6 +85,7 @@ describe('draftStore and multi-document asset management', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       markdown: '# Exported',
+      meta,
       theme,
       settings: { historyEnabled: false, historyIdleMinutes: 10 },
       history: [],
@@ -102,6 +107,7 @@ describe('draftStore and multi-document asset management', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       markdown: '# Delete Me',
+      meta,
       theme,
       settings: { historyEnabled: false, historyIdleMinutes: 10 },
       history: [],
@@ -128,6 +134,7 @@ describe('draftStore and multi-document asset management', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       markdown: '# Kept Draft',
+      meta,
       theme,
       settings: { historyEnabled: false, historyIdleMinutes: 10 },
       history: [],
@@ -154,6 +161,7 @@ describe('draftStore and multi-document asset management', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       markdown: '# Active Doc',
+      meta,
       theme,
       settings: { historyEnabled: false, historyIdleMinutes: 10 },
       history: [],
@@ -164,6 +172,7 @@ describe('draftStore and multi-document asset management', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       markdown: '# Other Doc',
+      meta,
       theme,
       settings: { historyEnabled: false, historyIdleMinutes: 10 },
       history: [],
@@ -183,7 +192,7 @@ describe('draftStore and multi-document asset management', () => {
   });
 
   it('migrates a legacy draft once and writes it back with the current version', async () => {
-    const legacyTheme = { ...theme, meta: { ...theme.meta, logoUrl: 'old-logo.png' } } as Record<string, unknown>;
+    const legacyTheme = { ...theme, meta: { ...meta, logoUrl: 'old-logo.png' } } as Record<string, unknown>;
     delete legacyTheme.cover;
     await putStoredDraft({
       documentId: 'legacy-draft',
@@ -197,7 +206,8 @@ describe('draftStore and multi-document asset management', () => {
 
     const restored = await getDraft('legacy-draft');
     expect(restored?.formatVersion).toBe(CURRENT_DRAFT_FORMAT_VERSION);
-    expect(restored?.theme.cover).toEqual(theme.cover);
+    expect(restored?.theme.cover).toEqual({ ...theme.cover, logoUrl: 'old-logo.png' });
+    expect(restored?.meta.title).toBe(meta.title);
     expect(restored?.markdown).toBe('# Legacy');
 
     const stored = await getDraft('legacy-draft');

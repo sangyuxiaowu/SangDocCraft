@@ -7,7 +7,7 @@ export interface DocumentTitleContext {
 export function resolveDocumentTitle(context?: DocumentTitleContext): string {
   if (!context) return '未命名文档';
 
-  // 1. theme.meta.title if set and not the default placeholder
+  // 1. document meta title if set and not the default placeholder
   const cleanThemeTitle = context.themeTitle?.trim();
   if (cleanThemeTitle && cleanThemeTitle !== '未命名文档') {
     return cleanThemeTitle;

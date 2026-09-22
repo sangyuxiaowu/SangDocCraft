@@ -22,7 +22,7 @@ import {
   Image as ImageIcon,
   Stamp
 } from 'lucide-react';
-import { DocumentAsset, DocumentTheme, CoverConfig, CoverStyle, FontChoice, CoverListItem, HeadingFontStyle, TocLevelStyle, TocTitleFont, WatermarkConfig } from '../types';
+import { DocumentAsset, DocumentMeta, DocumentTheme, CoverConfig, CoverStyle, FontChoice, CoverListItem, HeadingFontStyle, TocLevelStyle, TocTitleFont, WatermarkConfig } from '../types';
 import { getCoverTemplate, getCoverTemplates } from '../themes/themeRegistry';
 import { getTocLevelStyles, getTocTitleFont } from '../utils/documentStructure';
 import { resolveImageSrc } from '../utils/tauriHelper';
@@ -31,14 +31,18 @@ import { ImagePicker } from './ImagePicker';
 
 interface StyleConfigPanelProps {
   theme: DocumentTheme;
+  meta: DocumentMeta;
   onChange: (updatedTheme: DocumentTheme) => void;
+  onMetaChange: (updatedMeta: DocumentMeta) => void;
   assets: DocumentAsset[];
   uiMode?: 'dark' | 'light';
 }
 
 export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({ 
-  theme, 
-  onChange, 
+  theme,
+  meta,
+  onChange,
+  onMetaChange,
   assets,
   uiMode = 'dark'
 }) => {
@@ -64,12 +68,8 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
     ? 'bg-[#1A1A1A] hover:bg-[#252525] border-[#333] text-blue-400'
     : 'bg-white hover:bg-slate-100 border-slate-200 text-blue-600 shadow-2xs';
 
-  const updateMeta = (field: keyof DocumentTheme['meta'], value: string | undefined) => {
-    const newMeta = { ...theme.meta, [field]: value };
-    onChange({
-      ...theme,
-      meta: newMeta,
-    });
+  const updateMeta = (field: keyof DocumentMeta, value: string | undefined) => {
+    onMetaChange({ ...meta, [field]: value });
   };
 
   const updateCover = <T extends keyof CoverConfig>(field: T, value: CoverConfig[T]) => {
@@ -450,18 +450,18 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
             </div>
             <div className="grid grid-cols-1 gap-3">
               <div className="grid grid-cols-1 gap-3">
-                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>文档标题</label><input type="text" value={theme.meta.title} onChange={(e) => updateMeta('title', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
-                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>副标题</label><input type="text" value={theme.meta.subtitle} onChange={(e) => updateMeta('subtitle', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
+                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>文档标题</label><input type="text" value={meta.title} onChange={(e) => updateMeta('title', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
+                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>副标题</label><input type="text" value={meta.subtitle} onChange={(e) => updateMeta('subtitle', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>文档编号</label><input type="text" value={theme.meta.number || ''} onChange={(e) => updateMeta('number', e.target.value)} className={`w-full rounded px-2.5 py-1.5 font-mono text-[11px] ${inputClass}`} /></div>
-                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>版本</label><input type="text" value={theme.meta.version || ''} onChange={(e) => updateMeta('version', e.target.value)} className={`w-full rounded px-2.5 py-1.5 font-mono text-[11px] ${inputClass}`} /></div>
-                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>日期</label><input type="text" value={theme.meta.date} onChange={(e) => updateMeta('date', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
+                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>文档编号</label><input type="text" value={meta.number || ''} onChange={(e) => updateMeta('number', e.target.value)} className={`w-full rounded px-2.5 py-1.5 font-mono text-[11px] ${inputClass}`} /></div>
+                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>版本</label><input type="text" value={meta.version || ''} onChange={(e) => updateMeta('version', e.target.value)} className={`w-full rounded px-2.5 py-1.5 font-mono text-[11px] ${inputClass}`} /></div>
+                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>日期</label><input type="text" value={meta.date} onChange={(e) => updateMeta('date', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>作者</label><input type="text" value={theme.meta.author} onChange={(e) => updateMeta('author', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
-                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>所属机构 / 公司</label><input type="text" value={theme.meta.organization} onChange={(e) => updateMeta('organization', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
-                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>部门 / 团队</label><input type="text" value={theme.meta.department} onChange={(e) => updateMeta('department', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
+                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>作者</label><input type="text" value={meta.author} onChange={(e) => updateMeta('author', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
+                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>所属机构 / 公司</label><input type="text" value={meta.organization} onChange={(e) => updateMeta('organization', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
+                <div><label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>部门 / 团队</label><input type="text" value={meta.department} onChange={(e) => updateMeta('department', e.target.value)} className={`w-full rounded px-2.5 py-1.5 ${inputClass}`} /></div>
               </div>
             </div>
           </div>
@@ -523,7 +523,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                           )}
 
                           <div className="w-full aspect-[3/4] bg-white rounded border border-slate-200 shadow-xs p-0.5 flex flex-col justify-between overflow-hidden relative mb-1 select-none group-hover:scale-[1.02] transition-transform">
-                            {template.renderThumbnail({ meta: theme.meta, cover: theme.cover, style: theme.style, coverListItems: currentCoverList })}
+                            {template.renderThumbnail({ meta, cover: theme.cover, style: theme.style, coverListItems: currentCoverList })}
                           </div>
 
                           {/* Option Details */}

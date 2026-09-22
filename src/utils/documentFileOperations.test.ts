@@ -18,6 +18,7 @@ vi.mock('./documentPackage', async (importOriginal) => ({
 
 import { downloadSangDocument, saveSangDocument } from './documentFileOperations';
 import { getRegisteredThemes } from '../themes/themeRegistry';
+import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
 
 function createDocument(): SangDocument {
   return {
@@ -26,6 +27,7 @@ function createDocument(): SangDocument {
     createdAt: '2026-09-15T00:00:00.000Z',
     modifiedAt: '2026-09-15T00:00:00.000Z',
     markdown: '# 测试',
+    meta: DEFAULT_DOCUMENT_META,
     theme: getRegisteredThemes()[0],
     settings: { historyEnabled: false, historyIdleMinutes: 10 },
     history: [],

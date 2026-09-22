@@ -19,7 +19,7 @@ import {
   ImageRun,
 } from 'docx';
 import { marked } from 'marked';
-import { DocumentTheme } from '../types';
+import { DocumentMeta, DocumentTheme } from '../types';
 import { getHeadingText, getTocLevelStyles, getTocTitleFont } from './documentStructure';
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
@@ -42,9 +42,8 @@ function cleanHex(hex: string): string {
 /**
  * Main export function to generate and download a standard Microsoft Word .docx file
  */
-export async function exportToDocx(markdownText: string, theme: DocumentTheme, filename?: string): Promise<void> {
+export async function exportToDocx(markdownText: string, meta: DocumentMeta, theme: DocumentTheme, filename?: string): Promise<void> {
   const { header, footer, toc, style } = theme;
-  const meta = theme.meta;
   const cover = theme.cover;
   const coverTemplate = getCoverTemplate(cover.coverStyle);
   const bodyText = markdownText;

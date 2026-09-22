@@ -12,14 +12,6 @@ export const PRESET_THEMES: DocumentTheme[] = [
     id: 'enterprise-standard',
     name: '🏢 企业标准交付文档',
     description: '适用于大型企业、金融与互联网项目的标准系统交付与设计文档',
-    meta: {
-      title: '分布式高并发系统架构设计说明书',
-      subtitle: '核心服务升级与敏捷架构交付标准',
-      author: '架构设计专家团队',
-      department: '技术研发中心 / 基础架构部',
-      organization: '某某科技有限公司',
-      date: '2026年08月12日',
-    },
     cover: {
       showCover: true,
       coverStyle: 'enterprise',
@@ -93,14 +85,6 @@ export const PRESET_THEMES: DocumentTheme[] = [
     id: 'tech-spec',
     name: '💻 软件技术规格书',
     description: '科技感强，针对API接口、数据库设计与技术研发文档优化',
-    meta: {
-      title: '智能数据中台 API & 数据库设计规范',
-      subtitle: 'Technical Design Specification & Data Pipeline',
-      author: '后端研发小组',
-      department: '数据工程部',
-      organization: '某某科技有限公司',
-      date: '2026年08月',
-    },
     cover: {
       showCover: true,
       coverStyle: 'modern',
@@ -158,14 +142,6 @@ export const PRESET_THEMES: DocumentTheme[] = [
     id: 'governmental-standard',
     name: '📜 政企标准公文风格',
     description: '端庄严谨的公文与政企交付规格，红黑配色，正式宋体/楷体',
-    meta: {
-      title: '智慧政务数据共享平台交付方案',
-      subtitle: '系统建设与标准化交付白皮书',
-      author: '政企项目实施团队',
-      department: '解决方案集成中心',
-      organization: '某某科技有限公司',
-      date: '二〇二六年八月',
-    },
     cover: {
       showCover: true,
       coverStyle: 'spec',
@@ -219,14 +195,6 @@ export const PRESET_THEMES: DocumentTheme[] = [
     id: 'minimal-clean',
     name: '🌿 极简现代白皮书',
     description: '黑白灰精美微视觉，高对比度极简排版，大面积留白',
-    meta: {
-      title: 'UI/UX 交互设计规范交付指南',
-      subtitle: 'Design System & Component Guidelines',
-      author: 'UI/UX Design Studio',
-      department: '体验设计部',
-      organization: '某某科技有限公司',
-      date: '2026.08',
-    },
     cover: {
       showCover: true,
       coverStyle: 'minimal',
@@ -280,14 +248,6 @@ export const PRESET_THEMES: DocumentTheme[] = [
     id: 'creative-studio',
     name: '🎨 现代渐变与创意方案',
     description: '富有趣味性的渐变与紫色系设计，适合产品发布、方案竞标',
-    meta: {
-      title: '下一代 AIGC 创意工作流设计方案',
-      subtitle: 'AI-Powered Creative Suite Blueprint',
-      author: '产品创新实验室',
-      department: 'FRONTIER EXPLORATION GROUP',
-      organization: '某某科技有限公司',
-      date: '2026年Q3',
-    },
     cover: {
       showCover: true,
       coverStyle: 'creative',
@@ -348,15 +308,6 @@ export const PRESET_THEMES: DocumentTheme[] = [
     id: 'enterprise-signature',
     name: '🏢 企业签审交付文档',
     description: '适用于方案审批、项目签审与正式交付文件',
-    meta: {
-      title: '企业信息化项目建设方案',
-      subtitle: '项目评审、签批与交付说明',
-      author: '项目交付组',
-      department: '企业数字化中心',
-      organization: '某某科技有限公司',
-      date: '2026年09月',
-      number: 'SDC-2026-001',
-    },
     cover: {
       showCover: true,
       coverStyle: 'signature',
@@ -435,15 +386,6 @@ export const PRESET_THEMES: DocumentTheme[] = [
     id: 'business-briefing',
     name: '🧑‍💼 商务简报',
     description: '适用于经营汇报、管理层简报与项目阶段总结',
-    meta: {
-      title: '年度经营分析与重点工作简报',
-      subtitle: '关键成果、经营指标与下一阶段计划',
-      author: '经营管理部',
-      department: '战略与运营中心',
-      organization: '某某科技有限公司',
-      date: '2026年09月',
-      number: 'BRIEF-2026-Q3',
-    },
     cover: {
       showCover: true,
       coverStyle: 'briefing',
@@ -520,14 +462,6 @@ export const PRESET_THEMES: DocumentTheme[] = [
     id: 'academic-paper',
     name: '🎓 学术论文规范',
     description: '适用于课程论文、毕业论文与研究报告的规范学术排版',
-    meta: {
-      title: '数字化转型背景下企业创新能力提升研究',
-      subtitle: 'Research on Enhancing Enterprise Innovation Capability in Digital Transformation',
-      author: '张三',
-      department: '经济管理学院',
-      organization: '某某大学',
-      date: '2026年8月',
-    },
     cover: {
       showCover: true,
       coverStyle: 'academic',

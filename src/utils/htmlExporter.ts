@@ -66,11 +66,11 @@ async function inlineImagesAsDataUris(html: string): Promise<string> {
 
 export function generateStandaloneHtml(
   markdownText: string,
+  meta: DocumentMeta,
   theme: DocumentTheme,
   mermaidHeights: Record<string, number> = {},
 ): string {
   const { header, footer, toc, style } = theme;
-  const meta = theme.meta;
   const cover = theme.cover;
   const coverTemplate = getCoverTemplate(cover.coverStyle);
   const coverStyle = coverTemplate.id;
@@ -880,26 +880,26 @@ async function measureMermaidHeights(html: string, sources: string[]): Promise<R
   }
 }
 
-export async function generatePreparedHtml(markdownText: string, theme: DocumentTheme): Promise<string> {
+export async function generatePreparedHtml(markdownText: string, meta: DocumentMeta, theme: DocumentTheme): Promise<string> {
   // 公式需要先渲染为 SVG，否则导出的 HTML 只会得到 LaTeX 源码回退文本
   await ensureMathLoaded().catch((error) => console.warn('公式模块加载失败:', error));
 
-  const initialHtml = generateStandaloneHtml(markdownText, theme);
+  const initialHtml = generateStandaloneHtml(markdownText, meta, theme);
   const parsed = new DOMParser().parseFromString(initialHtml, 'text/html');
   const mermaidSources = Array.from(parsed.querySelectorAll<HTMLElement>('.mermaid'))
     .map((element) => element.textContent?.trim() || '');
   const initiallyRenderedHtml = await renderMermaidInHtml(initialHtml);
   const mermaidHeights = await measureMermaidHeights(initiallyRenderedHtml, mermaidSources);
   const renderedHtml = mermaidSources.length > 0
-    ? await renderMermaidInHtml(generateStandaloneHtml(markdownText, theme, mermaidHeights))
+    ? await renderMermaidInHtml(generateStandaloneHtml(markdownText, meta, theme, mermaidHeights))
     : initiallyRenderedHtml;
   return inlineImagesAsDataUris(renderedHtml);
 }
 
-export async function exportToHtmlFile(markdownText: string, theme: DocumentTheme, filename?: string): Promise<void> {
-  const htmlContent = await generatePreparedHtml(markdownText, theme);
+export async function exportToHtmlFile(markdownText: string, meta: DocumentMeta, theme: DocumentTheme, filename?: string): Promise<void> {
+  const htmlContent = await generatePreparedHtml(markdownText, meta, theme);
   const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-  const outName = filename || `${theme.meta.title || '交付文档'}.html`;
+  const outName = filename || `${meta.title || '交付文档'}.html`;
 
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);

@@ -1,5 +1,6 @@
-import type { DocumentHistoryEntry, DocumentSettings, DocumentTheme } from '../types';
+import type { DocumentHistoryEntry, DocumentMeta, DocumentSettings, DocumentTheme } from '../types';
 import { PRESET_THEMES } from '../data/presetThemes';
+import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
 import { CURRENT_DOCUMENT_FORMAT_VERSION, migrateDocumentData } from './documentMigrations';
 import {
   clearDocumentAssets,
@@ -19,14 +20,16 @@ export interface DocumentDraft {
   updatedAt: string;
   path?: string;
   markdown: string;
+  meta: DocumentMeta;
   theme: DocumentTheme;
   settings: DocumentSettings;
   history: DocumentHistoryEntry[];
   savedToSdc?: boolean;
 }
 
-interface StoredDocumentDraft extends Omit<DocumentDraft, 'formatVersion' | 'theme' | 'history'> {
+interface StoredDocumentDraft extends Omit<DocumentDraft, 'formatVersion' | 'meta' | 'theme' | 'history'> {
   formatVersion?: number;
+  meta?: unknown;
   theme: unknown;
   history?: DocumentHistoryEntry[];
 }
@@ -64,10 +67,12 @@ async function getStoredDrafts(): Promise<StoredDocumentDraft[]> {
 
 function migrateStoredDraft(stored: StoredDocumentDraft): { draft: DocumentDraft; needsWrite: boolean } {
   const fromVersion = stored.formatVersion ?? 1;
+  const hasEmbeddedMeta = Boolean(stored.theme && typeof stored.theme === 'object' && 'meta' in stored.theme);
   let recovered = false;
-  let migrated: Pick<DocumentDraft, 'theme' | 'history'>;
+  let migrated: Pick<DocumentDraft, 'meta' | 'theme' | 'history'>;
   try {
     migrated = migrateDocumentData(fromVersion, {
+      meta: stored.meta,
       theme: stored.theme as DocumentTheme,
       history: stored.history ?? [],
     });
@@ -75,6 +80,7 @@ function migrateStoredDraft(stored: StoredDocumentDraft): { draft: DocumentDraft
     recovered = true;
     console.error(`Draft ${stored.documentId} theme migration failed, using the default theme:`, error);
     migrated = {
+      meta: structuredClone(DEFAULT_DOCUMENT_META),
       theme: structuredClone(PRESET_THEMES[0]),
       history: [],
     };
@@ -86,7 +92,10 @@ function migrateStoredDraft(stored: StoredDocumentDraft): { draft: DocumentDraft
       ...migrated,
       formatVersion: CURRENT_DOCUMENT_FORMAT_VERSION,
     },
-    needsWrite: recovered || stored.formatVersion !== CURRENT_DOCUMENT_FORMAT_VERSION,
+    needsWrite: recovered
+      || stored.formatVersion !== CURRENT_DOCUMENT_FORMAT_VERSION
+      || !stored.meta
+      || hasEmbeddedMeta,
   };
 }
 
@@ -95,7 +104,10 @@ function summarizeDraft(stored: StoredDocumentDraft): DocumentDraftSummary {
   const rawTheme = stored.theme && typeof stored.theme === 'object'
     ? stored.theme as { name?: unknown; meta?: { title?: unknown } }
     : undefined;
-  const metaTitle = typeof rawTheme?.meta?.title === 'string' ? rawTheme.meta.title.trim() : '';
+  const rawMeta = stored.meta && typeof stored.meta === 'object'
+    ? stored.meta as { title?: unknown }
+    : rawTheme?.meta;
+  const metaTitle = typeof rawMeta?.title === 'string' ? rawMeta.title.trim() : '';
   const markdownTitle = markdown.match(/^#\s+(.+)$/m)?.[1]?.trim() || '';
   return {
     documentId: stored.documentId,

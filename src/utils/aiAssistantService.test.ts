@@ -1,17 +1,31 @@
 import { describe, expect, it, vi } from 'vitest';
+import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
 import { getRegisteredThemes } from '../themes/themeRegistry';
-import type { DocumentHistoryEntry, DocumentSettings, DocumentTheme } from '../types';
+import type { DocumentHistoryEntry, DocumentMeta, DocumentSettings, DocumentTheme } from '../types';
 import { buildAiTools } from './aiAssistantService';
+
+const defaultMeta: DocumentMeta = {
+  ...DEFAULT_DOCUMENT_META,
+  title: '测试文档',
+  department: '测试部门',
+};
+const staticMetaContext = {
+  getMeta: () => defaultMeta,
+  onUpdateMeta: () => undefined,
+};
 
 describe('AI assistant setting tools', () => {
   const createTools = (markdown: string, sessions: string[] = []) => {
     let theme = structuredClone(getRegisteredThemes()[0]);
+    let meta = structuredClone(defaultMeta);
     const settings: DocumentSettings = { historyEnabled: true, historyIdleMinutes: 10 };
     return buildAiTools({
       markdown,
+      getMeta: () => meta,
       getTheme: () => theme,
       settings,
       onUpdateTheme: update => { theme = typeof update === 'function' ? update(theme) : update; },
+      onUpdateMeta: update => { meta = typeof update === 'function' ? update(meta) : update; },
       onUpdateSettings: () => undefined,
       onSetHistory: () => undefined,
       onStartDiffReview: session => {
@@ -78,6 +92,7 @@ describe('AI assistant setting tools', () => {
     const sessions: string[] = [];
     const theme = structuredClone(getRegisteredThemes()[0]);
     const tools = buildAiTools({
+      ...staticMetaContext,
       markdown,
       getTheme: () => theme,
       settings: { historyEnabled: true, historyIdleMinutes: 10 },
@@ -117,6 +132,7 @@ describe('AI assistant setting tools', () => {
     let finishReview: (() => void) | undefined;
     const theme = structuredClone(getRegisteredThemes()[0]);
     const tools = buildAiTools({
+      ...staticMetaContext,
       markdown: '# 标题',
       getTheme: () => theme,
       settings: { historyEnabled: true, historyIdleMinutes: 10 },
@@ -145,6 +161,7 @@ describe('AI assistant setting tools', () => {
     const sessions: string[] = [];
     const theme = structuredClone(getRegisteredThemes()[0]);
     const tools = buildAiTools({
+      ...staticMetaContext,
       markdown,
       getTheme: () => theme,
       settings: { historyEnabled: true, historyIdleMinutes: 10 },
@@ -168,14 +185,19 @@ describe('AI assistant setting tools', () => {
 
   it('preserves all changes when multiple setting tools run in sequence', async () => {
     let theme: DocumentTheme = structuredClone(getRegisteredThemes()[0]);
+    let meta = structuredClone(defaultMeta);
     let settings: DocumentSettings = { historyEnabled: false, historyIdleMinutes: 10 };
     let history: unknown[] = [];
     const tools = buildAiTools({
       markdown: '# Test',
+      getMeta: () => meta,
       getTheme: () => theme,
       settings,
       onUpdateTheme: update => {
         theme = typeof update === 'function' ? update(theme) : update;
+      },
+      onUpdateMeta: update => {
+        meta = typeof update === 'function' ? update(meta) : update;
       },
       onUpdateSettings: update => {
         settings = typeof update === 'function' ? update(settings) : update;
@@ -231,8 +253,9 @@ describe('AI assistant setting tools', () => {
       levelStyles: [{ fontSize: 15 }, undefined, { bold: true, paddingLeft: 48 }],
     });
 
-    expect(theme.meta.title).toBe('企业级云原生中台系统架构设计说明书');
-    expect(theme.meta.organization).toBe('Sang科技有限公司');
+    expect(meta.title).toBe('企业级云原生中台系统架构设计说明书');
+    expect(meta.organization).toBe('Sang科技有限公司');
+    expect(theme).not.toHaveProperty('meta');
     expect(theme.cover).toMatchObject({ logoUrl: '@images/img-logo-test', logoHeight: 56, coverListColumns: 2 });
     expect(theme.style).toMatchObject({
       primaryColor: '#0b2545',
@@ -336,6 +359,7 @@ describe('AI assistant setting tools', () => {
     let settings: DocumentSettings = { historyEnabled: false, historyIdleMinutes: 10 };
     let history: DocumentHistoryEntry[] = [];
     const tools = buildAiTools({
+      ...staticMetaContext,
       markdown: '# 标题\n正文',
       getTheme: () => theme,
       settings,
@@ -430,6 +454,7 @@ describe('AI assistant setting tools', () => {
   it('applies theme updates on top of the latest theme instead of a stale snapshot', async () => {
     let theme: DocumentTheme = structuredClone(getRegisteredThemes()[0]);
     const tools = buildAiTools({
+      ...staticMetaContext,
       markdown: '# Test',
       getTheme: () => theme,
       settings: { historyEnabled: true, historyIdleMinutes: 10 },
@@ -483,6 +508,7 @@ describe('AI assistant setting tools', () => {
   it('drops unknown keys of nested config objects instead of persisting them', async () => {
     let theme: DocumentTheme = structuredClone(getRegisteredThemes()[0]);
     const tools = buildAiTools({
+      ...staticMetaContext,
       markdown: '# Test',
       getTheme: () => theme,
       settings: { historyEnabled: true, historyIdleMinutes: 10 },

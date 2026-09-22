@@ -181,7 +181,6 @@ export interface DocumentTheme {
   id: string;
   name: string;
   description: string;
-  meta: DocumentMeta;
   cover: CoverConfig;
   header: HeaderConfig;
   footer: FooterConfig;
@@ -200,6 +199,7 @@ export interface DocumentHistoryEntry {
   reason: 'idle' | 'manual';
   contentHash: string;
   markdown: string;
+  meta: DocumentMeta;
   theme: DocumentTheme;
 }
 
@@ -225,6 +225,7 @@ export interface SangDocument {
   createdAt: string;
   modifiedAt: string;
   markdown: string;
+  meta: DocumentMeta;
   theme: DocumentTheme;
   settings: DocumentSettings;
   history: DocumentHistoryEntry[];

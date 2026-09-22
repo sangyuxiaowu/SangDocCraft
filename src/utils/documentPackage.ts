@@ -101,6 +101,7 @@ export function packSangDocument(document: SangDocument): Uint8Array {
   const files: Record<string, Uint8Array> = {
     'manifest.json': strToU8(JSON.stringify(manifest, null, 2)),
     'document.md': strToU8(document.markdown),
+    'meta.json': strToU8(JSON.stringify(document.meta, null, 2)),
     'theme.json': strToU8(JSON.stringify(document.theme, null, 2)),
     'images.json': strToU8(JSON.stringify({ images: assets.map(({ data: _, ...metadata }) => metadata) }, null, 2)),
     'settings.json': strToU8(JSON.stringify(document.settings, null, 2)),
@@ -134,6 +135,7 @@ export async function unpackSangDocument(data: Uint8Array): Promise<SangDocument
     return { ...metadata, data: assetData };
   }));
   const migrated = migrateDocumentData(manifest.formatVersion, {
+    meta: files['meta.json'] ? parseJson(files, 'meta.json') : undefined,
     theme: parseJson<DocumentTheme>(files, 'theme.json'),
     history: files['history.json'] ? parseJson<DocumentHistoryEntry[]>(files, 'history.json') : [],
   });
@@ -143,6 +145,7 @@ export async function unpackSangDocument(data: Uint8Array): Promise<SangDocument
     createdAt: manifest.createdAt,
     modifiedAt: manifest.modifiedAt,
     markdown: strFromU8(markdownFile),
+    meta: migrated.meta,
     theme: migrated.theme,
     settings: parseJson<DocumentSettings>(files, 'settings.json'),
     history: migrated.history,

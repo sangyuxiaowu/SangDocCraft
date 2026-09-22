@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { StyleConfigPanel } from './StyleConfigPanel';
 import { PRESET_THEMES } from '../data/presetThemes';
+import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
 import { DEFAULT_WATERMARK_CONFIG } from '../utils/watermark';
 
 describe('StyleConfigPanel - Watermark Settings in Other Tab', () => {
@@ -39,7 +40,9 @@ describe('StyleConfigPanel - Watermark Settings in Other Tab', () => {
       root.render(
         <StyleConfigPanel
           theme={theme}
+          meta={DEFAULT_DOCUMENT_META}
           onChange={onChange}
+          onMetaChange={() => undefined}
           assets={[]}
           uiMode="light"
         />
@@ -94,7 +97,9 @@ describe('StyleConfigPanel - Watermark Settings in Other Tab', () => {
       root.render(
         <StyleConfigPanel
           theme={theme}
+          meta={DEFAULT_DOCUMENT_META}
           onChange={onChange}
+          onMetaChange={() => undefined}
           assets={[]}
           uiMode="dark"
         />

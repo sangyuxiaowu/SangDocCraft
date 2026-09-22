@@ -1,8 +1,17 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import { PRESET_THEMES } from '../data/presetThemes';
-import { generateStandaloneHtml } from './htmlExporter';
+import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
+import type { DocumentTheme } from '../types';
+import { generateStandaloneHtml as generateHtml } from './htmlExporter';
 import { containsMath, ensureMathLoaded } from './mathRenderer';
+
+const documentMeta = { ...DEFAULT_DOCUMENT_META, title: '测试交付文档' };
+const generateStandaloneHtml = (
+  markdown: string,
+  theme: DocumentTheme,
+  mermaidHeights: Record<string, number> = {},
+) => generateHtml(markdown, documentMeta, theme, mermaidHeights);
 
 describe('generateStandaloneHtml', () => {
   it('adds a non-printing attribution after all document pages', () => {
@@ -197,7 +206,7 @@ describe('generateStandaloneHtml', () => {
     );
 
     expect(html).toMatch(/^<!DOCTYPE html>/i);
-    expect(html).toContain(`<title>${base.meta.title}</title>`);
+    expect(html).toContain(`<title>${documentMeta.title}</title>`);
     expect(html).toContain('title: Export title');
     expect(html).toContain('id="heading-1"');
     expect(html).toContain('First');
@@ -224,7 +233,6 @@ describe('generateStandaloneHtml', () => {
     const source = '- One\n- Two\n- Three\n\n## Diagram\n\n```mermaid\nflowchart LR\nA --> B\n```';
     const theme = {
       ...PRESET_THEMES[0],
-      meta: { ...PRESET_THEMES[0].meta, showCover: false },
       toc: { ...PRESET_THEMES[0].toc, show: false },
     };
 

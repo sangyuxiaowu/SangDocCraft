@@ -68,9 +68,11 @@ export const SYSTEM_PROMPT = DEFAULT_SYSTEM_PROMPT;
 
 export interface AiToolContext {
   markdown: string;
+  getMeta: () => DocumentMeta;
   /** 读取当前真实主题（App 侧的 ref 实时值）：工具必须以它为基线，避免闭包里的旧快照覆盖用户改动 */
   getTheme: () => DocumentTheme;
   settings: DocumentSettings;
+  onUpdateMeta: (update: SetStateAction<DocumentMeta>) => void;
   onUpdateTheme: (update: SetStateAction<DocumentTheme>) => void;
   onUpdateSettings: (update: SetStateAction<DocumentSettings>) => void;
   onSetHistory: React.Dispatch<React.SetStateAction<any[]>>;
@@ -159,9 +161,9 @@ function formatUpdateVerification(checks: UpdateVerification[]): string {
 
 type SectionRecords = Record<ThemeSection, Record<string, unknown>>;
 
-function toSectionRecords(theme: DocumentTheme): SectionRecords {
+function toSectionRecords(meta: DocumentMeta, theme: DocumentTheme): SectionRecords {
   return {
-    meta: { ...theme.meta },
+    meta: { ...meta },
     cover: { ...theme.cover },
     header: { ...theme.header },
     footer: { ...theme.footer },
@@ -170,15 +172,17 @@ function toSectionRecords(theme: DocumentTheme): SectionRecords {
   };
 }
 
-function fromSectionRecords(theme: DocumentTheme, sections: SectionRecords): DocumentTheme {
+function fromSectionRecords(theme: DocumentTheme, sections: SectionRecords): { meta: DocumentMeta; theme: DocumentTheme } {
   return {
-    ...theme,
     meta: sections.meta as unknown as DocumentMeta,
-    cover: sections.cover as unknown as CoverConfig,
-    header: sections.header as unknown as HeaderConfig,
-    footer: sections.footer as unknown as FooterConfig,
-    toc: sections.toc as unknown as TocConfig,
-    style: sections.style as unknown as StyleConfig,
+    theme: {
+      ...theme,
+      cover: sections.cover as unknown as CoverConfig,
+      header: sections.header as unknown as HeaderConfig,
+      footer: sections.footer as unknown as FooterConfig,
+      toc: sections.toc as unknown as TocConfig,
+      style: sections.style as unknown as StyleConfig,
+    },
   };
 }
 
@@ -202,12 +206,11 @@ function applyScalarFields(
 
 /** 写入后的字段级回读校验（只覆盖本次请求到的字段） */
 function verifyScalarFields(
-  theme: DocumentTheme,
+  sections: SectionRecords,
   args: Record<string, unknown>,
   specs: readonly ScalarFieldSpec[],
 ): UpdateVerification[] {
   const checks: UpdateVerification[] = [];
-  const sections = theme as unknown as SectionRecords;
   specs.forEach(spec => {
     const raw = args[spec.argument];
     if (raw === undefined) return;
@@ -259,7 +262,7 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
     }
 
     // 同一轮里主题可能已被前面的调用改过，快照必须记录最新主题，否则回滚会带回旧样式。
-    const snapshot = await createHistoryEntry(currentMarkdown, context.getTheme(), 'manual');
+    const snapshot = await createHistoryEntry(currentMarkdown, context.getMeta(), context.getTheme(), 'manual');
     context.onSetHistory(prev => appendUniqueHistory(prev, snapshot));
 
     const reviewResult = await context.onStartDiffReview({
@@ -285,10 +288,11 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
       definition: AI_TOOL_DEFINITIONS.get_document_config,
       handler: async (args) => {
         const types = readDocumentConfigTypes(args.types);
+        const meta = context.getMeta();
         const theme = context.getTheme();
         const { primaryColor, accentColor, textColor, backgroundColor, coverBgColor, watermark, ...style } = theme.style;
         const config: Record<DocumentConfigType, unknown> = {
-          meta: theme.meta,
+          meta,
           cover: theme.cover,
           header: theme.header,
           footer: theme.footer,
@@ -311,7 +315,7 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
         totalLines: getMarkdownLines(currentMarkdown).length,
         historyEnabled: currentSettings.historyEnabled,
         outline: getMarkdownOutline(currentMarkdown),
-        meta: context.getTheme().meta
+        meta: context.getMeta()
       }, null, 2)
     },
     {
@@ -516,7 +520,7 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
       definition: AI_TOOL_DEFINITIONS.update_document_meta,
       handler: async (args) => {
         const current = context.getTheme();
-        const sections = toSectionRecords(current);
+        const sections = toSectionRecords(context.getMeta(), current);
         applyScalarFields(sections, args, META_FIELDS);
         if (Array.isArray(args.coverlist)) {
           sections.cover.coverlist = args.coverlist
@@ -526,12 +530,13 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
               return { label: String(entry.label), value: String(entry.value) };
             });
         }
-        const nextTheme = fromSectionRecords(current, sections);
-        context.onUpdateTheme(nextTheme);
+        const next = fromSectionRecords(current, sections);
+        context.onUpdateMeta(next.meta);
+        context.onUpdateTheme(next.theme);
 
-        const checks = verifyScalarFields(nextTheme, args, META_FIELDS);
+        const checks = verifyScalarFields(sections, args, META_FIELDS);
         if (Array.isArray(args.coverlist)) {
-          checks.push({ field: 'coverlist', expected: sections.cover.coverlist, actual: nextTheme.cover.coverlist });
+          checks.push({ field: 'coverlist', expected: sections.cover.coverlist, actual: next.theme.cover.coverlist });
         }
         return formatUpdateVerification(checks);
       }
@@ -540,7 +545,7 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
       definition: AI_TOOL_DEFINITIONS.update_document_style,
       handler: async (args) => {
         const current = context.getTheme();
-        const sections = toSectionRecords(current);
+        const sections = toSectionRecords(context.getMeta(), current);
         applyScalarFields(sections, args, STYLE_FIELDS);
 
         const requestedHeadingFonts = typeof args.headingFonts === 'object' && args.headingFonts !== null
@@ -563,10 +568,10 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
           sections.style.watermark = applySubFields(sections.style.watermark, args.watermark, WATERMARK_FIELDS);
         }
 
-        const nextTheme = fromSectionRecords(current, sections);
+        const { theme: nextTheme } = fromSectionRecords(current, sections);
         context.onUpdateTheme(nextTheme);
 
-        const checks = verifyScalarFields(nextTheme, args, STYLE_FIELDS);
+        const checks = verifyScalarFields(sections, args, STYLE_FIELDS);
         if (requestedHeadingFonts) {
           (['h1', 'h2', 'h3', 'h4'] as const).forEach(level => {
             verifySubFields(checks, `headingFonts.${level}`, requestedHeadingFonts[level], nextTheme.style.headingFonts[level], HEADING_FONT_FIELDS);
@@ -582,15 +587,15 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
       definition: AI_TOOL_DEFINITIONS.update_header_footer_config,
       handler: async (args) => {
         const current = context.getTheme();
-        const sections = toSectionRecords(current);
+        const sections = toSectionRecords(context.getMeta(), current);
         applyScalarFields(sections, args, HEADER_FIELDS);
         applyScalarFields(sections, args, FOOTER_FIELDS);
-        const nextTheme = fromSectionRecords(current, sections);
+        const { theme: nextTheme } = fromSectionRecords(current, sections);
         context.onUpdateTheme(nextTheme);
 
         const checks = [
-          ...verifyScalarFields(nextTheme, args, HEADER_FIELDS),
-          ...verifyScalarFields(nextTheme, args, FOOTER_FIELDS),
+          ...verifyScalarFields(sections, args, HEADER_FIELDS),
+          ...verifyScalarFields(sections, args, FOOTER_FIELDS),
         ];
         return formatUpdateVerification(checks);
       }
@@ -599,7 +604,7 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
       definition: AI_TOOL_DEFINITIONS.update_toc_config,
       handler: async (args) => {
         const current = context.getTheme();
-        const sections = toSectionRecords(current);
+        const sections = toSectionRecords(context.getMeta(), current);
         applyScalarFields(sections, args, TOC_FIELDS);
 
         if (typeof args.titleFont === 'object' && args.titleFont !== null) {
@@ -614,10 +619,10 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
           sections.toc.levelStyles = levelStyles;
         }
 
-        const nextTheme = fromSectionRecords(current, sections);
+        const { theme: nextTheme } = fromSectionRecords(current, sections);
         context.onUpdateTheme(nextTheme);
 
-        const checks = verifyScalarFields(nextTheme, args, TOC_FIELDS);
+        const checks = verifyScalarFields(sections, args, TOC_FIELDS);
         const nextLevelStyles = getTocLevelStyles(nextTheme.toc);
         if (typeof args.titleFont === 'object' && args.titleFont !== null) {
           verifySubFields(checks, 'titleFont', args.titleFont, getTocTitleFont(nextTheme.toc), HEADING_FONT_FIELDS);

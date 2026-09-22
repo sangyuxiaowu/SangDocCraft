@@ -26,12 +26,19 @@ import {
   Download,
   ZoomIn
 } from 'lucide-react';
-import { DOCUMENT_TEMPLATES, type DocumentTemplateCategory, type DocumentTemplateItem } from '../data/documentTemplates';
+import { DOCUMENT_TEMPLATE_CATEGORIES, DOCUMENT_TEMPLATES, type DocumentTemplateCategory, type DocumentTemplateItem } from '../data/documentTemplates';
 import type { DocumentDraftSummary } from '../utils/draftStore';
 import type { RecentDocumentItem } from '../utils/recentDocumentsStore';
 import type { ThemeMode } from '../types';
 
 const WELCOME_REWARD_STORAGE_KEY = 'sangdoccraft_welcome_reward_dismissed';
+const DOCUMENT_TEMPLATE_FILTERS: ReadonlyArray<{
+  id: 'all' | DocumentTemplateCategory;
+  label: string;
+}> = [
+  { id: 'all', label: '全部' },
+  ...DOCUMENT_TEMPLATE_CATEGORIES,
+];
 
 interface WelcomeDashboardProps {
   isOpen: boolean;
@@ -358,31 +365,28 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
             </div>
 
             {/* Category Filter Tabs */}
-            <div className={`flex items-center p-0.5 rounded-xl border shrink-0 ${
-              isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-slate-200/80 border-slate-200'
-            }`}>
-              {(['all', 'blank', 'template'] as const).map((cat) => {
-                const labels: Record<'all' | DocumentTemplateCategory, string> = {
-                  all: '全部',
-                  blank: '空白文档',
-                  template: '文档模板',
-                };
-                const active = selectedCategory === cat;
-                return (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
-                      active 
-                        ? 'bg-blue-600 text-white shadow-xs' 
-                        : isDark ? 'text-zinc-400 hover:text-zinc-200' : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    {labels[cat]}
-                  </button>
-                );
-              })}
+            <div className="max-w-full overflow-x-auto pb-0.5 scrollbar-thin">
+              <div className={`flex w-max items-center p-0.5 rounded-xl border ${
+                isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-slate-200/80 border-slate-200'
+              }`}>
+                {DOCUMENT_TEMPLATE_FILTERS.map((filter) => {
+                  const active = selectedCategory === filter.id;
+                  return (
+                    <button
+                      key={filter.id}
+                      type="button"
+                      onClick={() => setSelectedCategory(filter.id)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                        active
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : isDark ? 'text-zinc-400 hover:text-zinc-200' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {filter.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

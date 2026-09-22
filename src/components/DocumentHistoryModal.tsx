@@ -58,7 +58,7 @@ export const DocumentHistoryModal: React.FC<DocumentHistoryModalProps> = ({
   // 版本号仅在有值时展示，方便按 version 字段定位指定快照
   const normalizeVersion = (value?: string) => (value && value.trim() ? value.trim() : '');
   const currentVersionLabel = normalizeVersion(currentVersion);
-  const selectedEntryVersion = normalizeVersion(selectedEntry?.theme?.meta?.version);
+  const selectedEntryVersion = normalizeVersion(selectedEntry?.meta.version);
   /** 最新快照代表文档当前状态，不参与单独删除 */
   const latestEntryId = reversedHistory[0]?.id;
 
@@ -83,7 +83,7 @@ export const DocumentHistoryModal: React.FC<DocumentHistoryModalProps> = ({
 
   const handleRestoreClick = async (entry: DocumentHistoryEntry) => {
     const timeStr = new Date(entry.createdAt).toLocaleString();
-    const entryVersion = normalizeVersion(entry.theme?.meta?.version);
+    const entryVersion = normalizeVersion(entry.meta.version);
     const ok = await modal.confirm({
       title: '恢复历史快照',
       message: `确定要恢复至 ${timeStr}${entryVersion ? `（版本 ${entryVersion}）` : ''} 的版本吗？\n当前未保存的修改将被此历史快照覆盖。`,
@@ -244,7 +244,7 @@ export const DocumentHistoryModal: React.FC<DocumentHistoryModalProps> = ({
                 const isSelected = selectedEntry?.id === entry.id;
                 const isManual = entry.reason === 'manual';
                 const dateObj = new Date(entry.createdAt);
-                const entryVersion = normalizeVersion(entry.theme?.meta?.version);
+                const entryVersion = normalizeVersion(entry.meta.version);
 
                 return (
                   <div

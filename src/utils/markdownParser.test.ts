@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { marked } from 'marked';
 import { getPageBreakInsertion, splitExplicitPages } from './pageBreaks';
 import { PRESET_THEMES } from '../data/presetThemes';
+import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
 import {
   formatPageNumber,
   getFooterSlots,
@@ -330,9 +331,9 @@ describe('Markdown pagination and numbering', () => {
   });
 
   it('places the page number in the configured footer slot', () => {
-    const slots = getFooterSlots(2, 5, { ...theme.footer, pageNumberPosition: 'center' }, theme.meta);
+    const slots = getFooterSlots(2, 5, { ...theme.footer, pageNumberPosition: 'center' }, DEFAULT_DOCUMENT_META);
     expect(slots.center).toBe('第 2 页 / 共 5 页');
-    expect(slots.left).toBe(theme.footer.leftText || theme.meta.organization);
+    expect(slots.left).toBe(theme.footer.leftText || DEFAULT_DOCUMENT_META.organization);
   });
 });
 

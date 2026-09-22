@@ -11,11 +11,10 @@ import { AboutModal } from './components/AboutModal';
 import { PrintPdfModal } from './components/PrintPdfModal';
 import { ModalDialogContainer } from './components/ModalDialogContainer';
 import { modal } from './utils/modalDialog';
-import { DocumentAsset, DocumentHistoryEntry, DocumentTheme, ThemeMode, ViewMode } from './types';
+import { DocumentAsset, DocumentHistoryEntry, DocumentMeta, DocumentTheme, ThemeMode, ViewMode } from './types';
 import { getRegisteredThemes } from './themes/themeRegistry';
 import { loadCustomThemes, saveCustomThemes } from './themes/customThemeStore';
 import { loadCurrentTheme, saveCurrentTheme } from './themes/currentThemeCache';
-import { mergeThemePreservingDocumentText } from './themes/themeSelection';
 import { clearDocumentAssets, clearDocumentChatSessions, listChatSessions, listDocumentAssets, listLibraryAssets } from './utils/imageRepository';
 import { registerAssetUrls } from './utils/assetUrlRegistry';
 import { clearDocumentAssetUrls } from './utils/assetUrlRegistry';
@@ -39,7 +38,8 @@ import {
 } from './utils/draftStore';
 import { getRecentDocuments, addRecentDocument, removeRecentDocument, clearRecentDocuments, type RecentDocumentItem } from './utils/recentDocumentsStore';
 import { WelcomeDashboard } from './components/WelcomeDashboard';
-import { resolveTemplateTheme, type DocumentTemplateItem } from './data/documentTemplates';
+import { resolveDocumentTemplate, type DocumentTemplateItem } from './data/documentTemplates';
+import { DEFAULT_DOCUMENT_META } from './data/defaultDocumentMeta';
 import { formatApplicationTitle, resolveDocumentTitle } from './utils/applicationTitle';
 import { loadAiConfig, loadAiConfigWithSecrets, saveAiConfig } from './lib/aiConfig';
 import { AiConfig, DiffReviewSession } from './types/ai';
@@ -158,12 +158,17 @@ export default function App() {
 
   // 只从版本化缓存恢复主题 ID；完整文档主题必须来自模板、草稿或 .sdc 的迁移入口。
   const [theme, setTheme] = useState<DocumentTheme>(() => loadCurrentTheme([...builtinThemes, ...customThemes]));
+  const [meta, setMeta] = useState<DocumentMeta>(() => structuredClone(DEFAULT_DOCUMENT_META));
 
-  // 主题的实时镜像：AI 工具写入后需要立即读回真实值，不能等 React 状态提交（提交是异步的）。
+  // AI 工具写入后需要立即读回真实值，不能等 React 状态提交（提交是异步的）。
   const themeRef = useRef(theme);
+  const metaRef = useRef(meta);
   useEffect(() => {
     themeRef.current = theme;
   }, [theme]);
+  useEffect(() => {
+    metaRef.current = meta;
+  }, [meta]);
 
   const [markdown, setMarkdown] = useState('');
 
@@ -263,7 +268,7 @@ export default function App() {
       title = formatApplicationTitle(undefined, true);
     } else {
       const docTitle = resolveDocumentTitle({
-        themeTitle: theme.meta.title,
+        themeTitle: meta.title,
         documentPath,
         markdown,
       });
@@ -277,7 +282,7 @@ export default function App() {
         console.error('Update Tauri window title failed:', error);
       });
     }
-  }, [isWelcomeOpen, theme.meta.title, documentPath, markdown]);
+  }, [isWelcomeOpen, meta.title, documentPath, markdown]);
 
   const refreshUnsavedDrafts = async () => {
     try {
@@ -311,13 +316,14 @@ export default function App() {
     setDocumentSettings(opened.document.settings);
     setHistory(opened.document.history);
     setMarkdown(opened.document.markdown);
+    setMeta(opened.document.meta);
     setTheme(opened.document.theme);
     setIsDocumentDirty(false);
     setHasActiveDocument(true);
     setIsWelcomeOpen(false);
     if (opened.path) {
       const updated = addRecentDocument({
-        title: opened.document.title || opened.document.theme?.meta?.title || '未命名文档',
+        title: opened.document.title || opened.document.meta.title || '未命名文档',
         path: opened.path,
       });
       setRecentDocuments(updated);
@@ -414,8 +420,7 @@ export default function App() {
   }, [isDragging, isConfigPanelOpen, viewMode]);
 
   const handlePresetThemeChange = (selectedTheme: DocumentTheme) => {
-    // 切换主题只替换排版与配色，封面/页眉页脚中当前文档已填写的文本类信息保持不变
-    setTheme((currentTheme) => mergeThemePreservingDocumentText(currentTheme, selectedTheme));
+    setTheme(structuredClone(selectedTheme));
     setIsDocumentDirty(true);
   };
 
@@ -469,7 +474,7 @@ export default function App() {
     const matchedTheme = allThemes.find((t) => t.id === template.recommendedThemeId) || builtinThemes[0];
 
     // 模板只描述差异部分，其余排版与配色完全沿用推荐主题；未在模板中声明的字段保持主题默认值
-    const newTheme = resolveTemplateTheme(template, matchedTheme);
+    const resolved = resolveDocumentTemplate(template, matchedTheme);
 
     const nextId = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -479,7 +484,8 @@ export default function App() {
     setDocumentSettings({ historyEnabled: false, historyIdleMinutes: 10 });
     setHistory([]);
     setMarkdown(template.markdown);
-    setTheme(newTheme);
+    setMeta(resolved.meta);
+    setTheme(resolved.theme);
     setIsDocumentDirty(false);
     setHasActiveDocument(true);
     setIsWelcomeOpen(false);
@@ -516,6 +522,7 @@ export default function App() {
     setDocumentSettings(draft.settings);
     setHistory(draft.history);
     setMarkdown(draft.markdown);
+    setMeta(draft.meta);
     setTheme(draft.theme);
     setIsDocumentDirty(false);
     setHasActiveDocument(true);
@@ -567,7 +574,7 @@ export default function App() {
       if (opened) {
         await applyOpenedDocument(opened);
         const updated = addRecentDocument({
-          title: opened.document.title || opened.document.theme?.meta?.title || '未命名文档',
+          title: opened.document.title || opened.document.meta.title || '未命名文档',
           path: filePath,
         });
         setRecentDocuments(updated);
@@ -643,10 +650,11 @@ export default function App() {
     const packageAssets = assets.filter((asset) => asset.scope === 'document' || references.has(`@library/${asset.id}`));
     return {
       id: documentId,
-      title: theme.meta.title.trim() || '未命名文档',
+      title: meta.title.trim() || '未命名文档',
       createdAt: documentCreatedAt,
       modifiedAt: new Date().toISOString(),
       markdown,
+      meta,
       theme,
       settings: documentSettings,
       history: documentHistory,
@@ -660,7 +668,7 @@ export default function App() {
     try {
       let nextHistory = history;
       if (documentSettings.historyEnabled) {
-        nextHistory = appendUniqueHistory(history, await createHistoryEntry(markdown, theme, 'manual'));
+        nextHistory = appendUniqueHistory(history, await createHistoryEntry(markdown, meta, theme, 'manual'));
         setHistory(nextHistory);
       }
       if (!isTauriEnvironment()) {
@@ -672,6 +680,7 @@ export default function App() {
           updatedAt: new Date().toISOString(),
           path: undefined,
           markdown,
+          meta,
           theme,
           settings: documentSettings,
           history: nextHistory,
@@ -694,7 +703,7 @@ export default function App() {
       setLastSavedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
       await deleteDraft(documentId);
       const updated = addRecentDocument({
-        title: theme.meta.title || '未命名文档',
+        title: meta.title || '未命名文档',
         path: savedPath,
       });
       setRecentDocuments(updated);
@@ -751,6 +760,7 @@ export default function App() {
           updatedAt: new Date().toISOString(),
           path: documentPath,
           markdown,
+          meta,
           theme,
           settings: documentSettings,
           history,
@@ -767,12 +777,12 @@ export default function App() {
       }
     }, 1500);
     return () => window.clearTimeout(timer);
-  }, [documentId, documentCreatedAt, documentPath, documentSettings, markdown, theme, history, assets, isDocumentDirty]);
+  }, [documentId, documentCreatedAt, documentPath, documentSettings, markdown, meta, theme, history, assets, isDocumentDirty]);
 
   useEffect(() => {
     if (!documentSettings.historyEnabled) return;
     const timer = window.setTimeout(() => {
-      void createHistoryEntry(markdown, theme, 'idle').then((entry) => {
+      void createHistoryEntry(markdown, meta, theme, 'idle').then((entry) => {
         const nextHistory = appendUniqueHistory(history, entry);
         setHistory(nextHistory);
         if (isTauriEnvironment() && documentPath && nextHistory !== history) {
@@ -784,6 +794,7 @@ export default function App() {
             createdAt: documentCreatedAt,
             updatedAt: new Date().toISOString(),
             markdown,
+            meta,
             theme,
             settings: documentSettings,
             history: nextHistory,
@@ -792,7 +803,7 @@ export default function App() {
       });
     }, documentSettings.historyIdleMinutes * 60_000);
     return () => window.clearTimeout(timer);
-  }, [documentSettings.historyEnabled, documentSettings.historyIdleMinutes, markdown, theme]);
+  }, [documentSettings.historyEnabled, documentSettings.historyIdleMinutes, markdown, meta, theme]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -803,7 +814,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [documentId, documentPath, documentCreatedAt, documentSettings, markdown, theme, history, assets]);
+  }, [documentId, documentPath, documentCreatedAt, documentSettings, markdown, meta, theme, history, assets]);
 
   const handleDeleteCustomTheme = (id: string) => {
     setCustomThemes((themes) => themes.filter((item) => item.id !== id));
@@ -814,7 +825,7 @@ export default function App() {
   const handleExportDocx = async () => {
     try {
       const { exportToDocx } = await import('./utils/docxExporter');
-      await exportToDocx(markdown, theme);
+      await exportToDocx(markdown, meta, theme);
     } catch (err) {
       console.error('Docx export error:', err);
       await modal.alert({
@@ -828,7 +839,7 @@ export default function App() {
   const handleExportHtml = async () => {
     try {
       const { exportToHtmlFile } = await import('./utils/htmlExporter');
-      await exportToHtmlFile(markdown, theme);
+      await exportToHtmlFile(markdown, meta, theme);
     } catch (err) {
       console.error('HTML export error:', err);
       await modal.alert({
@@ -850,8 +861,15 @@ export default function App() {
 
   const aiToolContext: AiToolContext = {
     markdown,
+    getMeta: () => metaRef.current,
     getTheme: () => themeRef.current,
     settings: documentSettings,
+    onUpdateMeta: (update) => {
+      const nextMeta = typeof update === 'function' ? update(metaRef.current) : update;
+      metaRef.current = nextMeta;
+      setMeta(nextMeta);
+      setIsDocumentDirty(true);
+    },
     onUpdateTheme: (update) => {
       // 同步写回 ref，工具才能立即读回真实主题（校验用它，而不是自己维护的镜像）。
       const nextTheme = typeof update === 'function' ? update(themeRef.current) : update;
@@ -992,6 +1010,7 @@ export default function App() {
           }`}>
             <A4Preview
               markdown={markdown}
+              meta={meta}
               theme={previewTheme}
               uiMode={uiMode}
               viewMode={viewMode}
@@ -1016,9 +1035,11 @@ export default function App() {
             isDark ? 'bg-[#181818] border-[#2A2A2A]' : 'bg-white border-slate-200'
           }`}>
             <StyleConfigPanel 
-              theme={theme} 
+              theme={theme}
+              meta={meta}
               assets={assets}
               onChange={(value) => { setTheme(value); setIsDocumentDirty(true); }}
+              onMetaChange={(value) => { setMeta(value); setIsDocumentDirty(true); }}
               uiMode={uiMode}
             />
           </div>
@@ -1056,10 +1077,10 @@ export default function App() {
         isDark={isDark}
         settings={documentSettings}
         history={history}
-        currentVersion={theme.meta.version}
+        currentVersion={meta.version}
         onClose={() => setShowHistory(false)}
         onSettingsChange={(settings) => { setDocumentSettings(settings); setIsDocumentDirty(true); }}
-        onRestore={(entry) => { setMarkdown(entry.markdown); setTheme(entry.theme); setIsDocumentDirty(true); setShowHistory(false); }}
+        onRestore={(entry) => { setMarkdown(entry.markdown); setMeta(entry.meta); setTheme(entry.theme); setIsDocumentDirty(true); setShowHistory(false); }}
         onDelete={(entry) => { setHistory((prev) => prev.filter((item) => item.id !== entry.id)); setIsDocumentDirty(true); }}
         onClear={() => { setHistory([]); setIsDocumentDirty(true); }}
       />
@@ -1129,6 +1150,7 @@ export default function App() {
         isOpen={showPrintPdfModal}
         onClose={() => setShowPrintPdfModal(false)}
         markdown={markdown}
+        meta={meta}
         theme={previewTheme}
         isDark={isDark}
       />

@@ -1,15 +1,41 @@
 import type { CoverConfig, DocumentMeta, DocumentTheme, StyleConfig, TocConfig } from '../types';
+import { DEFAULT_DOCUMENT_META } from './defaultDocumentMeta';
 
 // 每个模板的 Markdown 正文独立存放在 ./templates/*.md，便于单独维护与编辑。
 import blankMarkdown from './templates/blank.md?raw';
 import systemGuideMarkdown from './templates/system-guide.md?raw';
+import enterpriseDeliveryMarkdown from './templates/enterprise-delivery.md?raw';
+import minimalWhitepaperMarkdown from './templates/minimal-whitepaper.md?raw';
 import architectureSpecMarkdown from './templates/architecture-spec.md?raw';
+import approvalDeliveryMarkdown from './templates/approval-delivery.md?raw';
 import uiDesignTokenMarkdown from './templates/ui-design-token.md?raw';
 import businessProposalMarkdown from './templates/business-proposal.md?raw';
 import academicThesisMarkdown from './templates/academic-thesis.md?raw';
 import meetingMinutesMarkdown from './templates/meeting-minutes.md?raw';
 
-export type DocumentTemplateCategory = 'blank' | 'template';
+export type DocumentTemplateCategory =
+  | 'blank'
+  | 'guide'
+  | 'development'
+  | 'design'
+  | 'delivery'
+  | 'business'
+  | 'meeting'
+  | 'academic';
+
+export const DOCUMENT_TEMPLATE_CATEGORIES: ReadonlyArray<{
+  id: DocumentTemplateCategory;
+  label: string;
+}> = [
+  { id: 'blank', label: '空白' },
+  { id: 'guide', label: '指南' },
+  { id: 'development', label: '研发' },
+  { id: 'design', label: '设计' },
+  { id: 'delivery', label: '交付' },
+  { id: 'business', label: '商务' },
+  { id: 'meeting', label: '会议' },
+  { id: 'academic', label: '学术' },
+];
 
 export interface DocumentTemplateItem {
   id: string;
@@ -17,7 +43,6 @@ export interface DocumentTemplateItem {
   subtitle: string;
   description: string;
   category: DocumentTemplateCategory;
-  categoryLabel: string;
   badge?: string;
   iconName: 'file-text' | 'cpu' | 'palette' | 'briefcase' | 'graduation-cap' | 'clipboard-list' | 'sparkles';
   /** 必须与内置主题（PRESET_THEMES）中的 id 完全一致，否则新建文档会退回默认主题 */
@@ -36,28 +61,35 @@ export interface DocumentTemplateItem {
 /** 模板中心默认推荐主题，供兜底与测试使用 */
 export const DEFAULT_TEMPLATE_THEME_ID = 'enterprise-standard';
 
+export interface ResolvedDocumentTemplate {
+  theme: DocumentTheme;
+  meta: DocumentMeta;
+}
+
 /**
  * 依据模板差异项合成新文档主题：
  * 模板只描述差异部分，封面 / 目录 / 正文样式仅覆盖模板显式声明的字段，
  * 其余排版、配色、页眉页脚完全沿用推荐主题。
  */
-export function resolveTemplateTheme(
+export function resolveDocumentTemplate(
   template: DocumentTemplateItem,
   baseTheme: DocumentTheme,
-): DocumentTheme {
+): ResolvedDocumentTemplate {
   return {
-    ...baseTheme,
+    theme: {
+      ...baseTheme,
+      cover: { ...baseTheme.cover, ...template.coverConfig },
+      toc: { ...baseTheme.toc, ...template.tocConfig },
+      style: { ...baseTheme.style, ...template.styleConfig },
+    },
     meta: {
-      ...baseTheme.meta,
+      ...DEFAULT_DOCUMENT_META,
       ...template.metaConfig,
       title: template.metaConfig?.title || template.title,
       subtitle: template.metaConfig?.subtitle || template.subtitle,
-      version: template.metaConfig?.version || baseTheme.meta.version || 'v1.0.0',
+      version: template.metaConfig?.version || 'v1.0.0',
       date: template.metaConfig?.date || new Date().toISOString().split('T')[0],
     },
-    cover: { ...baseTheme.cover, ...template.coverConfig },
-    toc: { ...baseTheme.toc, ...template.tocConfig },
-    style: { ...baseTheme.style, ...template.styleConfig },
   };
 }
 
@@ -68,7 +100,6 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     subtitle: 'Blank Document',
     description: '从干净纯粹的白纸开始创作，不带任何预设内容，随心设计排版。',
     category: 'blank',
-    categoryLabel: '新建',
     badge: '纯净开始',
     iconName: 'file-text',
     recommendedThemeId: 'minimal-clean',
@@ -86,8 +117,7 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     title: 'SangDocCraft 使用范本',
     subtitle: 'Feature Showcase',
     description: '系统推荐全功能演示文档，包含 Mermaid 流程图、LaTeX 公式、表格与题注、内部/网络图片、分页符及文档历史等特性。',
-    category: 'template',
-    categoryLabel: '文档模板',
+    category: 'guide',
     badge: '官方推荐',
     iconName: 'sparkles',
     recommendedThemeId: 'enterprise-standard',
@@ -101,12 +131,49 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     },
   },
   {
+    id: 'enterprise-delivery',
+    title: '企业标准技术交付文档',
+    subtitle: 'Enterprise Delivery Document',
+    description: '面向企业项目设计、实施与验收的标准交付范本，覆盖架构、部署、运维和交付清单。',
+    category: 'delivery',
+    badge: '企业交付',
+    iconName: 'file-text',
+    recommendedThemeId: 'enterprise-standard',
+    markdown: enterpriseDeliveryMarkdown,
+    metaConfig: {
+      title: '分布式高并发系统架构设计说明书',
+      subtitle: '核心服务升级与敏捷架构交付标准',
+      author: '架构设计专家团队',
+      department: '技术研发中心 / 基础架构部',
+      organization: '某某科技有限公司',
+      date: '2026年08月12日',
+    },
+  },
+  {
+    id: 'minimal-whitepaper',
+    title: '极简产品设计白皮书',
+    subtitle: 'Minimal Product Whitepaper',
+    description: '强调留白与内容层级的轻量白皮书范本，适合产品规范、设计原则和团队共识文档。',
+    category: 'design',
+    badge: '极简白皮书',
+    iconName: 'palette',
+    recommendedThemeId: 'minimal-clean',
+    markdown: minimalWhitepaperMarkdown,
+    metaConfig: {
+      title: 'UI/UX 交互设计规范交付指南',
+      subtitle: 'Design System & Component Guidelines',
+      author: 'UI/UX Design Studio',
+      department: '体验设计部',
+      organization: '某某科技有限公司',
+      date: '2026.08',
+    },
+  },
+  {
     id: 'architecture-spec',
     title: '企业级微服务架构方案',
     subtitle: 'Architecture Specification',
     description: '高规格技术方案范文，包含系统背景、KPI 指标对比表、Mermaid 四层逻辑架构图、API 契约及 SQL 结构。',
-    category: 'template',
-    categoryLabel: '文档模板',
+    category: 'development',
     badge: '架构设计',
     iconName: 'cpu',
     recommendedThemeId: 'tech-spec',
@@ -120,12 +187,31 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     },
   },
   {
+    id: 'approval-delivery',
+    title: '企业信息化项目签审交付方案',
+    subtitle: 'Project Approval & Delivery',
+    description: '覆盖方案评审、职责签批、交付清单、验收标准与版本记录的正式受控文档。',
+    category: 'delivery',
+    badge: '签审交付',
+    iconName: 'file-text',
+    recommendedThemeId: 'enterprise-signature',
+    markdown: approvalDeliveryMarkdown,
+    metaConfig: {
+      title: '企业信息化项目建设方案',
+      subtitle: '项目评审、签批与交付说明',
+      author: '项目交付组',
+      department: '企业数字化中心',
+      organization: '某某科技有限公司',
+      number: 'SDC-2026-001',
+      version: 'V1.0',
+    },
+  },
+  {
     id: 'ui-design-token',
     title: '体验设计原则与 Token 规范',
     subtitle: 'Design System & Tokens',
     description: '专业设计系统指南，涵盖视觉克制原则、8px 网格规范、色彩对比度 Token 表格与核心交互组件规则。',
-    category: 'template',
-    categoryLabel: '文档模板',
+    category: 'design',
     badge: 'UI / UX',
     iconName: 'palette',
     recommendedThemeId: 'creative-studio',
@@ -143,8 +229,7 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     title: '商业立项与可行性研究报告',
     subtitle: 'Business Feasibility Report',
     description: '涵盖项目执行摘要、行业客户痛点矩阵、商业模式 Mermaid 图、三年财务营收测算及阶段退出规划。',
-    category: 'template',
-    categoryLabel: '文档模板',
+    category: 'business',
     badge: '商业策划',
     iconName: 'briefcase',
     recommendedThemeId: 'business-briefing',
@@ -162,8 +247,7 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     title: '学术论文与学位开题报告',
     subtitle: 'Academic Thesis Proposal',
     description: '符合学术规范的结构框架：中英文摘要、关键词、国内外研究现状、数学公式说明、架构流程图与对比实验表。',
-    category: 'template',
-    categoryLabel: '文档模板',
+    category: 'academic',
     badge: '学术论文',
     iconName: 'graduation-cap',
     recommendedThemeId: 'academic-paper',
@@ -181,8 +265,7 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     title: '重点项目会议纪要与行动看板',
     subtitle: 'Meeting Minutes & Action Items',
     description: '高管与研发周会标准范式：参会基本信息、核心议题讨论结果、责任分工明确的待办事项与进度跟踪清单。',
-    category: 'template',
-    categoryLabel: '文档模板',
+    category: 'meeting',
     badge: '办公协作',
     iconName: 'clipboard-list',
     recommendedThemeId: 'governmental-standard',

@@ -13,7 +13,7 @@ import {
   ArrowDownToLine,
   TriangleAlert,
 } from 'lucide-react';
-import { DocumentTheme, TocItem, ViewMode } from '../types';
+import { DocumentMeta, DocumentTheme, TocItem, ViewMode } from '../types';
 import {
   getFooterSlots,
   getHeadingText,
@@ -34,6 +34,7 @@ import { WatermarkOverlay } from './WatermarkOverlay';
 
 interface A4PreviewProps {
   markdown: string;
+  meta: DocumentMeta;
   theme: DocumentTheme;
   uiMode?: 'dark' | 'light';
   viewMode?: ViewMode;
@@ -146,9 +147,8 @@ export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
   );
 });
 
-export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 'dark', viewMode = 'split', navigationTarget, onNavigateToEditor, scrollSyncEnabled = false, onScrollPositionChange, onOverflowPageNumbersChange }) => {
+export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiMode = 'dark', viewMode = 'split', navigationTarget, onNavigateToEditor, scrollSyncEnabled = false, onScrollPositionChange, onOverflowPageNumbersChange }) => {
   const { header, footer, toc, style } = theme;
-  const meta = theme.meta;
   const cover = theme.cover;
   const coverTemplate = getCoverTemplate(cover.coverStyle);
   const isDark = uiMode === 'dark';

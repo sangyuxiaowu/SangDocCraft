@@ -5,17 +5,19 @@
 - 扩展名：`.sdc`
 - MIME：`application/vnd.sangdoccraft.document+zip`
 - 容器：ZIP
-- 当前格式版本：`1`
+- 当前格式版本：`2`
 
 ## 包结构
 
 ```text
 manifest.json      文档 ID、标题、时间与格式版本
 document.md        Markdown 正文
-theme.json         当前文档主题
+meta.json          文档标题、作者、机构、日期、编号与版本等业务元数据
+theme.json         当前文档视觉主题，不包含文档业务元数据
 images.json        图片名称、描述、类型、大小、SHA-256 与作用域
 settings.json      文档级设置
-history.json       可选编辑历史，只保存正文与主题快照
+history.json       可选编辑历史，保存正文、文档元数据与主题快照
+chats.json         可选 AI 对话记录
 images/            按内容哈希 ID 存放的图片二进制
 ```
 
@@ -50,5 +52,5 @@ Markdown 使用标准图片语法，例如：
 - Web 端仅在用户从“导出文档”选择下载 `.sdc` 时生成文件。
 - Tauri 端首次 `Ctrl+S` 显示文件对话框；已有文件路径时防抖保存 `.sdc`。
 - 开启编辑历史后，达到设置的无修改时间生成快照；手动保存也生成快照。
-- 历史只保存 Markdown 和主题，不复制图片数据；相同内容不会重复记录，最多保留 50 条。
+- 历史保存 Markdown、文档元数据和主题，不复制图片数据；相同内容不会重复记录，最多保留 50 条。
 - 新建或打开其他文档会清理当前文档临时图片和恢复草稿，永久图片库不受影响。
