@@ -472,13 +472,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, theme, uiMode = 
     onOverflowPageNumbersChange?.(overflowPageNumbers);
   }, [onOverflowPageNumbersChange, overflowPageNumbers]);
 
-  // Dynamic cover list items
-  const coverListItems = (cover.coverlist && cover.coverlist.length > 0)
-    ? cover.coverlist
-    : [
-        { label: '撰写团队', value: meta.author },
-        { label: '所属部门', value: meta.department },
-      ].filter(item => !!item.value);
+  const coverListItems = cover.coverlist ?? [];
 
   return (
     <div className="a4-preview-shell w-full h-full flex flex-col overflow-hidden relative">

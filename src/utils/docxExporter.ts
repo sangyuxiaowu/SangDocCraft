@@ -247,12 +247,7 @@ export async function exportToDocx(markdownText: string, theme: DocumentTheme, f
 
   // 1. Cover Page
   if (cover.showCover) {
-    const coverListItems = (cover.coverlist && cover.coverlist.length > 0)
-      ? cover.coverlist
-      : [
-          { label: '撰写团队', value: meta.author },
-          { label: '所属部门', value: meta.department },
-        ].filter(item => !!item.value);
+    const coverListItems = cover.coverlist ?? [];
 
     sectionsChildren.push(...await coverTemplate.renderDocx({
       meta,

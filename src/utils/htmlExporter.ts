@@ -124,12 +124,7 @@ export function generateStandaloneHtml(
   let pageNumCounter = 1;
   const coverPageNum = cover.showCover ? pageNumCounter++ : 0;
 
-  const coverListItems = (cover.coverlist && cover.coverlist.length > 0)
-    ? cover.coverlist
-    : [
-        { label: '撰写团队', value: meta.author },
-        { label: '所属部门', value: meta.department },
-      ].filter(item => !!item.value);
+  const coverListItems = cover.coverlist ?? [];
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">

@@ -23,6 +23,10 @@ export const PRESET_THEMES: DocumentTheme[] = [
     cover: {
       showCover: true,
       coverStyle: 'enterprise',
+      coverlist: [
+        { label: '撰写团队', value: '架构设计专家团队' },
+        { label: '所属部门', value: '技术研发中心 / 基础架构部' }
+      ]
     },
     header: {
       show: true,
@@ -100,6 +104,10 @@ export const PRESET_THEMES: DocumentTheme[] = [
     cover: {
       showCover: true,
       coverStyle: 'modern',
+      coverlist: [
+        { label: '撰写团队', value: '后端研发小组' },
+        { label: '所属部门', value: '数据工程部' }
+      ]
     },
     header: {
       show: true,

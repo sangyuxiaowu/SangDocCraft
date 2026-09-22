@@ -79,11 +79,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
     });
   };
 
-  // Cover List Helper
-  const currentCoverList: CoverListItem[] = theme.cover.coverlist || [
-    { label: '撰写团队', value: theme.meta.author || '' },
-    { label: '所属部门', value: theme.meta.department || '' },
-  ].filter(item => !!item.value || !!item.label);
+  const currentCoverList: CoverListItem[] = theme.cover.coverlist ?? [];
 
   const handleUpdateCoverList = (newList: CoverListItem[]) => {
     updateCover('coverlist', newList);
@@ -112,15 +108,6 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
     const newList = [...currentCoverList];
     [newList[index], newList[targetIndex]] = [newList[targetIndex], newList[index]];
     handleUpdateCoverList(newList);
-  };
-
-  const handleResetCoverList = () => {
-    const defaultList: CoverListItem[] = [
-      { label: '撰写团队', value: theme.meta.author || '核心团队' },
-      { label: '所属部门', value: theme.meta.department || '技术委员会' },
-      { label: '备注', value: '请在此填写交付信息' },
-    ];
-    handleUpdateCoverList(defaultList);
   };
 
   const updateHeader = (field: string, val: any) => {
@@ -644,15 +631,6 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                           封面属性字段列表
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleResetCoverList}
-                        className={`text-[10px] flex items-center gap-1 transition font-medium ${textMutedClass} hover:${textMainClass}`}
-                        title="从经典属性重置"
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                        重置默认
-                      </button>
                     </div>
 
                     {getCoverTemplate(theme.cover.coverStyle).defaultCoverListColumns !== undefined && (
