@@ -103,7 +103,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
             <div className="shrink-0 flex flex-col items-center justify-center gap-1.5">
               <div className="p-2 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center justify-center">
                 <img 
-                  src="/reward-code.svg" 
+                  src="./reward-code.svg" 
                   alt="微信赞赏码" 
                   className="w-28 h-28 sm:w-32 sm:h-32 object-contain select-none"
                   loading="eager"
@@ -150,7 +150,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
                   <span>永久免费开源</span>
                 </div>
                 <a 
-                  href="/reward-code.svg" 
+                  href="./reward-code.svg" 
                   download="sangdoccraft-wechat-reward.svg"
                   className={`text-[10px] px-2 py-0.5 rounded transition inline-flex items-center gap-1 ${
                     isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200' : 'hover:bg-amber-100/60 text-slate-500 hover:text-slate-800'

@@ -285,7 +285,7 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
                   title="点击查看大图扫码赞赏"
                 >
                   <img 
-                    src="/reward-code.svg" 
+                    src="./reward-code.svg" 
                     alt="微信赞赏码" 
                     className="w-full h-full object-contain select-none"
                     loading="eager"
@@ -680,7 +680,7 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
 
             <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-xs flex items-center justify-center">
               <img 
-                src="/reward-code.svg" 
+                src="./reward-code.svg" 
                 alt="微信赞赏码" 
                 className="w-56 h-56 object-contain select-none"
               />
@@ -695,7 +695,7 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
 
             <div className="flex items-center gap-2 w-full pt-1">
               <a 
-                href="/reward-code.svg" 
+                href="./reward-code.svg" 
                 download="sangdoccraft-wechat-reward.svg"
                 className={`flex-1 py-2 rounded-xl border text-xs font-medium text-center transition inline-flex items-center justify-center gap-1.5 ${
                   isDark ? 'border-zinc-800 hover:bg-zinc-800 text-zinc-300' : 'border-slate-200 hover:bg-slate-50 text-slate-700'
