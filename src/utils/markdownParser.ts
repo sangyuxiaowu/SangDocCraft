@@ -1200,17 +1200,23 @@ export function postProcessRenderedHtml(
         cleanCaption = `${imgConfig.numberPrefix}${counters.imgCount}: ${cleanCaption}`;
       }
 
-      captionHtml = `<figcaption class="doc-image-caption" style="text-align: ${imgConfig.captionAlign};">${cleanCaption}</figcaption>`;
+      captionHtml = `<figcaption class="doc-image-caption" style="text-align: ${imgConfig.captionAlign}; width: 100%;">${cleanCaption}</figcaption>`;
     }
 
     const borderClass = `doc-img-border-${imgConfig.borderStyle}`;
+    // .doc-image-figure 是 flex 列容器，仅靠 text-align 无法移动图片本体，必须同时给出交叉轴对齐方式
+    const captionFlexAlign = imgConfig.captionAlign === 'left'
+      ? 'flex-start'
+      : imgConfig.captionAlign === 'right'
+      ? 'flex-end'
+      : 'center';
     const dimensions = parseImageDimensions(dimensionAttributes);
     const dimensionStyle = dimensions
       ? `${dimensions.width ? `width: ${dimensions.width}px; ` : 'width: auto; '}${dimensions.height ? `height: ${dimensions.height}px; ` : 'height: auto; '}`
       : 'height: auto; ';
     const unparsedSuffix = dimensionAttributes && !dimensions ? `{${dimensionAttributes}}` : '';
 
-    return `<figure class="doc-image-figure" style="text-align: ${imgConfig.captionAlign}; margin: 1.2em auto;">
+    return `<figure class="doc-image-figure" style="align-items: ${captionFlexAlign}; text-align: ${imgConfig.captionAlign}; margin: 1.2em auto;">
       <img src="${resolvedSrc}" alt="${rawAlt || 'Image'}" class="doc-image ${borderClass}" style="max-width: 100%; ${dimensionStyle}display: inline-block;" />
       ${captionHtml}
     </figure>${unparsedSuffix}`;

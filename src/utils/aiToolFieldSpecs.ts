@@ -173,12 +173,9 @@ export const STYLE_FIELDS: readonly ScalarFieldSpec[] = [
   { argument: 'lineHeight', section: 'style', kind: 'number', min: 0.5, max: 5, description: '行高比例 (如 1.6, 1.8)' },
   { argument: 'paragraphMarginBefore', section: 'style', kind: 'number', description: '正文段前间距，单位 px，默认 0' },
   { argument: 'paragraphMarginAfter', section: 'style', kind: 'number', description: '正文段后间距，单位 px，默认 6' },
-  { argument: 'backgroundColor', section: 'style', kind: 'string', description: '正文页面背景色 hex' },
-  { argument: 'coverBgColor', section: 'style', kind: 'string', description: '封面背景色 hex' },
   { argument: 'fontFamily', section: 'style', kind: 'enum', values: ['sans', 'serif', 'kaiti', 'heiti', 'mono'], description: '正文字体类型' },
   { argument: 'h1Style', section: 'style', kind: 'enum', values: ['underline', 'accent-block', 'badge', 'minimal'], description: '一级标题外观风格' },
-  { argument: 'h2Style', section: 'style', kind: 'enum', values: ['border-left', 'number-prefix', 'underline-subtle', 'plain'], description: '二级标题外观风格' },
-  { argument: 'h3Style', section: 'style', kind: 'enum', values: ['bullet', 'bold', 'plain'], description: '三级标题外观风格' },
+  { argument: 'h2Style', section: 'style', kind: 'enum', values: ['border-left', 'underline-subtle', 'plain'], description: '二级标题外观风格' },
   { argument: 'latinFontFamily', section: 'style', kind: 'string', description: '英文与数字字体名称，如 Times New Roman' },
   { argument: 'bodyFontFamily', section: 'style', kind: 'string', description: '正文字体 CSS font-family，inherit 表示跟随文档字体' },
   { argument: 'indentParagraph', section: 'style', kind: 'boolean', description: '正文首行缩进 2 字符' },
@@ -187,7 +184,7 @@ export const STYLE_FIELDS: readonly ScalarFieldSpec[] = [
   { argument: 'paginationMode', section: 'style', kind: 'enum', values: ['auto', 'manual'], description: '自动分页或仅按 pagebreak 手动分页' },
   { argument: 'bulletStyle', section: 'style', kind: 'enum', values: ['dot', 'square', 'checkmark', 'arrow'], description: '无序列表图标样式' },
   { argument: 'numberStyle', section: 'style', kind: 'enum', values: ['decimal', 'paren', 'chinese'], description: '有序列表编号样式' },
-  { argument: 'codeTheme', section: 'style', kind: 'enum', values: ['dark', 'light', 'github'], description: '代码块主题' },
+  { argument: 'codeTheme', section: 'style', kind: 'enum', values: ['dark', 'light'], description: '代码块主题' },
   { argument: 'tableStyle', section: 'style', kind: 'enum', values: ['striped', 'bordered', 'minimal'], description: '表格样式' },
 ];
 

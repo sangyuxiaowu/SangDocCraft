@@ -119,8 +119,6 @@ export interface StyleConfig {
   primaryColor: string;
   accentColor: string;
   textColor: string;
-  backgroundColor: string;
-  coverBgColor: string;
   fontFamily: FontChoice;
   latinFontFamily?: string;
   bodyFontFamily: string;
@@ -131,8 +129,7 @@ export interface StyleConfig {
   
   // Heading styles
   h1Style: 'underline' | 'accent-block' | 'badge' | 'minimal';
-  h2Style: 'border-left' | 'number-prefix' | 'underline-subtle' | 'plain';
-  h3Style: 'bullet' | 'bold' | 'plain';
+  h2Style: 'border-left' | 'underline-subtle' | 'plain';
   headingFonts: {
     h1: HeadingFontStyle;
     h2: HeadingFontStyle;
@@ -149,7 +146,7 @@ export interface StyleConfig {
   numberStyle: 'decimal' | 'paren' | 'chinese';
   
   // Code block style
-  codeTheme: 'dark' | 'light' | 'github';
+  codeTheme: 'dark' | 'light';
   
   // Table style
   tableStyle: 'striped' | 'bordered' | 'minimal';

@@ -290,7 +290,7 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
         const types = readDocumentConfigTypes(args.types);
         const meta = context.getMeta();
         const theme = context.getTheme();
-        const { primaryColor, accentColor, textColor, backgroundColor, coverBgColor, watermark, ...style } = theme.style;
+        const { primaryColor, accentColor, textColor, watermark, ...style } = theme.style;
         const config: Record<DocumentConfigType, unknown> = {
           meta,
           cover: theme.cover,
@@ -301,7 +301,7 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
             titleFont: getTocTitleFont(theme.toc),
             levelStyles: getTocLevelStyles(theme.toc)
           },
-          color: { primaryColor, accentColor, textColor, backgroundColor, coverBgColor },
+          color: { primaryColor, accentColor, textColor },
           style,
           watermark: watermark ?? null
         };

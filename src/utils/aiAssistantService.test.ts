@@ -402,8 +402,6 @@ describe('AI assistant setting tools', () => {
         primaryColor: expect.any(String),
         accentColor: expect.any(String),
         textColor: expect.any(String),
-        backgroundColor: expect.any(String),
-        coverBgColor: expect.any(String),
       },
       watermark: null,
     });

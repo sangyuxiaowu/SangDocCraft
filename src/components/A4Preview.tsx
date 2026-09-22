@@ -128,11 +128,13 @@ export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
   primaryColor,
   accentColor,
   bulletChar,
+  imgBorderColor,
 }: {
   html: string;
   primaryColor: string;
   accentColor: string;
   bulletChar: string;
+  imgBorderColor?: string;
 }) {
   return (
     <div
@@ -141,6 +143,7 @@ export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
         '--primary-color': primaryColor,
         '--accent-color': accentColor,
         '--bullet-char': `"${bulletChar}"`,
+        ...(imgBorderColor ? { '--img-border-color': imgBorderColor } : {}),
       } as React.CSSProperties}
       dangerouslySetInnerHTML={{ __html: html }}
     />
@@ -783,6 +786,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
                     primaryColor={style.primaryColor}
                     accentColor={style.accentColor}
                     bulletChar={bulletChar}
+                    imgBorderColor={style.imageConfig?.borderColor}
                   />
                 )}
 
@@ -967,10 +971,10 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
           border: none;
         }
         .markdown-rendered-body .doc-img-border-solid {
-          border: 1px solid #cbd5e1;
+          border: 1px solid var(--img-border-color, #cbd5e1);
         }
         .markdown-rendered-body .doc-img-border-subtle {
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--img-border-color, #e2e8f0);
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
           border-radius: 4px;
         }
@@ -981,13 +985,13 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
         .markdown-rendered-body .doc-img-border-card {
           background-color: #f8fafc;
           padding: 8px;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--img-border-color, #e2e8f0);
           border-radius: 8px;
           box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
         }
         .markdown-rendered-body .doc-img-border-rounded {
           border-radius: 12px;
-          border: 1px solid #cbd5e1;
+          border: 1px solid var(--img-border-color, #cbd5e1);
         }
         .markdown-rendered-body .doc-image-caption {
           margin-top: 6px;

@@ -419,6 +419,29 @@ describe('Rendered Markdown post-processing', () => {
     expect(counters.imgCount).toBe(2);
   });
 
+  it('aligns the image block and its caption with imageConfig.captionAlign', () => {
+    const markup = '<p><img src="a.png" alt="架构图"></p>';
+    const render = (captionAlign: 'center' | 'left' | 'right') => postProcessRenderedHtml(markup, {
+      ...theme.style,
+      imageConfig: { ...theme.style.imageConfig!, captionAlign },
+    });
+
+    expect(render('left')).toContain('align-items: flex-start; text-align: left');
+    expect(render('left')).toContain('class="doc-image-caption" style="text-align: left; width: 100%;"');
+    expect(render('center')).toContain('align-items: center; text-align: center');
+    expect(render('right')).toContain('align-items: flex-end; text-align: right');
+  });
+
+  it('aligns table captions with tableCaptionConfig.captionAlign', () => {
+    const markup = '<p>表 1: 接口清单</p>\n<table><tr><td>a</td></tr></table>';
+    const html = postProcessRenderedHtml(markup, {
+      ...theme.style,
+      tableCaptionConfig: { ...theme.style.tableCaptionConfig!, captionAlign: 'left' },
+    });
+
+    expect(html).toContain('class="doc-table-caption" style="text-align: left;"');
+  });
+
   it('applies compact image dimensions and removes the attribute suffix', () => {
     const rawHtml = marked.parse('![架构图](a.png){w=320 h=180}') as string;
     const html = postProcessRenderedHtml(rawHtml, theme.style);

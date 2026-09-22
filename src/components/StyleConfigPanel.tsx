@@ -1277,6 +1277,49 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
               </div>
             </div>
 
+            <div>
+              <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>正文文字颜色</label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="color"
+                  value={theme.style.textColor}
+                  onChange={(e) => updateStyle('textColor', e.target.value)}
+                  className="w-8 h-8 rounded border-none cursor-pointer bg-transparent"
+                />
+                <input
+                  type="text"
+                  value={theme.style.textColor}
+                  onChange={(e) => updateStyle('textColor', e.target.value)}
+                  className={`flex-1 rounded px-2 py-1 uppercase font-mono text-xs ${inputClass}`}
+                />
+              </div>
+              <p className={`mt-1.5 text-[10px] leading-relaxed ${textMutedClass}`}>
+                仅作用于正文内容（段落、列表、表格、引用）的文字颜色，预览、HTML 与 Word 导出同步生效；
+                各级标题颜色由主色调控制，页眉页脚使用固定灰阶，均不跟随此项。
+              </p>
+            </div>
+
+            <div>
+              <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>图片边框颜色</label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="color"
+                  value={theme.style.imageConfig?.borderColor || '#cbd5e1'}
+                  onChange={(e) => updateStyle('imageConfig', { ...(theme.style.imageConfig || {}), borderColor: e.target.value })}
+                  className="w-8 h-8 rounded border-none cursor-pointer bg-transparent"
+                />
+                <input
+                  type="text"
+                  value={theme.style.imageConfig?.borderColor || '#cbd5e1'}
+                  onChange={(e) => updateStyle('imageConfig', { ...(theme.style.imageConfig || {}), borderColor: e.target.value })}
+                  className={`flex-1 rounded px-2 py-1 uppercase font-mono text-xs ${inputClass}`}
+                />
+              </div>
+              <p className={`mt-1.5 text-[10px] leading-relaxed ${textMutedClass}`}>
+                仅作用于「单实线 / 精致微阴影 / 浅色卡片 / 大圆边框」图片样式。
+              </p>
+            </div>
+
           </div>
         )}
 
@@ -1498,10 +1541,10 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                     ))}
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-4 gap-1.5">
                   <div className="min-w-0">
                     <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>列表图标</label>
-                    <select value={theme.style.bulletStyle} onChange={(e) => updateStyle('bulletStyle', e.target.value)} className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}>
+                    <select value={theme.style.bulletStyle} onChange={(e) => updateStyle('bulletStyle', e.target.value)} className={`w-full min-w-0 rounded px-1.5 py-1.5 ${inputClass}`}>
                       <option value="square">方块 ■</option>
                       <option value="dot">圆点 •</option>
                       <option value="checkmark">对勾 ✓</option>
@@ -1509,16 +1552,23 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                     </select>
                   </div>
                   <div className="min-w-0">
+                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>编号样式</label>
+                    <select value={theme.style.numberStyle} onChange={(e) => updateStyle('numberStyle', e.target.value)} title="有序列表的编号样式" className={`w-full min-w-0 rounded px-1.5 py-1.5 ${inputClass}`}>
+                      <option value="decimal">1. 2. 3.</option>
+                      <option value="paren">(1) (2)</option>
+                      <option value="chinese">一、二、</option>
+                    </select>
+                  </div>
+                  <div className="min-w-0">
                     <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>代码主题</label>
-                    <select value={theme.style.codeTheme} onChange={(e) => updateStyle('codeTheme', e.target.value)} className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}>
+                    <select value={theme.style.codeTheme} onChange={(e) => updateStyle('codeTheme', e.target.value)} className={`w-full min-w-0 rounded px-1.5 py-1.5 ${inputClass}`}>
                       <option value="dark">深色</option>
                       <option value="light">浅色</option>
-                      <option value="github">GitHub</option>
                     </select>
                   </div>
                   <div className="min-w-0">
                     <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>表格样式</label>
-                    <select value={theme.style.tableStyle} onChange={(e) => updateStyle('tableStyle', e.target.value)} className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}>
+                    <select value={theme.style.tableStyle} onChange={(e) => updateStyle('tableStyle', e.target.value)} className={`w-full min-w-0 rounded px-1.5 py-1.5 ${inputClass}`}>
                       <option value="striped">斑马纹</option>
                       <option value="bordered">全边框</option>
                       <option value="minimal">极简</option>
@@ -1536,32 +1586,46 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   <span className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>图片与题注</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <div className="min-w-0">
                     <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>图片边框样式</label>
                     <select
                       value={theme.style.imageConfig?.borderStyle || 'subtle'}
                       onChange={(e) => updateStyle('imageConfig', { ...(theme.style.imageConfig || {}), borderStyle: e.target.value })}
-                      className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
+                      title="图片边框样式，边框颜色在「配色」标签页设置"
+                      className={`w-full min-w-0 rounded px-1.5 py-1.5 ${inputClass}`}
                     >
-                      <option value="none">无边框 (None)</option>
-                      <option value="subtle">精致微阴影 (Subtle)</option>
-                      <option value="solid">单实线边框 (Solid Line)</option>
-                      <option value="shadow">悬浮深阴影 (Deep Shadow)</option>
-                      <option value="card">浅色卡片衬底 (Card)</option>
-                      <option value="rounded">大圆边框 (Rounded)</option>
+                      <option value="none">无边框</option>
+                      <option value="subtle">微阴影</option>
+                      <option value="solid">单实线</option>
+                      <option value="shadow">深阴影</option>
+                      <option value="card">卡片衬底</option>
+                      <option value="rounded">大圆角</option>
                     </select>
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>编号前缀</label>
                     <input
                       type="text"
                       value={theme.style.imageConfig?.numberPrefix ?? '图 '}
                       onChange={(e) => updateStyle('imageConfig', { ...(theme.style.imageConfig || {}), numberPrefix: e.target.value })}
-                      className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
-                      placeholder="如: 图 "
+                      className={`w-full min-w-0 rounded px-1.5 py-1.5 ${inputClass}`}
+                      placeholder="如图 "
                     />
+                  </div>
+
+                  <div className="min-w-0">
+                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>题注对齐</label>
+                    <select
+                      value={theme.style.imageConfig?.captionAlign || 'center'}
+                      onChange={(e) => updateStyle('imageConfig', { ...(theme.style.imageConfig || {}), captionAlign: e.target.value })}
+                      className={`w-full min-w-0 rounded px-1.5 py-1.5 ${inputClass}`}
+                    >
+                      <option value="center">居中</option>
+                      <option value="left">左对齐</option>
+                      <option value="right">右对齐</option>
+                    </select>
                   </div>
                 </div>
 
@@ -1595,28 +1659,41 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   <span className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>表格题注</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <div className="min-w-0">
                     <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>题注位置</label>
                     <select
                       value={theme.style.tableCaptionConfig?.captionPosition || 'top'}
                       onChange={(e) => updateStyle('tableCaptionConfig', { ...(theme.style.tableCaptionConfig || {}), captionPosition: e.target.value })}
-                      className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
+                      className={`w-full min-w-0 rounded px-1.5 py-1.5 ${inputClass}`}
                     >
-                      <option value="top">表格上方 (Top)</option>
-                      <option value="bottom">表格下方 (Bottom)</option>
+                      <option value="top">表格上方</option>
+                      <option value="bottom">表格下方</option>
                     </select>
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>编号前缀</label>
                     <input
                       type="text"
                       value={theme.style.tableCaptionConfig?.numberPrefix ?? '表 '}
                       onChange={(e) => updateStyle('tableCaptionConfig', { ...(theme.style.tableCaptionConfig || {}), numberPrefix: e.target.value })}
-                      className={`w-full rounded px-2.5 py-1.5 ${inputClass}`}
-                      placeholder="如: 表 "
+                      className={`w-full min-w-0 rounded px-1.5 py-1.5 ${inputClass}`}
+                      placeholder="如表 "
                     />
+                  </div>
+
+                  <div className="min-w-0">
+                    <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>题注对齐</label>
+                    <select
+                      value={theme.style.tableCaptionConfig?.captionAlign || 'center'}
+                      onChange={(e) => updateStyle('tableCaptionConfig', { ...(theme.style.tableCaptionConfig || {}), captionAlign: e.target.value })}
+                      className={`w-full min-w-0 rounded px-1.5 py-1.5 ${inputClass}`}
+                    >
+                      <option value="center">居中</option>
+                      <option value="left">左对齐</option>
+                      <option value="right">右对齐</option>
+                    </select>
                   </div>
                 </div>
 

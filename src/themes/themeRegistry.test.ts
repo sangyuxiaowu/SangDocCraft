@@ -53,7 +53,6 @@ describe('themeRegistry', () => {
     expect(theme?.toc.titleStyle).toBe('minimal');
     expect(theme?.style.h1Style).toBe('minimal');
     expect(theme?.style.h2Style).toBe('plain');
-    expect(theme?.style.h3Style).toBe('plain');
   });
 
   it('falls back to the enterprise cover for unknown IDs', async () => {
