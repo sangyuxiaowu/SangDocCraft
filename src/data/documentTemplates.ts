@@ -12,6 +12,11 @@ import uiDesignTokenMarkdown from './templates/ui-design-token.md?raw';
 import businessProposalMarkdown from './templates/business-proposal.md?raw';
 import academicThesisMarkdown from './templates/academic-thesis.md?raw';
 import meetingMinutesMarkdown from './templates/meeting-minutes.md?raw';
+import prdSpecificationMarkdown from './templates/prd-specification.md?raw';
+import incidentPostmortemMarkdown from './templates/incident-postmortem.md?raw';
+import operationSopMarkdown from './templates/operation-sop.md?raw';
+import projectWeeklyReportMarkdown from './templates/project-weekly-report.md?raw';
+import dataAnalysisReportMarkdown from './templates/data-analysis-report.md?raw';
 
 export type DocumentTemplateCategory =
   | 'blank'
@@ -289,6 +294,111 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     // 纪要标题居中排布，更贴近公文与会议纪要惯例
     styleConfig: {
       h1Center: true,
+    },
+  },
+  {
+    id: 'prd-specification',
+    title: '产品需求规格说明书 (PRD)',
+    subtitle: 'Product Requirements Document',
+    description: '标准规范的产品需求文档，涵盖背景目标、用户画像、特性优先级矩阵、状态流转与数据埋点规范。',
+    category: 'development',
+    badge: '产品规划',
+    iconName: 'clipboard-list',
+    recommendedThemeId: 'tech-spec',
+    markdown: prdSpecificationMarkdown,
+    metaConfig: {
+      title: '企业级协同文档与知识中台',
+      subtitle: '产品需求规格说明书 (PRD)',
+      author: '高级产品经理 (PM)',
+      department: '产品体验与创新部',
+      organization: '某某科技有限公司',
+      version: 'v2.1.0',
+    },
+  },
+  {
+    id: 'incident-postmortem',
+    title: '生产重大故障复盘与根因分析 (RCA)',
+    subtitle: 'Incident Postmortem & RCA',
+    description: '面向高可用保障与 SRE 团队的故障复盘规范：事件基本信息、精确时间线、5-Whys 递进根因剖析与纠正预防措施（CAPA）。',
+    category: 'development',
+    badge: 'SRE 复盘',
+    iconName: 'cpu',
+    recommendedThemeId: 'enterprise-signature',
+    markdown: incidentPostmortemMarkdown,
+    metaConfig: {
+      title: '生产环境重大故障复盘与根因分析报告',
+      subtitle: '在线支付网关服务异常事件调查与改进措施 (CAPA)',
+      author: '高可用保障专家组',
+      department: '基础技术中心 / SRE 运维保障部',
+      organization: '某某科技有限公司',
+      number: 'INC-20260918-001',
+      version: '正式归档版',
+    },
+  },
+  {
+    id: 'operation-sop',
+    title: '生产运维应急排障标准化手册 (SOP)',
+    subtitle: 'Standard Operating Procedure',
+    description: '严谨结构化的生产运维与应急响应标准操作规程：应急等级联动矩阵、排障决策流、标准处置命令手册与服务恢复 Checklist。',
+    category: 'delivery',
+    badge: '运维规程',
+    iconName: 'file-text',
+    recommendedThemeId: 'enterprise-standard',
+    markdown: operationSopMarkdown,
+    metaConfig: {
+      title: '生产运维应急排障标准操作规程 (SOP)',
+      subtitle: '核心微服务集群突发流量与系统高负载应急处置指引',
+      author: '基础设施与运维委员会',
+      department: '系统工程部',
+      organization: '某某科技有限公司',
+      number: 'SOP-OPS-2026-08',
+      version: 'v3.0',
+    },
+  },
+  {
+    id: 'project-weekly-report',
+    title: '研发项目周报与阶段性述职看板',
+    subtitle: 'Weekly Status & Milestone Progress',
+    description: '高效聚焦的项目汇报范式：项目健康度看板、本周核心交付成果、质量效能指标环比、阻塞风险规避与下周攻坚清单。',
+    category: 'meeting',
+    badge: '工作周报',
+    iconName: 'briefcase',
+    recommendedThemeId: 'business-briefing',
+    markdown: projectWeeklyReportMarkdown,
+    metaConfig: {
+      title: '核心研发项目周报与阶段性述职看板',
+      subtitle: '2026 年第 38 周项目里程碑推进与效能度量',
+      author: '技术交付总监 / PMO',
+      organization: '研发管理中心',
+      version: '2026-W38',
+    },
+    coverConfig: {
+      showCover: false,
+    },
+    tocConfig: {
+      show: false,
+    },
+    styleConfig: {
+      h1Center: true,
+    },
+  },
+  {
+    id: 'data-analysis-report',
+    title: '业务核心指标分析与经营洞察报告',
+    subtitle: 'Business Metrics & Growth Insights',
+    description: '量化分析与管理层商业洞察范本：核心经营大盘指标对比、全生命周期转化漏斗、多维留存 Cohort 归因与商业增长策略建议。',
+    category: 'business',
+    badge: '数据洞察',
+    iconName: 'sparkles',
+    recommendedThemeId: 'business-briefing',
+    markdown: dataAnalysisReportMarkdown,
+    metaConfig: {
+      title: '业务核心指标分析与经营洞察报告',
+      subtitle: '2026 上半年度核心业务大盘复盘与增长策略建议',
+      author: '商业智能与增长分析部 (BI)',
+      department: '战略发展中心',
+      organization: '某某科技有限公司',
+      version: '2026-H1 经营分析',
     },
   },
 ];
