@@ -1877,19 +1877,44 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                       </div>
                     </div>
 
-                    {/* 旋转角度 */}
-                    <div>
-                      <div className="flex justify-between items-center mb-1">
-                        <label className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>旋转角度 ({currentWatermark.rotate}°)</label>
-                        <div className="flex items-center gap-1">
-                          {[-45, -30, 0, 30, 45].map((ang) => (
+                    {/* 旋转角度与快速角度按钮组 */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>
+                            旋转角度 ({currentWatermark.rotate}°)
+                          </label>
+                        </div>
+                        <div className="flex items-center h-6">
+                          <input
+                            type="range"
+                            min={-90}
+                            max={90}
+                            step={5}
+                            value={currentWatermark.rotate}
+                            onChange={(e) => updateWatermark('rotate', Number(e.target.value))}
+                            className="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>
+                            快速角度
+                          </span>
+                        </div>
+                        <div role="group" aria-label="快速角度预设" className={`inline-flex w-full h-6 rounded border overflow-hidden ${sectionBorderClass}`}>
+                          {[-45, -30, 0, 30, 45].map((ang, idx) => (
                             <button
                               key={ang}
                               type="button"
                               onClick={() => updateWatermark('rotate', ang)}
-                              className={`px-1.5 py-0.5 rounded text-[9px] font-mono border transition ${
+                              className={`flex-1 flex items-center justify-center font-mono text-[10px] transition ${
+                                idx > 0 ? (isDark ? 'border-l border-[#2A2A2A]' : 'border-l border-slate-200') : ''
+                              } ${
                                 currentWatermark.rotate === ang
-                                  ? 'bg-blue-600 text-white border-blue-500'
+                                  ? 'bg-blue-600 text-white font-bold'
                                   : `${subCardBgClass} ${textMutedClass} hover:${textMainClass}`
                               }`}
                             >
@@ -1898,51 +1923,49 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                           ))}
                         </div>
                       </div>
-                      <input
-                        type="range"
-                        min={-90}
-                        max={90}
-                        step={5}
-                        value={currentWatermark.rotate}
-                        onChange={(e) => updateWatermark('rotate', Number(e.target.value))}
-                        className="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                      />
                     </div>
 
-                    {/* 平铺间距 (仅平铺模式) */}
-                    {currentWatermark.layout === 'repeat' && (
+                    {/* 平铺间距与不透明度 */}
+                    <div className={currentWatermark.layout === 'repeat' ? 'grid grid-cols-2 gap-2' : ''}>
+                      {currentWatermark.layout === 'repeat' && (
+                        <div>
+                          <div className="flex justify-between items-center mb-1">
+                            <label className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>
+                              平铺间距 ({currentWatermark.repeatGap}px)
+                            </label>
+                          </div>
+                          <div className="flex items-center h-6">
+                            <input
+                              type="range"
+                              min={70}
+                              max={260}
+                              step={5}
+                              value={currentWatermark.repeatGap}
+                              onChange={(e) => updateWatermark('repeatGap', Number(e.target.value))}
+                              className="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       <div>
                         <div className="flex justify-between items-center mb-1">
-                          <label className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>平铺间距 ({currentWatermark.repeatGap}px)</label>
+                          <label className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>
+                            不透明度 ({Math.round(currentWatermark.opacity * 100)}%)
+                          </label>
                         </div>
-                        <input
-                          type="range"
-                          min={70}
-                          max={260}
-                          step={5}
-                          value={currentWatermark.repeatGap}
-                          onChange={(e) => updateWatermark('repeatGap', Number(e.target.value))}
-                          className="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                        />
+                        <div className="flex items-center h-6">
+                          <input
+                            type="range"
+                            min={0.03}
+                            max={0.7}
+                            step={0.01}
+                            value={currentWatermark.opacity}
+                            onChange={(e) => updateWatermark('opacity', Number(e.target.value))}
+                            className="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                          />
+                        </div>
                       </div>
-                    )}
-
-                    {/* 透明度 */}
-                    <div>
-                      <div className="flex justify-between items-center mb-1">
-                        <label className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>
-                          不透明度 ({Math.round(currentWatermark.opacity * 100)}%)
-                        </label>
-                      </div>
-                      <input
-                        type="range"
-                        min={0.03}
-                        max={0.7}
-                        step={0.01}
-                        value={currentWatermark.opacity}
-                        onChange={(e) => updateWatermark('opacity', Number(e.target.value))}
-                        className="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                      />
                     </div>
 
                     {/* 页面应用规则 */}
