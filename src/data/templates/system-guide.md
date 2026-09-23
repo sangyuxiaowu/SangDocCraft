@@ -78,7 +78,7 @@ AI 可以读取当前文档状态、章节大纲和指定正文，协助润色�
 
 Mermaid 图表使用标准围栏代码块，未写单图主题时沿用右侧「样式」面板中「Mermaid 图表配色」的设置（初始为 `neutral`）：
 
-```mermaid {theme=base h=260 align=left}
+```mermaid {theme=base h=290 align=left}
 flowchart LR
     Markdown[Markdown 正文] --> Preview[A4 实时预览]
     Theme[主题与页面设置] --> Preview
@@ -89,17 +89,18 @@ flowchart LR
     Preview --> PDF[打印 / PDF]
 ```
 
-  如需只调整一张图，可在围栏语言后追加属性。下面的图表使用面板中保存的 `custom` 配色，并指定宽度、高度及居中对齐；即使文档默认主题不是 `custom`，单图设置也会生效：
+如需只调整一张图，可在围栏语言后追加属性。下面的图表使用面板中保存的 `custom` 配色，并指定宽度、高度及居中对齐；即使文档默认主题不是 `custom`，单图设置也会生效：
 
-  ```mermaid {theme=custom w=80% h=240 align=center}
-  flowchart LR
-    Global[文档默认主题] --> Override[单图属性覆盖]
-    Override --> Export[A4 预览与导出]
-  ```
+<!-- caption: 测试 Mermaid 题注 -->
+```mermaid {theme=custom w=80% h=140 align=center}
+flowchart LR
+  Global[文档默认主题] --> Override[单图属性覆盖]
+  Override --> Export[A4 预览与导出]
+```
 
-  `theme` 还可选 `neutral`、`default`、`dark`、`forest`、`base`；`w` 可写像素或百分比，`h` 可写像素或 `auto`，`align` 可选 `left`、`center`、`right`。显式高度会用于分页占位，设置过小可能裁切图表；Word 导出会按页面范围等比缩放图表。
+`theme` 还可选 `neutral`、`default`、`dark`、`forest`、`base`；`w` 可写像素或百分比，`h` 可写像素或 `auto`，`align` 可选 `left`、`center`、`right`。显式高度会用于分页占位，设置过小可能裁切图表；Word 导出会按页面范围等比缩放图表。
 
-  Mermaid 图表支持图题注，方法是在围栏前添加 `<!-- caption: 题注文本 -->` 注释。
+Mermaid 图表支持图题注，方法是在围栏前添加 `<!-- caption: 题注文本 -->` 注释。
 
 代码块会保留语言标识并按主题显示，下面是 `.sdc` 文档包中 `settings.json` 的片段：
 
