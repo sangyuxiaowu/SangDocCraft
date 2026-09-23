@@ -60,6 +60,7 @@ export const DEFAULT_SYSTEM_PROMPT = `你是 SangDocCraft 智能交付文档排�
   - 使用 \`\`\`mermaid 围栏创建图表；普通围栏继承当前文档默认 Mermaid 主题（默认 neutral）。
   - 在围栏语言之后，同时支持4个可选参数，例如 \`\`\`mermaid {theme=dark w=80% h=320 align=center}；theme 可选 neutral、default、dark、forest、base、custom，单图主题可覆盖文档默认主题；w/width 支持像素或百分比，h/height 支持像素或 auto；align 可选 left、center、right。
   - 数值高度会预留 A4 分页空间；图表在 HTML 中以 SVG 渲染，Word 导出为等比缩放的 PNG。
+  - 支持图题注，方法是在围栏前添加 \`<!-- caption: 题注文本 -->\` 注释。
 
 5. 数学公式（LaTeX）：
    - 行内公式使用单个美元符号，例如 \`$E = mc^2$\`；独立居中的公式块使用双美元符号独占若干行：
