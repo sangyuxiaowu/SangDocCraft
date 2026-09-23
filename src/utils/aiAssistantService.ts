@@ -7,7 +7,9 @@ import {
   FooterConfig,
   TocConfig,
   StyleConfig,
-  TocLevelStyle
+  TocLevelStyle,
+  MermaidThemeChoice,
+  MermaidCustomColors
 } from '../types';
 import { 
   AiToolRuntime, 
@@ -21,6 +23,8 @@ import {
   HEADER_FIELDS,
   HEADING_FONT_FIELDS,
   IMAGE_CONFIG_FIELDS,
+  MERMAID_COLOR_FIELDS,
+  MERMAID_FIELDS,
   META_FIELDS,
   STYLE_FIELDS,
   TABLE_CAPTION_FIELDS,
@@ -36,6 +40,7 @@ import {
 import { createDiffHunks } from './diffUtils';
 import { appendUniqueHistory, createHistoryEntry } from './documentHistory';
 import { getTocLevelStyles, getTocTitleFont } from './documentStructure';
+import { getMermaidConfig } from './mermaidRenderer';
 
 export const DEFAULT_SYSTEM_PROMPT = `你是 SangDocCraft 智能交付文档排版工具的 AI 助手。
 你的主要职责是协助用户撰写、润色与编辑专业级 A4 交付文档、技术方案书与规格说明，并根据需求调整文档样式和配置参数。
@@ -52,7 +57,9 @@ export const DEFAULT_SYSTEM_PROMPT = `你是 SangDocCraft 智能交付文档排�
    - 文档内图片引用格式为 \`@images/<id>\`，永久库图片格式为 \`@library/<id>\`。
 
 4. 流程图与架构图（Mermaid）：
-   - 支持在正文中使用标准 \`\`\`mermaid 围栏代码块，可配置 \`\`\`mermaid {theme=custom|dark|neutral|forest|base w=... h=... align=left|center|right} 单图属性，系统将在 A4 页面中实时将其转换为高质量矢量拓扑图。
+  - 使用 \`\`\`mermaid 围栏创建图表；普通围栏继承当前文档默认 Mermaid 主题（默认 neutral）。
+  - 在围栏语言之后，同时支持4个可选参数，例如 \`\`\`mermaid {theme=dark w=80% h=320 align=center}；theme 可选 neutral、default、dark、forest、base、custom，单图主题可覆盖文档默认主题；w/width 支持像素或百分比，h/height 支持像素或 auto；align 可选 left、center、right。
+  - 数值高度会预留 A4 分页空间；图表在 HTML 中以 SVG 渲染，Word 导出为等比缩放的 PNG。
 
 5. 数学公式（LaTeX）：
    - 行内公式使用单个美元符号，例如 \`$E = mc^2$\`；独立居中的公式块使用双美元符号独占若干行：
@@ -93,7 +100,7 @@ interface MarkdownHeading {
   line: number;
 }
 
-const DOCUMENT_CONFIG_TYPES = ['meta', 'cover', 'header', 'footer', 'toc', 'color', 'style', 'watermark'] as const;
+const DOCUMENT_CONFIG_TYPES = ['meta', 'cover', 'header', 'footer', 'toc', 'color', 'style', 'mermaid', 'watermark'] as const;
 type DocumentConfigType = typeof DOCUMENT_CONFIG_TYPES[number];
 
 function readDocumentConfigTypes(value: unknown): DocumentConfigType[] {
@@ -303,6 +310,7 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
           },
           color: { primaryColor, accentColor, textColor },
           style,
+          mermaid: getMermaidConfig(theme),
           watermark: watermark ?? null
         };
         return JSON.stringify(Object.fromEntries(types.map(type => [type, config[type]])), null, 2);
@@ -567,8 +575,19 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
         if (typeof args.watermark === 'object' && args.watermark !== null) {
           sections.style.watermark = applySubFields(sections.style.watermark, args.watermark, WATERMARK_FIELDS);
         }
-
         const { theme: nextTheme } = fromSectionRecords(current, sections);
+        if (typeof args.mermaid === 'object' && args.mermaid !== null && !Array.isArray(args.mermaid)) {
+          const requested = args.mermaid as Record<string, unknown>;
+          const config = getMermaidConfig(current);
+          const fields = pickSubFields(requested, MERMAID_FIELDS);
+          nextTheme.mermaid = {
+            theme: (fields.theme ?? config.theme) as MermaidThemeChoice,
+            customColors: {
+              ...config.customColors,
+              ...pickSubFields(requested.customColors, MERMAID_COLOR_FIELDS),
+            } as MermaidCustomColors,
+          };
+        }
         context.onUpdateTheme(nextTheme);
 
         const checks = verifyScalarFields(sections, args, STYLE_FIELDS);
@@ -580,6 +599,11 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
         verifySubFields(checks, 'imageConfig', args.imageConfig, nextTheme.style.imageConfig, IMAGE_CONFIG_FIELDS);
         verifySubFields(checks, 'tableCaptionConfig', args.tableCaptionConfig, nextTheme.style.tableCaptionConfig, TABLE_CAPTION_FIELDS);
         verifySubFields(checks, 'watermark', args.watermark, nextTheme.style.watermark, WATERMARK_FIELDS);
+        verifySubFields(checks, 'mermaid', args.mermaid, nextTheme.mermaid, MERMAID_FIELDS);
+        if (typeof args.mermaid === 'object' && args.mermaid !== null) {
+          const requested = args.mermaid as Record<string, unknown>;
+          verifySubFields(checks, 'mermaid.customColors', requested.customColors, nextTheme.mermaid?.customColors, MERMAID_COLOR_FIELDS);
+        }
         return formatUpdateVerification(checks);
       }
     },

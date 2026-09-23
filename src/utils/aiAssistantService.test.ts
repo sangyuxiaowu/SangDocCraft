@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
 import { getRegisteredThemes } from '../themes/themeRegistry';
 import type { DocumentHistoryEntry, DocumentMeta, DocumentSettings, DocumentTheme } from '../types';
-import { buildAiTools } from './aiAssistantService';
+import { buildAiTools, DEFAULT_SYSTEM_PROMPT } from './aiAssistantService';
 
 const defaultMeta: DocumentMeta = {
   ...DEFAULT_DOCUMENT_META,
@@ -413,6 +413,53 @@ describe('AI assistant setting tools', () => {
 
     const selected = JSON.parse(await configTool.handler({ types: ['meta', 'watermark'] })) as Record<string, unknown>;
     expect(selected).toEqual({ meta: expect.any(Object), watermark: null });
+  });
+
+  it('reads and updates the document Mermaid theme and custom colors', async () => {
+    const tools = createTools('# 标题');
+    const configTool = tools.find(item => item.definition.function.name === 'get_document_config')!;
+    const styleTool = tools.find(item => item.definition.function.name === 'update_document_style')!;
+
+    expect(JSON.parse(await configTool.handler({ types: ['mermaid'] }))).toMatchObject({
+      mermaid: { theme: 'neutral', customColors: { primaryColor: expect.any(String) } },
+    });
+    expect(await styleTool.handler({ mermaid: { theme: 'custom', customColors: { primaryColor: '#123456' } } }))
+      .toBe('更新成功');
+    expect(JSON.parse(await configTool.handler({ types: ['mermaid'] }))).toMatchObject({
+      mermaid: { theme: 'custom', customColors: { primaryColor: '#123456', lineColor: expect.any(String) } },
+    });
+    const properties = styleTool.definition.function.parameters.properties as Record<string, Record<string, unknown>>;
+    expect(properties.mermaid).toMatchObject({
+      properties: { theme: { enum: ['neutral', 'default', 'dark', 'forest', 'base', 'custom'] } },
+    });
+  });
+
+  it('validates Mermaid arguments and preserves colors during partial updates', async () => {
+    const tools = createTools('# 标题');
+    const configTool = tools.find(item => item.definition.function.name === 'get_document_config')!;
+    const styleTool = tools.find(item => item.definition.function.name === 'update_document_style')!;
+    const before = JSON.parse(await configTool.handler({ types: ['mermaid'] })).mermaid;
+
+    await expect(styleTool.handler({ mermaid: { theme: 'auto' } })).rejects.toThrow('可选值');
+    await expect(styleTool.handler({ mermaid: { customColors: { primaryColor: 'not-a-color' } } }))
+      .rejects.toThrow('primaryColor');
+    expect(JSON.parse(await configTool.handler({ types: ['mermaid'] })).mermaid).toEqual(before);
+
+    await expect(styleTool.handler({ mermaid: { theme: 'custom', ignored: true, customColors: { lineColor: '#123abc', ignored: 'bad' } } }))
+      .resolves.toBe('更新成功');
+    const updated = JSON.parse(await configTool.handler({ types: ['mermaid'] })).mermaid;
+    expect(updated).toMatchObject({ theme: 'custom', customColors: { primaryColor: before.customColors.primaryColor, lineColor: '#123abc' } });
+    expect(updated).not.toHaveProperty('ignored');
+    expect(updated.customColors).not.toHaveProperty('ignored');
+    await styleTool.handler({ fontSize: 15 });
+    expect(JSON.parse(await configTool.handler({ types: ['mermaid'] })).mermaid).toEqual(updated);
+
+    const properties = styleTool.definition.function.parameters.properties as Record<string, unknown>;
+    expect(properties.mermaid).toMatchObject({
+      properties: { customColors: { properties: { primaryColor: { type: 'string', pattern: '^#[0-9a-fA-F]{6}$' } } } },
+    });
+    expect(DEFAULT_SYSTEM_PROMPT).toContain('get_document_config');
+    expect(DEFAULT_SYSTEM_PROMPT).toContain('customColors');
   });
 
   it('supports regex replacement with capture groups when useRegex is set', async () => {

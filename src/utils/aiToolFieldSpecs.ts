@@ -18,6 +18,7 @@ export interface FieldConstraint {
   kind: ScalarKind;
   /** kind 为 enum 时的合法取值 */
   values?: readonly (string | number)[];
+  pattern?: string;
   min?: number;
   max?: number;
 }
@@ -54,9 +55,14 @@ export function readFieldValue(
 ): string | number | boolean {
   switch (constraint.kind) {
     case 'string': {
-      if (typeof value === 'string') return value;
-      if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-      throw new AiToolExecutionError('invalid_arguments', `${name} 必须是字符串。`);
+      if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
+        throw new AiToolExecutionError('invalid_arguments', `${name} 必须是字符串。`);
+      }
+      const text = String(value);
+      if (constraint.pattern && !new RegExp(constraint.pattern).test(text)) {
+        throw new AiToolExecutionError('invalid_arguments', `${name} 格式无效，应为 #RRGGBB。`);
+      }
+      return text;
     }
     case 'boolean': {
       if (typeof value === 'boolean') return value;
@@ -147,6 +153,22 @@ export const WATERMARK_FIELDS: SubFieldSpecs = {
   hideOnCover: { kind: 'boolean' },
   imageUrl: { kind: 'string' },
   imageWidth: { kind: 'number', min: 1 },
+};
+
+export const MERMAID_FIELDS: SubFieldSpecs = {
+  theme: { kind: 'enum', values: ['neutral', 'default', 'dark', 'forest', 'base', 'custom'], description: '文档默认 Mermaid 图表主题' },
+};
+
+const MERMAID_HEX_COLOR = { kind: 'string' as const, pattern: '^#[0-9a-fA-F]{6}$' };
+
+export const MERMAID_COLOR_FIELDS: SubFieldSpecs = {
+  primaryColor: { ...MERMAID_HEX_COLOR, description: '主节点背景色，如 #2563eb' },
+  primaryTextColor: { ...MERMAID_HEX_COLOR, description: '主节点文字色，如 #ffffff' },
+  primaryBorderColor: { ...MERMAID_HEX_COLOR, description: '节点边框色，如 #1d4ed8' },
+  lineColor: { ...MERMAID_HEX_COLOR, description: '连线与箭头色，如 #64748b' },
+  secondaryColor: { ...MERMAID_HEX_COLOR, description: '次级节点背景色，如 #f1f5f9' },
+  tertiaryColor: { ...MERMAID_HEX_COLOR, description: '第三层节点背景色，如 #e2e8f0' },
+  background: { ...MERMAID_HEX_COLOR, description: '图表底板背景色，如 #ffffff' },
 };
 
 export const META_FIELDS: readonly ScalarFieldSpec[] = [

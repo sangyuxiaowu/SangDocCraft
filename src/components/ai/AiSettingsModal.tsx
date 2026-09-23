@@ -730,7 +730,7 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
                   <li><strong>强制分页</strong>：独占一行的 <code className="px-1 py-0.5 rounded bg-black/10 dark:bg-white/10 font-mono">&lt;!-- pagebreak --&gt;</code></li>
                   <li><strong>表格题注</strong>：表格前一行的 <code className="px-1 py-0.5 rounded bg-black/10 dark:bg-white/10 font-mono">&lt;!-- caption: 题注说明 --&gt;</code></li>
                   <li><strong>图片宽高</strong>：<code className="px-1 py-0.5 rounded bg-black/10 dark:bg-white/10 font-mono">![图示](@images/id)&#123;w=500&#125;</code></li>
-                  <li><strong>矢量图表</strong>：支持标准的 <code className="px-1 py-0.5 rounded bg-black/10 dark:bg-white/10 font-mono">```mermaid</code> 代码块，支持 <code className="px-1 py-0.5 rounded bg-black/10 dark:bg-white/10 font-mono">&#123;theme=custom w=500 align=center&#125;</code></li>
+                  <li><strong>矢量图表</strong>：<code className="px-1 py-0.5 rounded bg-black/10 dark:bg-white/10 font-mono">```mermaid</code> 继承文档默认主题；单图可添加 <code className="px-1 py-0.5 rounded bg-black/10 dark:bg-white/10 font-mono">&#123;theme=custom w=80% h=320 align=center&#125;</code>。文档默认主题和 custom 配色可通过样式工具调整。</li>
                   <li><strong>数学公式</strong>：行内 <code className="px-1 py-0.5 rounded bg-black/10 dark:bg-white/10 font-mono">$E = mc^2$</code> 与独立 <code className="px-1 py-0.5 rounded bg-black/10 dark:bg-white/10 font-mono">$$...$$</code> LaTeX 公式</li>
                 </ul>
               </div>

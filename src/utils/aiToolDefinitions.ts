@@ -4,6 +4,8 @@ import {
   HEADER_FIELDS,
   HEADING_FONT_FIELDS,
   IMAGE_CONFIG_FIELDS,
+  MERMAID_COLOR_FIELDS,
+  MERMAID_FIELDS,
   META_FIELDS,
   STYLE_FIELDS,
   TABLE_CAPTION_FIELDS,
@@ -23,6 +25,7 @@ function describeField(constraint: FieldConstraint, description?: string): Recor
     property.enum = [...(constraint.values ?? [])];
   } else {
     property.type = constraint.kind;
+    if (constraint.pattern) property.pattern = constraint.pattern;
     if (constraint.min !== undefined) property.minimum = constraint.min;
     if (constraint.max !== undefined) property.maximum = constraint.max;
   }
@@ -61,16 +64,16 @@ export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
     type: 'function',
     function: {
       name: 'get_document_config',
-      description: '获取当前交付文档的配置信息。可按类型读取文档元数据、封面、页眉、页脚、目录、配色、排版样式或水印；省略 types 或提供 all 时返回全部配置。',
+      description: '获取当前交付文档的配置信息。可按类型读取文档元数据、封面、页眉、页脚、目录、配色、排版样式、Mermaid 图表或水印；省略 types 或提供 all 时返回全部配置。',
       parameters: {
         type: 'object',
         properties: {
           types: {
             type: 'array',
-            description: '要获取的配置类型。可选 meta、cover、header、footer、toc、color、style、watermark；传入 all 或不传时返回全部配置。',
+            description: '要获取的配置类型。可选 meta、cover、header、footer、toc、color、style、mermaid、watermark；传入 all 或不传时返回全部配置。',
             items: {
               type: 'string',
-              enum: ['all', 'meta', 'cover', 'header', 'footer', 'toc', 'color', 'style', 'watermark']
+              enum: ['all', 'meta', 'cover', 'header', 'footer', 'toc', 'color', 'style', 'mermaid', 'watermark']
             },
             minItems: 1
           }
@@ -198,7 +201,7 @@ export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
     type: 'function',
     function: {
       name: 'update_document_style',
-      description: '调整排版设计与视觉风格参数，如主色、强调色、文字字号、行高、正文字体、一级标题样式、首行缩进、一级标题独立换页等。',
+      description: '调整排版与视觉风格，包括字体、标题、图片、水印和文档默认 Mermaid 图表主题及 custom 配色。',
       parameters: {
         type: 'object',
         properties: {
@@ -225,6 +228,18 @@ export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
             type: 'object',
             description: '文档水印配置',
             properties: buildSubProperties(WATERMARK_FIELDS)
+          },
+          mermaid: {
+            type: 'object',
+            description: '文档默认 Mermaid 图表主题与 custom 配色；仅填写需要修改的字段，单图围栏可单独覆盖主题',
+            properties: {
+              ...buildSubProperties(MERMAID_FIELDS),
+              customColors: {
+                type: 'object',
+                description: '仅在 theme=custom 时用于图表的自定义色彩，也可单独预设配色',
+                properties: buildSubProperties(MERMAID_COLOR_FIELDS)
+              }
+            }
           }
         }
       }
