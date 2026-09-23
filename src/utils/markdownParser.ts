@@ -166,6 +166,9 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
     ${selector} code { background: #f1f5f9; color: #0f172a; padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 0.88em; }
     ${selector} pre code { background: transparent; color: inherit; padding: 0; }
     ${selector} .mermaid { display: flex; align-items: center; justify-content: center; min-height: 180px; max-height: 720px; margin: 1.2em 0; overflow: hidden; text-indent: 0; }
+    ${selector} .doc-mermaid-figure { margin: 1.2em 0; break-inside: avoid; }
+    ${selector} .doc-mermaid-figure .mermaid { margin: 0; }
+    ${selector} .doc-image-caption { margin-top: 6px; font-size: 0.85em; color: #64748b; font-weight: 600; line-height: 1.4; }
     ${selector} .mermaid-error { display: block; min-height: 0; }
     ${selector} .mermaid svg { width: auto; height: auto; max-width: 100%; max-height: 720px; }
     ${selector} mjx-container[jax="SVG"] { direction: ltr; display: inline-block; text-align: left; line-height: 0; text-indent: 0; }
@@ -634,9 +637,16 @@ export function paginateContentByDom(
 
       for (let index = 0; index < tokens.length; index++) {
         const token = tokens[index];
-        if (token.type === 'html' && /^<!--\s*(?:table-)?caption:[\s\S]*?-->$/i.test(token.raw.trim()) && tokens[index + 1]?.type === 'table') {
-          const table = tokens[++index];
+        const nextIndex = tokens[index + 1]?.type === 'space' ? index + 2 : index + 1;
+        if (token.type === 'html' && /^<!--\s*(?:table-)?caption:[\s\S]*?-->$/i.test(token.raw.trim()) && tokens[nextIndex]?.type === 'table') {
+          const table = tokens[nextIndex];
+          index = nextIndex;
           processToken({ ...table, raw: `${token.raw}${table.raw}`, tableRaw: table.raw, captionRaw: token.raw });
+        } else if (token.type === 'html' && /^<!--\s*caption:[\s\S]*?-->$/i.test(token.raw.trim())
+          && tokens[nextIndex]?.type === 'code' && isMermaidLang(tokens[nextIndex].lang)) {
+          const diagram = tokens[nextIndex];
+          index = nextIndex;
+          processToken({ ...diagram, raw: `${token.raw}\n\n${diagram.raw}` });
         } else {
           processToken(token);
         }
@@ -1315,8 +1325,19 @@ export function postProcessRenderedHtml(
     captionAlign: style?.tableCaptionConfig?.captionAlign || 'center',
   };
 
-  // 1. Process <img> tags into <figure> with border styling and captions
-  let processed = mermaidProcessed.replace(/<img\s+([^>]*?)src=["']([^"']+)["']([^>]*?)\/?>\s*(?:\{([^{}]*)\})?/gi, (match, p1, rawSrc, p2, dimensionAttributes) => {
+  // Number both kinds of figures in source order.
+  let processed = mermaidProcessed.replace(
+    /<!--\s*caption:\s*([\s\S]*?)\s*-->\s*(<div\s+class="mermaid"[^>]*>[\s\S]*?<\/div>)|<img\s+([^>]*?)src=["']([^"']+)["']([^>]*?)\/?>\s*(?:\{([^{}]*)\})?/gi,
+    (match, mermaidCaptionRaw, diagramHtml, p1, rawSrc, p2, dimensionAttributes) => {
+    if (diagramHtml) {
+      if (!imgConfig.showCaption) return diagramHtml;
+      const caption = mermaidCaptionRaw.replace(/^(?:图|表|Figure|Table)\s*\d*[:：]?\s*/i, '').trim();
+      if (!caption) return diagramHtml;
+      const captionText = imgConfig.autoNumber
+        ? `${imgConfig.numberPrefix}${++counters.imgCount}: ${caption}`
+        : caption;
+      return `<figure class="doc-mermaid-figure">${diagramHtml}<figcaption class="doc-image-caption" style="text-align: ${imgConfig.captionAlign};">${escapeHtmlText(captionText)}</figcaption></figure>`;
+    }
     const combinedAttrs = `${p1} ${p2}`;
 
     const altMatch = combinedAttrs.match(/alt=["']([^"']*)["']/i);
@@ -1358,7 +1379,8 @@ export function postProcessRenderedHtml(
       <img src="${resolvedSrc}" alt="${rawAlt || 'Image'}" class="doc-image ${borderClass}" style="max-width: 100%; ${dimensionStyle}display: inline-block;" />
       ${captionHtml}
     </figure>${unparsedSuffix}`;
-  });
+    }
+  );
 
   // 2. Process Tables and Table Captions
   const handleTableCaption = (captionRaw: string, tableHtml: string) => {

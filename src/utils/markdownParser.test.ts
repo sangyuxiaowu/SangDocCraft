@@ -58,6 +58,23 @@ describe('Markdown pagination and numbering', () => {
     }
   });
 
+  it('keeps a Mermaid figure caption with its diagram when the page fills up', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.querySelectorAll('h2').length * 600 + this.querySelectorAll('.mermaid').length * 250
+        + this.querySelectorAll('.doc-image-caption').length * 100;
+    });
+    try {
+      const source = '## Intro\n\n<!-- caption: 数据处理结构 -->\n\n```mermaid\nflowchart LR\nA --> B\n```';
+      const pages = paginateContentByDom(source, { style: theme.style });
+      expect(pages).toHaveLength(2);
+      expect(pages[0]).not.toContain('caption:');
+      expect(pages[1]).toContain('<!-- caption: 数据处理结构 -->');
+      expect(pages[1]).toContain('flowchart LR');
+    } finally {
+      height.mockRestore();
+    }
+  });
+
   it.each([4, 5])('measures %i list items with the same width and direct-child margins as the page', (itemCount) => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       expect(this.style.width).toBe('180mm');
@@ -568,6 +585,24 @@ describe('Rendered Markdown post-processing', () => {
     expect(first).toContain('图 1: 架构图');
     expect(second).toContain('图 2: 部署图');
     expect(counters.imgCount).toBe(2);
+  });
+
+  it('treats a caption before Mermaid as a numbered figure', () => {
+    const counters = { imgCount: 0, tableCount: 0 };
+    const source = '<!-- caption: 数据处理结构 -->\n\n```mermaid\nflowchart LR\nA --> B\n```';
+    const html = postProcessRenderedHtml(marked.parse(source) as string, theme.style, counters);
+    expect(html).toContain('图 1: 数据处理结构');
+    expect(html).toContain('class="mermaid"');
+    expect(html).not.toContain('<!-- caption:');
+    expect(counters).toEqual({ imgCount: 1, tableCount: 0 });
+    const next = postProcessRenderedHtml('<p><img src="a.png" alt="后续图片"></p>', theme.style, counters);
+    expect(next).toContain('图 2: 后续图片');
+  });
+
+  it('numbers images and Mermaid diagrams in document order', () => {
+    const source = '![第一张](a.png)\n\n<!-- caption: 数据处理结构 -->\n\n```mermaid\nflowchart LR\nA --> B\n```\n\n![第三张](b.png)';
+    const html = postProcessRenderedHtml(marked.parse(source) as string, theme.style);
+    expect(html).toMatch(/图 1: 第一张[\s\S]*图 2: 数据处理结构[\s\S]*图 3: 第三张/);
   });
 
   it('aligns the image block and its caption with imageConfig.captionAlign', () => {

@@ -198,27 +198,29 @@ export async function exportToDocx(markdownText: string, meta: DocumentMeta, the
   const getImageTokens = (tokens: any[]): any[] => {
     return (tokens || []).flatMap((token) => token.type === 'image' ? [token] : getImageTokens(token.tokens || []));
   };
-  const createImageCaptions = (tokens: any[]): Paragraph[] => {
+  const createFigureCaption = (caption: string): Paragraph | null => {
     const imageConfig = style.imageConfig;
-    if (imageConfig?.showCaption === false) return [];
-
+    if (imageConfig?.showCaption === false || !caption) return null;
+    imageCaptionCount += 1;
+    const captionText = imageConfig?.autoNumber === false
+      ? caption
+      : `${imageConfig?.numberPrefix || '图 '}${imageCaptionCount}: ${caption}`;
+    const alignment = imageConfig?.captionAlign === 'left'
+      ? AlignmentType.LEFT
+      : imageConfig?.captionAlign === 'right'
+      ? AlignmentType.RIGHT
+      : AlignmentType.CENTER;
+    return new Paragraph({
+      alignment,
+      spacing: { before: 60, after: 160 },
+      children: [new TextRun({ text: captionText, size: 18, color: '64748B', font: docxFont })],
+    });
+  };
+  const createImageCaptions = (tokens: any[]): Paragraph[] => {
     return getImageTokens(tokens).flatMap((imageToken) => {
       const caption = imageToken.text?.trim();
-      if (!caption) return [];
-      imageCaptionCount += 1;
-      const captionText = imageConfig?.autoNumber === false
-        ? caption
-        : `${imageConfig?.numberPrefix || '图 '}${imageCaptionCount}: ${caption}`;
-      const alignment = imageConfig?.captionAlign === 'left'
-        ? AlignmentType.LEFT
-        : imageConfig?.captionAlign === 'right'
-        ? AlignmentType.RIGHT
-        : AlignmentType.CENTER;
-      return [new Paragraph({
-        alignment,
-        spacing: { before: 60, after: 160 },
-        children: [new TextRun({ text: captionText, size: 18, color: '64748B', font: docxFont })],
-      })];
+      const paragraph = createFigureCaption(caption || '');
+      return paragraph ? [paragraph] : [];
     });
   };
 
@@ -331,8 +333,18 @@ export async function exportToDocx(markdownText: string, meta: DocumentMeta, the
     ...marked.lexer(page),
   ]);
   const headingCounters = [0, 0, 0, 0];
+  const mermaidCaptions = new Map<number, string>();
 
-  for (const token of tokens) {
+  for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
+    const token = tokens[tokenIndex];
+    const captionMatch = token.type === 'html' ? token.raw.trim().match(/^<!--\s*caption:\s*([\s\S]*?)\s*-->$/i) : null;
+    if (captionMatch) {
+      const nextIndex = tokens[tokenIndex + 1]?.type === 'space' ? tokenIndex + 2 : tokenIndex + 1;
+      if (tokens[nextIndex]?.type === 'code' && isMermaidLang(tokens[nextIndex].lang)) {
+        mermaidCaptions.set(nextIndex, captionMatch[1].trim());
+        continue;
+      }
+    }
     switch (token.type) {
       case 'pagebreak': {
         sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
@@ -463,6 +475,9 @@ export async function exportToDocx(markdownText: string, meta: DocumentMeta, the
                 altText: { title: 'Mermaid 图表', description: 'Mermaid 图表', name: 'Mermaid 图表' },
               })],
             }));
+            const caption = (mermaidCaptions.get(tokenIndex) || '').replace(/^(?:图|表|Figure|Table)\s*\d*[:：]?\s*/i, '').trim();
+            const captionParagraph = createFigureCaption(caption);
+            if (captionParagraph) sectionsChildren.push(captionParagraph);
             break;
           } catch (error) {
             console.warn('DOCX Mermaid rendering failed:', error);

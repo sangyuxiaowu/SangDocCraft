@@ -74,7 +74,9 @@ AI 可以读取当前文档状态、章节大纲和指定正文，协助润色�
 
 # 图表、代码与分页
 
-正文中的 `<!-- pagebreak -->` 会强制从新页开始，本节标题前就使用了一个。Mermaid 图表使用标准围栏代码块，未写单图主题时沿用右侧「样式」面板中「Mermaid 图表配色」的设置（初始为 `neutral`）：
+正文中的 `<!-- pagebreak -->` 会强制从新页开始，本节标题前就使用了一个。
+
+Mermaid 图表使用标准围栏代码块，未写单图主题时沿用右侧「样式」面板中「Mermaid 图表配色」的设置（初始为 `neutral`）：
 
 ```mermaid {theme=base h=260 align=left}
 flowchart LR
@@ -96,6 +98,8 @@ flowchart LR
   ```
 
   `theme` 还可选 `neutral`、`default`、`dark`、`forest`、`base`；`w` 可写像素或百分比，`h` 可写像素或 `auto`，`align` 可选 `left`、`center`、`right`。显式高度会用于分页占位，设置过小可能裁切图表；Word 导出会按页面范围等比缩放图表。
+
+  Mermaid 图表支持图题注，方法是在围栏前添加 `<!-- caption: 题注文本 -->` 注释。
 
 代码块会保留语言标识并按主题显示，下面是 `.sdc` 文档包中 `settings.json` 的片段：
 

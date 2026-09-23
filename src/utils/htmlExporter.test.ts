@@ -147,6 +147,16 @@ describe('generateStandaloneHtml', () => {
     expect(html).not.toContain('<!-- pagebreak -->');
   });
 
+  it('exports Mermaid captions as figures with image numbering', () => {
+    const base = PRESET_THEMES[0];
+    const html = generateStandaloneHtml(
+      '![第一张](a.png)\n\n<!-- caption: 数据处理结构 -->\n\n```mermaid\nflowchart LR\nA --> B\n```',
+      { ...base, cover: { ...base.cover, showCover: false }, toc: { ...base.toc, show: false } },
+    );
+    expect(html).toMatch(/图 1: 第一张[\s\S]*<figure class="doc-mermaid-figure">[\s\S]*图 2: 数据处理结构/);
+    expect(html).not.toContain('<!-- caption: 数据处理结构 -->');
+  });
+
   it('keeps exported content pages constrained to a single A4 sheet', () => {
     const html = generateStandaloneHtml('# Body', {
       ...PRESET_THEMES[0],
