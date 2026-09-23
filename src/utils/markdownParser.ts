@@ -187,6 +187,7 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
     ${selector} th { background: ${tableHeaderBackground}; color: ${tableHeaderColor}; ${tableHeaderBorder} padding: 8px 12px; text-align: ${tableTextAlign}; font-weight: ${tableHeaderWeight}; }
     ${selector} td { ${tableCellBorder} padding: 8px 12px; text-align: ${tableTextAlign}; }
     ${selector} tr:nth-child(even) { background: ${style.tableStyle === 'striped' ? '#f8fafc' : 'transparent'}; }
+    ${selector} .doc-table-caption { margin-top: 4px; margin-bottom: 6px; font-size: 0.88em; color: #475569; font-weight: 600; line-height: 1.4; }
     ${selector} hr { border: none; border-top: 1px solid #cbd5e1; margin: 1.8em 0; }
   `;
 }
@@ -379,14 +380,33 @@ function findDomCodeSplit(
 function findDomTableSplit(
   token: any,
   measurer: HTMLElement,
-  maxHeight: number
+  maxHeight: number,
+  style?: StyleConfig
 ): { part1Md: string; part2Md: string } | null {
   const header = token.header || [];
   const rows = token.rows || [];
   if (rows.length <= 1) return null;
 
   const testTable = document.createElement('table');
-  measurer.appendChild(testTable);
+  let testContainer: HTMLElement = testTable;
+  let measuredTable = testTable;
+  let bottomCaption: HTMLElement | null = null;
+  if (token.captionRaw) {
+    const template = document.createElement('template');
+    template.innerHTML = postProcessRenderedHtml(marked.parse(`${token.captionRaw}${buildTableMd(token, 0, 0)}`) as string, style);
+    const wrapper = template.content.querySelector<HTMLElement>('.doc-table-wrapper');
+    const wrappedTable = wrapper?.querySelector<HTMLTableElement>('table');
+    if (wrapper && wrappedTable) {
+      testContainer = wrapper;
+      measuredTable = wrappedTable;
+      measuredTable.replaceChildren();
+      if (style?.tableCaptionConfig?.captionPosition === 'bottom') {
+        bottomCaption = wrapper.querySelector<HTMLElement>('.doc-table-caption');
+        bottomCaption?.remove();
+      }
+    }
+  }
+  measurer.appendChild(testContainer);
 
   const thead = document.createElement('thead');
   const trHead = document.createElement('tr');
@@ -396,10 +416,10 @@ function findDomTableSplit(
     trHead.appendChild(th);
   });
   thead.appendChild(trHead);
-  testTable.appendChild(thead);
+  measuredTable.appendChild(thead);
 
   const tbody = document.createElement('tbody');
-  testTable.appendChild(tbody);
+  measuredTable.appendChild(tbody);
 
   let fitCount = 0;
   for (let i = 0; i < rows.length; i++) {
@@ -411,6 +431,10 @@ function findDomTableSplit(
     });
     tbody.appendChild(tr);
 
+    if (i === rows.length - 1 && bottomCaption) {
+      testContainer.appendChild(bottomCaption);
+    }
+
     if (measurer.scrollHeight <= maxHeight + 1) {
       fitCount = i + 1;
     } else {
@@ -418,7 +442,7 @@ function findDomTableSplit(
     }
   }
 
-  measurer.removeChild(testTable);
+  measurer.removeChild(testContainer);
 
   if (fitCount < 1 || fitCount >= rows.length) return null;
 
@@ -519,12 +543,6 @@ export function paginateContentByDom(
           flushPage();
         }
 
-        // Image dimensions can be unavailable while the hidden measurer loads remote or data URI assets.
-        // Start image blocks on a fresh sheet so late image layout cannot overflow into the following page.
-        if (isImageParagraph && currentPageTokens.length > 0) {
-          flushPage();
-        }
-
         if (isHeading && currentPageTokens.length > 0) {
           const remSpace = maxHeight - measurer.scrollHeight;
           if (remSpace < 48) {
@@ -546,6 +564,16 @@ export function paginateContentByDom(
         }
         const tokenNodes = Array.from(tempContainer.content.childNodes);
         measurer.append(...tokenNodes);
+
+        const image = isImageParagraph
+          ? tokenNodes.find((node) => node instanceof Element && node.querySelector('img')) as Element | undefined
+          : undefined;
+        const imageElement = image?.querySelector<HTMLImageElement>('img');
+        if (isImageParagraph && currentPageTokens.length > 0 && (!imageElement?.complete || !imageElement.naturalWidth)) {
+          tokenNodes.forEach((node) => node.remove());
+          flushPage();
+          measurer.append(...tokenNodes);
+        }
 
         if (measurer.scrollHeight <= maxHeight) {
           currentPageTokens.push(token.raw);
@@ -572,12 +600,15 @@ export function paginateContentByDom(
             return;
           }
         } else if (token.type === 'table') {
-          const splitRes = findDomTableSplit(token, measurer, maxHeight);
+          const splitRes = findDomTableSplit({ ...token, raw: token.tableRaw ?? token.raw }, measurer, maxHeight, options.style);
           if (splitRes) {
-            currentPageTokens.push(splitRes.part1Md);
+            const captionOnLastPage = token.captionRaw && options.style?.tableCaptionConfig?.captionPosition === 'bottom';
+            currentPageTokens.push(`${captionOnLastPage ? '' : token.captionRaw ?? ''}${splitRes.part1Md}`);
             flushPage();
             const newToken = marked.lexer(splitRes.part2Md)[0] || { type: 'raw', raw: splitRes.part2Md };
-            processToken(newToken);
+            processToken(captionOnLastPage
+              ? { ...newToken, raw: `${token.captionRaw}${splitRes.part2Md}`, tableRaw: splitRes.part2Md, captionRaw: token.captionRaw }
+              : newToken);
             return;
           }
         } else if (token.type === 'code' && !isMermaidLang(token.lang)) {
@@ -601,7 +632,15 @@ export function paginateContentByDom(
         processToken(token);
       };
 
-      tokens.forEach((token) => processToken(token));
+      for (let index = 0; index < tokens.length; index++) {
+        const token = tokens[index];
+        if (token.type === 'html' && /^<!--\s*(?:table-)?caption:[\s\S]*?-->$/i.test(token.raw.trim()) && tokens[index + 1]?.type === 'table') {
+          const table = tokens[++index];
+          processToken({ ...table, raw: `${token.raw}${table.raw}`, tableRaw: table.raw, captionRaw: token.raw });
+        } else {
+          processToken(token);
+        }
+      }
       flushPage();
     });
   } finally {

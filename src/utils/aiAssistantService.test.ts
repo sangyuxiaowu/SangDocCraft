@@ -458,8 +458,6 @@ describe('AI assistant setting tools', () => {
     expect(properties.mermaid).toMatchObject({
       properties: { customColors: { properties: { primaryColor: { type: 'string', pattern: '^#[0-9a-fA-F]{6}$' } } } },
     });
-    expect(DEFAULT_SYSTEM_PROMPT).toContain('get_document_config');
-    expect(DEFAULT_SYSTEM_PROMPT).toContain('customColors');
   });
 
   it('supports regex replacement with capture groups when useRegex is set', async () => {

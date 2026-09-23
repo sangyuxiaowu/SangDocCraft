@@ -162,6 +162,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
   const [overflowPageNumbers, setOverflowPageNumbers] = useState<number[]>([]);
   const [mermaidHeights, setMermaidHeights] = useState<Record<string, number>>({});
   const [, setMathEpoch] = useState(0);
+  const [, setImageEpoch] = useState(0);
   const [isOutlineOpen, setIsOutlineOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageInput, setPageInput] = useState<string>('1');
@@ -387,6 +388,21 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
       unsubscribe();
     };
   }, [markdown]);
+
+  useEffect(() => {
+    const images = Array.from(containerRef.current?.querySelectorAll<HTMLImageElement>('.markdown-rendered-body img') ?? []);
+    if (images.length === 0) return;
+    const onLoad = () => setImageEpoch((epoch) => epoch + 1);
+    const pending = images.filter((image) => !image.complete);
+    pending.forEach((image) => image.addEventListener('load', onLoad));
+    const frame = images.some((image) => image.complete && image.naturalWidth > 0)
+      ? requestAnimationFrame(onLoad)
+      : 0;
+    return () => {
+      pending.forEach((image) => image.removeEventListener('load', onLoad));
+      cancelAnimationFrame(frame);
+    };
+  }, [markdown, theme]);
 
   // Build Pages Array
   const pages: PageItem[] = [];

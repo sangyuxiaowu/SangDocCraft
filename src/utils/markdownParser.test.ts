@@ -95,6 +95,24 @@ describe('Markdown pagination and numbering', () => {
     }
   });
 
+  it('measures a table caption together with its table', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.querySelectorAll('p').length * 200
+        + this.querySelectorAll('table').length * 350
+        + this.querySelectorAll('.doc-table-caption').length * 400;
+    });
+    const source = 'Intro\n\n<!-- caption: Delivery formats -->\n| Format | Purpose |\n| --- | --- |\n| HTML | Archive |\n\nFollowing';
+    try {
+      const pages = paginateContentByDom(source, { style: theme.style });
+      expect(pages).toHaveLength(3);
+      expect(pages[1]).toContain('<!-- caption: Delivery formats -->');
+      expect(pages[1]).toContain('| HTML | Archive |');
+      expect(pages[2]).toBe('Following');
+    } finally {
+      height.mockRestore();
+    }
+  });
+
   it('starts image paragraphs on a fresh page before their dimensions are available', () => {
     const pages = paginateContentByDom(
       'Introductory content\n\n![Example](https://example.test/example.png)',
@@ -105,6 +123,22 @@ describe('Markdown pagination and numbering', () => {
       'Introductory content',
       '![Example](https://example.test/example.png)',
     ]);
+  });
+
+  it('keeps a loaded image on the current page when it fits', () => {
+    const complete = vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true);
+    const naturalWidth = vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(1200);
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.querySelectorAll('p').length * 100 + this.querySelectorAll('img').length * 250;
+    });
+    try {
+      const pages = paginateContentByDom('Intro\n\n![Example](https://example.test/image.png){w=520}\n\nFollowing', { style: theme.style });
+      expect(pages).toHaveLength(1);
+    } finally {
+      complete.mockRestore();
+      naturalWidth.mockRestore();
+      height.mockRestore();
+    }
   });
 
   it('keeps an image markdown expression intact when it overflows the remaining page space', () => {
@@ -207,6 +241,55 @@ describe('Markdown pagination and numbering', () => {
         const container = document.createElement('div');
         container.innerHTML = marked.parse(page) as string;
         expect(container.scrollHeight).toBeLessThanOrEqual(965.3);
+      });
+    } finally {
+      height.mockRestore();
+    }
+  });
+
+  it('reserves caption height when splitting a long table', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.querySelectorAll('tr').length * 200 + this.querySelectorAll('.doc-table-caption').length * 150;
+    });
+    try {
+      const source = '<!-- caption: Audit -->\n| ID | Value |\n| --- | --- |\n'
+        + Array.from({ length: 8 }, (_, index) => `| ${index + 1} | Entry |`).join('\n');
+      const pages = paginateContentByDom(source, { style: theme.style });
+      expect(pages.length).toBeGreaterThan(1);
+      expect(pages.join('\n').match(/<!-- caption: Audit -->/g)).toHaveLength(1);
+      expect(pages.flatMap(page => marked.lexer(page).flatMap(token => token.type === 'table' ? token.rows : []))
+        .map(row => row[0].text)).toEqual(Array.from({ length: 8 }, (_, index) => String(index + 1)));
+      pages.forEach(page => {
+        const rendered = document.createElement('div');
+        rendered.innerHTML = postProcessRenderedHtml(marked.parse(page) as string, theme.style);
+        expect(rendered.scrollHeight).toBeLessThanOrEqual(880);
+      });
+    } finally {
+      height.mockRestore();
+    }
+  });
+
+  it('keeps a bottom table caption on the final table page', () => {
+    const style = {
+      ...theme.style,
+      tableCaptionConfig: { ...theme.style.tableCaptionConfig!, captionPosition: 'bottom' as const },
+    };
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.querySelectorAll('tr').length * 200 + this.querySelectorAll('.doc-table-caption').length * 150;
+    });
+    try {
+      const source = '<!-- caption: Audit -->\n| ID | Value |\n| --- | --- |\n'
+        + Array.from({ length: 8 }, (_, index) => `| ${index + 1} | Entry |`).join('\n');
+      const pages = paginateContentByDom(source, { style });
+      expect(pages.length).toBeGreaterThan(1);
+      expect(pages.join('\n').match(/<!-- caption: Audit -->/g)).toHaveLength(1);
+      expect(pages.at(-1)).toContain('<!-- caption: Audit -->');
+      expect(pages.flatMap(page => marked.lexer(page).flatMap(token => token.type === 'table' ? token.rows : []))
+        .map(row => row[0].text)).toEqual(Array.from({ length: 8 }, (_, index) => String(index + 1)));
+      pages.forEach(page => {
+        const rendered = document.createElement('div');
+        rendered.innerHTML = postProcessRenderedHtml(marked.parse(page) as string, style);
+        expect(rendered.scrollHeight).toBeLessThanOrEqual(880);
       });
     } finally {
       height.mockRestore();
