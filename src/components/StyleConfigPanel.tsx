@@ -1382,10 +1382,10 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { key: 'neutral' as const, name: '标准中性', badge: '默认推荐', dot: '#64748b' },
-                  { key: 'default' as const, name: '经典蓝灰', badge: '经典原色', dot: '#2563eb' },
-                  { key: 'dark' as const, name: '暗黑风格', badge: '夜间深色', dot: '#0f172a' },
-                  { key: 'forest' as const, name: '森绿清新', badge: '生态清新', dot: '#059669' },
-                  { key: 'base' as const, name: '极简基础', badge: '浅色素雅', dot: '#94a3b8' },
+                  { key: 'default' as const, name: '淡紫雾蓝', badge: '浅雾默认', dot: '#ececff' },
+                  { key: 'dark' as const, name: '暗夜墨蓝', badge: '夜间深色', dot: '#0f172a' },
+                  { key: 'forest' as const, name: '嫩芽浅绿', badge: '自然清新', dot: '#cde498' },
+                  { key: 'base' as const, name: '奶油米白', badge: '暖米基础', dot: '#fff4dd' },
                   { key: 'custom' as const, name: '自定义配色', badge: '自选主辅色', dot: mermaidConfig.customColors?.primaryColor || '#8b5cf6' },
                 ].map((item) => {
                   const isSelected = mermaidConfig.theme === item.key;

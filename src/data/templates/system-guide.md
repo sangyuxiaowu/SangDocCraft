@@ -76,7 +76,7 @@ AI 可以读取当前文档状态、章节大纲和指定正文，协助润色�
 
 正文中的 `<!-- pagebreak -->` 会强制从新页开始，本节标题前就使用了一个。Mermaid 图表使用标准围栏代码块，未写单图主题时沿用右侧「样式」面板中「Mermaid 图表配色」的设置（初始为 `neutral`）：
 
-```mermaid
+```mermaid {theme=base h=260 align=left}
 flowchart LR
     Markdown[Markdown 正文] --> Preview[A4 实时预览]
     Theme[主题与页面设置] --> Preview
