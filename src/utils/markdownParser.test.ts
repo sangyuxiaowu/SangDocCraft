@@ -618,6 +618,15 @@ describe('Rendered Markdown post-processing', () => {
     expect(render('right')).toContain('align-items: flex-end; text-align: right');
   });
 
+  it('overrides image alignment without changing the caption alignment', () => {
+    const html = postProcessRenderedHtml(marked.parse('![架构图](a.png){w=320 align=right}') as string, theme.style);
+    expect(html).toContain('align-items: flex-end; text-align: center');
+    expect(html).toContain('class="doc-image-caption" style="text-align: center;');
+    expect(html).not.toContain('{w=320 align=right}');
+    expect(postProcessRenderedHtml(marked.parse('![图](a.png){align=left}') as string, theme.style))
+      .toContain('align-items: flex-start; text-align: center');
+  });
+
   it('aligns table captions with tableCaptionConfig.captionAlign', () => {
     const markup = '<p>表 1: 接口清单</p>\n<table><tr><td>a</td></tr></table>';
     const html = postProcessRenderedHtml(markup, {

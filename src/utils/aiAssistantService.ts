@@ -53,7 +53,7 @@ export const DEFAULT_SYSTEM_PROMPT = `你是 SangDocCraft 智能交付文档排�
    - 在 Markdown 表格前紧邻的上一行添加 \`<!-- caption: 题注说明文本 -->\`，系统会自动按照工程交付规范渲染表格标题序号与居中标注。
 
 3. 图片引用与尺寸后缀：
-   - 支持标准图片语法，并支持自定义宽高属性后缀，例如：\`![系统架构图](@images/xxx){w=520}\` 或 \`![界面流程](url){w=640 h=360}\`。
+  - 支持标准图片语法，并支持自定义宽高与图片对齐属性后缀，例如：\`![系统架构图](@images/xxx){w=520 align=right}\` 或 \`![界面流程](url){w=640 h=360}\`；align 可选 left、center、right，题注对齐仍由主题设置决定。
    - 文档内图片引用格式为 \`@images/<id>\`，永久库图片格式为 \`@library/<id>\`。
 
 4. 流程图与架构图（Mermaid）：

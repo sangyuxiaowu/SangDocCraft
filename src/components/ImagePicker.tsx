@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Check, Images, Plus, X, Search, Image as ImageIcon } from 'lucide-react';
+import { AlignCenter, AlignLeft, AlignRight, Check, Images, Plus, X, Search, Image as ImageIcon } from 'lucide-react';
 import type { DocumentAsset, DocumentAssetScope } from '../types';
 import type { ImageDimensions } from '../utils/imageDimensions';
 import { getAssetReference } from '../utils/assetUrlRegistry';
@@ -29,12 +29,14 @@ export const ImagePicker: React.FC<ImagePickerProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [width, setWidth] = useState('');
   const [height, setHeight] = useState('');
+  const [alignment, setAlignment] = useState<ImageDimensions['align']>();
 
   useEffect(() => {
     if (!isOpen) return;
     setSelectedReference(currentReference || '');
     setWidth('');
     setHeight('');
+    setAlignment(undefined);
     setSearchQuery('');
   }, [currentReference, isOpen]);
 
@@ -64,6 +66,7 @@ export const ImagePicker: React.FC<ImagePickerProps> = ({
     onSelect(selectedReference, selectedAsset, {
       width: width ? Number(width) : undefined,
       height: height ? Number(height) : undefined,
+      align: alignment,
     });
   };
 
@@ -83,7 +86,7 @@ export const ImagePicker: React.FC<ImagePickerProps> = ({
       aria-label="选择图片"
     >
       <div 
-        className={`w-full max-w-3xl max-h-[85vh] border rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-colors ${
+        className={`w-full max-w-4xl max-h-[85vh] border rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-colors ${
           isDark 
             ? 'bg-[#161616] border-zinc-800 text-zinc-100' 
             : 'bg-white border-slate-200 text-slate-900 shadow-2xl'
@@ -178,8 +181,9 @@ export const ImagePicker: React.FC<ImagePickerProps> = ({
           </div>
         </div>
 
+        <div className="flex-1 min-h-0 flex flex-col sm:flex-row overflow-y-auto sm:overflow-hidden">
         {/* Gallery Grid */}
-        <div className="flex-1 overflow-y-auto p-5 min-h-[220px]">
+        <div className="sm:flex-1 min-w-0 min-h-[180px] max-h-[40vh] sm:max-h-none sm:min-h-0 overflow-y-auto p-5">
           {filteredAssets.length > 0 ? (
             <div className="grid content-start grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {filteredAssets.map((asset) => {
@@ -249,15 +253,15 @@ export const ImagePicker: React.FC<ImagePickerProps> = ({
           )}
         </div>
 
-        {/* Footer & Dimension Controls */}
-        <div className={`px-6 py-3 border-t flex flex-wrap items-center justify-between gap-3 shrink-0 ${
-          isDark ? 'border-zinc-800 bg-[#191919]' : 'border-slate-100 bg-slate-50/70'
-        }`}>
-          {showDimensions ? (
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className={`text-[11px] font-semibold ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>尺寸指定:</span>
-                <label className="flex items-center gap-1 text-xs">
+        {showDimensions && (
+          <aside aria-label="图片属性" className={`shrink-0 sm:w-64 sm:overflow-y-auto border-t sm:border-t-0 sm:border-l p-5 ${
+            isDark ? 'border-zinc-800 bg-[#191919]' : 'border-slate-100 bg-slate-50/70'
+          }`}>
+            <h3 className="text-xs font-bold mb-5">图片属性</h3>
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <div className={`text-[11px] font-semibold ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>尺寸</div>
+                <label className="flex items-center gap-2 text-xs">
                   <span className={isDark ? 'text-zinc-500' : 'text-slate-400'}>宽</span>
                   <input 
                     type="number" 
@@ -266,14 +270,14 @@ export const ImagePicker: React.FC<ImagePickerProps> = ({
                     value={width} 
                     onChange={(e) => setWidth(e.target.value)} 
                     placeholder="自适应" 
-                    className={`w-18 rounded-md border px-2 py-1 text-xs outline-hidden ${
+                    className={`w-24 rounded-md border px-2 py-1 text-xs outline-hidden ${
                       isDark ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-slate-200 text-slate-800'
                     }`} 
                   />
                   <span className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>px</span>
                 </label>
 
-                <label className="flex items-center gap-1 text-xs">
+                <label className="flex items-center gap-2 text-xs">
                   <span className={isDark ? 'text-zinc-500' : 'text-slate-400'}>高</span>
                   <input 
                     type="number" 
@@ -282,7 +286,7 @@ export const ImagePicker: React.FC<ImagePickerProps> = ({
                     value={height} 
                     onChange={(e) => setHeight(e.target.value)} 
                     placeholder="自适应" 
-                    className={`w-18 rounded-md border px-2 py-1 text-xs outline-hidden ${
+                    className={`w-24 rounded-md border px-2 py-1 text-xs outline-hidden ${
                       isDark ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-slate-200 text-slate-800'
                     }`} 
                   />
@@ -290,8 +294,34 @@ export const ImagePicker: React.FC<ImagePickerProps> = ({
                 </label>
               </div>
 
+              <div className="space-y-2">
+                <div className={`text-[11px] font-semibold ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>图片对齐</div>
+                <div role="group" aria-label="图片对齐方式" className={`flex p-0.5 rounded-md border ${isDark ? 'border-zinc-700 bg-zinc-900' : 'border-slate-200 bg-white'}`}>
+                  {([
+                    { value: undefined, label: '默认', icon: null },
+                    { value: 'left', label: '左对齐', icon: AlignLeft },
+                    { value: 'center', label: '居中', icon: AlignCenter },
+                    { value: 'right', label: '右对齐', icon: AlignRight },
+                  ] as const).map(({ value, label, icon: Icon }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      title={label}
+                      aria-label={label}
+                      aria-pressed={alignment === value}
+                      onClick={() => setAlignment(value)}
+                      className={`flex h-7 min-w-7 items-center justify-center rounded px-1.5 text-[11px] transition ${alignment === value
+                        ? 'bg-blue-600 text-white'
+                        : isDark ? 'text-zinc-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
+                    >
+                      {Icon ? <Icon className="w-3.5 h-3.5" /> : label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Quick width preset pills */}
-              <div className="hidden sm:flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1">
                 {[300, 500, 700].map((val) => (
                   <button
                     key={val}
@@ -319,8 +349,15 @@ export const ImagePicker: React.FC<ImagePickerProps> = ({
                 )}
               </div>
             </div>
-          ) : (
-            <div className="truncate text-xs">
+          </aside>
+        )}
+        </div>
+
+        {/* Footer Actions */}
+        <div className={`px-6 py-3 border-t flex items-center justify-between gap-3 shrink-0 ${
+          isDark ? 'border-zinc-800 bg-[#191919]' : 'border-slate-100 bg-slate-50/70'
+        }`}>
+            <div className="min-w-0 flex-1 truncate text-xs">
               {selectedAsset ? (
                 <span className={`truncate ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
                   已选择: <strong className={isDark ? 'text-white' : 'text-slate-900'}>{selectedAsset.fileName}</strong>
@@ -329,7 +366,6 @@ export const ImagePicker: React.FC<ImagePickerProps> = ({
                 <span className={isDark ? 'text-zinc-500' : 'text-slate-400'}>请选择一张图片</span>
               )}
             </div>
-          )}
 
           {/* Bottom Actions */}
           <div className="flex items-center gap-2 ml-auto">

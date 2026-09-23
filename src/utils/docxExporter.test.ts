@@ -40,7 +40,7 @@ it('exports a Mermaid caption with the shared figure number into DOCX', async ()
 
   try {
     await exportToDocx(
-      '<!-- caption: 数据处理结构 -->\n\n```mermaid\nflowchart LR\nA --> B\n```\n\n![后续图片](a.png)',
+      '<!-- caption: 数据处理结构 -->\n\n```mermaid\nflowchart LR\nA --> B\n```\n\n![后续图片](a.png){align=right}',
       DEFAULT_DOCUMENT_META,
       theme,
     );
@@ -50,6 +50,8 @@ it('exports a Mermaid caption with the shared figure number into DOCX', async ()
     expect(xml).toContain('图 1: 数据处理结构');
     expect(xml).toContain('图 2: 后续图片');
     expect(xml).not.toContain('<!-- caption:');
+    expect(xml).not.toContain('{align=right}');
+    expect(xml).toMatch(/<w:p>\s*<w:pPr>[\s\S]*?<w:jc w:val="right"\/>[\s\S]*?<\/w:pPr>[\s\S]*?<wp:docPr[^>]*descr="后续图片"/);
   } finally {
     vi.unstubAllGlobals();
   }

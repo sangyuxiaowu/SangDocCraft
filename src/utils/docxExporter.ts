@@ -416,8 +416,18 @@ export async function exportToDocx(markdownText: string, meta: DocumentMeta, the
 
       case 'paragraph': {
         const paragraphTokens = token.tokens || [{ type: 'text', text: token.text }];
+        const suffixText = paragraphTokens[1]?.type === 'text' ? paragraphTokens[1].text : '';
+        const imageSuffix = paragraphTokens[0]?.type === 'image' && paragraphTokens.length <= 2
+          ? extractImageDimensionSuffix(suffixText)
+          : undefined;
+        const imageAlign = imageSuffix && !suffixText.slice(imageSuffix.length).trim()
+          ? imageSuffix.dimensions.align
+          : undefined;
         sectionsChildren.push(
           new Paragraph({
+            alignment: imageAlign === 'left' ? AlignmentType.LEFT
+              : imageAlign === 'right' ? AlignmentType.RIGHT
+              : imageAlign === 'center' ? AlignmentType.CENTER : undefined,
             spacing: { before: 120, after: 120, line: 320 },
             indent: style.indentParagraph ? { firstLine: 480 } : undefined,
             children: await createInlineRuns(paragraphTokens, { font: bodyFont }),

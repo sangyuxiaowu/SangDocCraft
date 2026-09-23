@@ -1,6 +1,7 @@
 export interface ImageDimensions {
   width?: number;
   height?: number;
+  align?: 'left' | 'center' | 'right';
 }
 
 export interface ImageDimensionSuffix {
@@ -12,18 +13,23 @@ export function parseImageDimensions(attributes?: string): ImageDimensions | und
   if (!attributes) return undefined;
 
   const dimensions: ImageDimensions = {};
-  const attributePattern = /(w|h)\s*=\s*(\d+(?:\.\d+)?)/gi;
-  const remainder = attributes.replace(attributePattern, '').trim();
-  if (remainder) return undefined;
-
+  const attributePattern = /(?:^|\s)(w|h|align)\s*=\s*(\S+)/gi;
+  let remainder = attributes;
   for (const match of attributes.matchAll(attributePattern)) {
-    const key = match[1].toLowerCase() === 'w' ? 'width' : 'height';
-    const value = Number(match[2]);
-    if (dimensions[key] !== undefined || !Number.isFinite(value) || value <= 0) return undefined;
-    dimensions[key] = value;
+    const key = match[1].toLowerCase();
+    const value = match[2].toLowerCase();
+    if (key === 'align') {
+      if (dimensions.align || !['left', 'center', 'right'].includes(value)) return undefined;
+      dimensions.align = value as ImageDimensions['align'];
+    } else {
+      const dimension = key === 'w' ? 'width' : 'height';
+      const numericValue = Number(value);
+      if (dimensions[dimension] !== undefined || !/^\d+(?:\.\d+)?$/.test(value) || numericValue <= 0) return undefined;
+      dimensions[dimension] = numericValue;
+    }
+    remainder = remainder.replace(match[0], ' ');
   }
-
-  return dimensions.width || dimensions.height ? dimensions : undefined;
+  return remainder.trim() || (!dimensions.width && !dimensions.height && !dimensions.align) ? undefined : dimensions;
 }
 
 export function extractImageDimensionSuffix(text?: string): ImageDimensionSuffix | undefined {
@@ -38,6 +44,7 @@ export function formatImageDimensionSuffix(dimensions?: ImageDimensions): string
   const attributes = [
     dimensions?.width ? `w=${dimensions.width}` : '',
     dimensions?.height ? `h=${dimensions.height}` : '',
+    dimensions?.align ? `align=${dimensions.align}` : '',
   ].filter(Boolean);
   return attributes.length ? `{${attributes.join(' ')}}` : '';
 }
