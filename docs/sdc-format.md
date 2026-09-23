@@ -23,6 +23,19 @@ images/            按内容哈希 ID 存放的图片二进制
 
 图片 ID 由 SHA-256 摘要生成。同一内容只保存一份二进制；描述和文件名不参与去重。
 
+## Mermaid 图表
+
+`document.md` 原样保存 Mermaid 围栏及其单图属性，例如：
+
+````markdown
+```mermaid {theme=custom w=80% h=320 align=center}
+flowchart LR
+	A --> B
+```
+````
+
+`theme.json` 的可选 `mermaid` 字段保存文档级默认主题（`theme`）和自定义配色（`customColors`）。旧文档没有该字段时默认采用 `neutral`；单图声明的 `theme` 优先于文档默认主题，`custom` 使用当前文档保存的配色。具体属性与导出行为见 [Mermaid 图表指南](mermaid-guide.md)。
+
 ## 内部引用
 
 - `@images/<id>`：当前文档图片，切换或新建文档时从 IndexedDB 清理。

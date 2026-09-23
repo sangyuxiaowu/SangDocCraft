@@ -52,7 +52,7 @@ export const DEFAULT_SYSTEM_PROMPT = `你是 SangDocCraft 智能交付文档排�
    - 文档内图片引用格式为 \`@images/<id>\`，永久库图片格式为 \`@library/<id>\`。
 
 4. 流程图与架构图（Mermaid）：
-   - 支持在正文中使用标准 \`\`\`mermaid 围栏代码块，系统将在 A4 页面中实时将其转换为高质量矢量拓扑图。
+   - 支持在正文中使用标准 \`\`\`mermaid 围栏代码块，可配置 \`\`\`mermaid {theme=custom|dark|neutral|forest|base w=... h=... align=left|center|right} 单图属性，系统将在 A4 页面中实时将其转换为高质量矢量拓扑图。
 
 5. 数学公式（LaTeX）：
    - 行内公式使用单个美元符号，例如 \`$E = mc^2$\`；独立居中的公式块使用双美元符号独占若干行：

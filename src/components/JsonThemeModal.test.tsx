@@ -86,6 +86,12 @@ describe('JsonThemeModal', () => {
     expect(parsedHeader.lineStyle).toBeDefined();
     expect(parsedHeader.id).toBeUndefined();
 
+    const mermaidTab = container.querySelector('#tab-mermaid') as HTMLButtonElement;
+    act(() => {
+      mermaidTab.click();
+    });
+    expect(JSON.parse(codeTextarea.value)).toEqual(builtinTheme.mermaid);
+
     // 切换到“全部配置” Tab
     const allTab = container.querySelector('#tab-all') as HTMLButtonElement;
     expect(allTab).not.toBeNull();
@@ -97,6 +103,7 @@ describe('JsonThemeModal', () => {
     expect(parsedAll.cover).toBeDefined();
     expect(parsedAll.header).toBeDefined();
     expect(parsedAll.style).toBeDefined();
+    expect(parsedAll.mermaid).toEqual(builtinTheme.mermaid);
     expect(parsedAll.id).toBeUndefined();
   });
 
@@ -168,5 +175,45 @@ describe('JsonThemeModal', () => {
     expect(savedTheme.description).toBe(customTheme.description);
     expect(savedTheme.cover).toBeDefined();
     expect(onApplyTheme).toHaveBeenCalledTimes(1);
+  });
+
+  it('saves changes made in the separate Mermaid JSON tab', () => {
+    container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    const onSaveTheme = vi.fn();
+
+    act(() => {
+      root.render(
+        <JsonThemeModal
+          isOpen={true}
+          onClose={vi.fn()}
+          currentTheme={customTheme}
+          builtinThemes={[builtinTheme]}
+          customThemes={[customTheme]}
+          onApplyTheme={vi.fn()}
+          onSaveTheme={onSaveTheme}
+          onDeleteTheme={vi.fn()}
+        />
+      );
+    });
+
+    act(() => {
+      (container!.querySelector('#tab-mermaid') as HTMLButtonElement).click();
+    });
+    const codeTextarea = container.querySelector('#theme-code-textarea') as HTMLTextAreaElement;
+    act(() => {
+      const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+      nativeSetter?.call(codeTextarea, JSON.stringify({ ...customTheme.mermaid, theme: 'forest' }));
+      codeTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('保存并应用'));
+    act(() => {
+      saveButton?.click();
+    });
+
+    expect(onSaveTheme).toHaveBeenCalledOnce();
+    expect(onSaveTheme.mock.calls[0][0].mermaid.theme).toBe('forest');
+    expect(onSaveTheme.mock.calls[0][0].style).toEqual(customTheme.style);
   });
 });

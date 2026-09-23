@@ -425,7 +425,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
         const prefix = getHeadingText('', Number(level), headingCounters, toc.headingNumbering).trim();
         return `<h${level}${attributes}>${prefix ? `${prefix} ` : ''}${content}</h${level}>`;
       });
-      const html = postProcessRenderedHtml(numberedHtml, style, docCounters);
+      const html = postProcessRenderedHtml(numberedHtml, style, docCounters, theme.mermaid);
       pages.push({
         type: 'content',
         pageNum: pageCounter++,

@@ -75,6 +75,9 @@ export function migrateThemeData(fromVersion: number, value: unknown): DocumentT
   }
   const { meta: _, ...themeOnly } = migrated as unknown as Record<string, unknown>;
   const normalized = mergeMissingFields(PRESET_THEMES[0], themeOnly);
+  if (normalized.mermaid && ((normalized.mermaid.theme as string) === 'auto' || !normalized.mermaid.theme)) {
+    normalized.mermaid.theme = 'neutral';
+  }
   console.info('[SangDocCraft] 主题处理完成', {
     fromVersion,
     toVersion: CURRENT_THEME_FORMAT_VERSION,

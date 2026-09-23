@@ -1,4 +1,5 @@
 import { DocumentTheme } from '../types';
+import { DEFAULT_MERMAID_CUSTOM_COLORS } from '../utils/mermaidRenderer';
 
 const defaultHeadingFonts = {
   h1: { fontFamily: 'inherit', fontSize: 24, bold: true, italic: false, underline: false, marginBefore: 38, marginAfter: 14 },
@@ -77,6 +78,10 @@ export const PRESET_THEMES: DocumentTheme[] = [
         captionAlign: 'center',
       },
     },
+    mermaid: {
+      theme: 'neutral',
+      customColors: { ...DEFAULT_MERMAID_CUSTOM_COLORS },
+    },
   },
   {
     id: 'tech-spec',
@@ -131,6 +136,9 @@ export const PRESET_THEMES: DocumentTheme[] = [
       codeTheme: 'dark',
       tableStyle: 'bordered',
     },
+    mermaid: {
+      theme: 'neutral',
+    },
   },
   {
     id: 'governmental-standard',
@@ -181,6 +189,9 @@ export const PRESET_THEMES: DocumentTheme[] = [
       codeTheme: 'light',
       tableStyle: 'bordered',
     },
+    mermaid: {
+      theme: 'neutral',
+    },
   },
   {
     id: 'minimal-clean',
@@ -230,6 +241,9 @@ export const PRESET_THEMES: DocumentTheme[] = [
       numberStyle: 'decimal',
       codeTheme: 'light',
       tableStyle: 'minimal',
+    },
+    mermaid: {
+      theme: 'neutral',
     },
   },
   {
@@ -287,6 +301,9 @@ export const PRESET_THEMES: DocumentTheme[] = [
       numberStyle: 'decimal',
       codeTheme: 'dark',
       tableStyle: 'striped',
+    },
+    mermaid: {
+      theme: 'neutral',
     },
   },
   {
@@ -363,6 +380,9 @@ export const PRESET_THEMES: DocumentTheme[] = [
         captionAlign: 'center',
       },
     },
+    mermaid: {
+      theme: 'neutral',
+    },
   },
   {
     id: 'business-briefing',
@@ -435,6 +455,9 @@ export const PRESET_THEMES: DocumentTheme[] = [
         captionPosition: 'top',
         captionAlign: 'center',
       },
+    },
+    mermaid: {
+      theme: 'neutral',
     },
   },
   {
@@ -512,6 +535,9 @@ export const PRESET_THEMES: DocumentTheme[] = [
         captionAlign: 'center',
       },
       h1Center: true,
+    },
+    mermaid: {
+      theme: 'neutral',
     },
   },
 ];

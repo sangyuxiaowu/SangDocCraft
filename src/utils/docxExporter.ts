@@ -23,7 +23,7 @@ import { DocumentMeta, DocumentTheme } from '../types';
 import { getHeadingText, getTocLevelStyles, getTocTitleFont } from './documentStructure';
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
-import { renderMermaidPng } from './mermaidRenderer';
+import { isMermaidLang, parseMermaidFenceOptions, resolveMermaidTheme, renderMermaidPng, getMermaidConfig } from './mermaidRenderer';
 import { registerMathExtensions, renderMathPng } from './mathRenderer';
 import { splitExplicitPages } from './pageBreaks';
 import { extractImageDimensionSuffix } from './imageDimensions';
@@ -37,6 +37,18 @@ registerMathExtensions();
 function cleanHex(hex: string): string {
   if (!hex) return '000000';
   return hex.replace('#', '').trim();
+}
+
+function parseDimensionToNumber(val?: string | number, containerMax = 560): number | undefined {
+  if (val === undefined || val === null) return undefined;
+  if (typeof val === 'number') return val > 0 ? val : undefined;
+  const str = String(val).trim();
+  if (str.endsWith('%')) {
+    const percent = parseFloat(str);
+    return Number.isFinite(percent) && percent > 0 ? Math.round((containerMax * percent) / 100) : undefined;
+  }
+  const num = parseFloat(str);
+  return Number.isFinite(num) && num > 0 ? Math.round(num) : undefined;
 }
 
 /**
@@ -423,11 +435,26 @@ export async function exportToDocx(markdownText: string, meta: DocumentMeta, the
       }
 
       case 'code': {
-        if (token.lang?.toLowerCase() === 'mermaid') {
+        if (isMermaidLang(token.lang)) {
           try {
-            const diagram = await renderMermaidPng(token.text);
+            const options = parseMermaidFenceOptions(token.lang);
+            const mermaidConfig = getMermaidConfig(theme);
+            const resolvedTheme = resolveMermaidTheme(options?.theme, mermaidConfig.theme);
+            const customWidth = options?.width ? parseDimensionToNumber(options.width) : undefined;
+            const customHeight = options?.height ? parseDimensionToNumber(options.height) : undefined;
+            const diagram = await renderMermaidPng(token.text, {
+              theme: resolvedTheme,
+              customColors: mermaidConfig.customColors,
+              width: customWidth,
+              height: customHeight,
+            });
+            const alignment = options?.align === 'left'
+              ? AlignmentType.LEFT
+              : options?.align === 'right'
+              ? AlignmentType.RIGHT
+              : AlignmentType.CENTER;
             sectionsChildren.push(new Paragraph({
-              alignment: AlignmentType.CENTER,
+              alignment,
               spacing: { before: 160, after: 160 },
               children: [new ImageRun({
                 type: 'png',

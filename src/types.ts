@@ -157,6 +157,26 @@ export interface StyleConfig {
 
   // Document Watermark config
   watermark?: WatermarkConfig;
+
+  // Mermaid chart theme config
+  mermaid?: MermaidConfig;
+}
+
+export type MermaidThemeChoice = 'neutral' | 'default' | 'dark' | 'forest' | 'base' | 'custom';
+
+export interface MermaidCustomColors {
+  primaryColor: string;
+  primaryTextColor: string;
+  primaryBorderColor: string;
+  lineColor: string;
+  secondaryColor?: string;
+  tertiaryColor?: string;
+  background?: string;
+}
+
+export interface MermaidConfig {
+  theme: MermaidThemeChoice;
+  customColors?: MermaidCustomColors;
 }
 
 export interface WatermarkConfig {
@@ -183,6 +203,7 @@ export interface DocumentTheme {
   footer: FooterConfig;
   toc: TocConfig;
   style: StyleConfig;
+  mermaid?: MermaidConfig;
 }
 
 export interface DocumentSettings {

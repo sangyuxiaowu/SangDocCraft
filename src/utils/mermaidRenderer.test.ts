@@ -154,10 +154,98 @@ describe('mermaidRenderer', () => {
 
     expect(result.width).toBe(560);
     expect(result.height).toBe(640);
-    expect(drawImage).toHaveBeenCalledWith(expect.any(LoadedImage), 0, 0, 1120, 1280);
+    expect(drawImage).toHaveBeenCalledWith(expect.any(LoadedImage), 240, 0, 640, 1280);
+
+    const oversized = await renderMermaidPng('flowchart TD\nA --> B', { width: 1200, height: 900 });
+    expect(oversized.width).toBe(560);
+    expect(oversized.height).toBe(640);
+    expect(drawImage).toHaveBeenLastCalledWith(expect.any(LoadedImage), 240, 0, 640, 1280);
     URL.createObjectURL = origCreateObjectURL;
     URL.revokeObjectURL = origRevokeObjectURL;
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it('identifies mermaid fence language strings correctly', async () => {
+    const { isMermaidLang } = await loadRenderer();
+    expect(isMermaidLang('mermaid')).toBe(true);
+    expect(isMermaidLang('mermaid {theme=dark}')).toBe(true);
+    expect(isMermaidLang('mermaid{w=500}')).toBe(true);
+    expect(isMermaidLang('MERMAID {align=center}')).toBe(true);
+    expect(isMermaidLang('javascript')).toBe(false);
+    expect(isMermaidLang('mermaid_not')).toBe(false);
+    expect(isMermaidLang('')).toBe(false);
+    expect(isMermaidLang(undefined)).toBe(false);
+  });
+
+  it('parses single-diagram fence attributes accurately', async () => {
+    const { parseMermaidFenceOptions } = await loadRenderer();
+    expect(parseMermaidFenceOptions('mermaid {theme=dark w=500 h=300 align=center}')).toEqual({
+      theme: 'dark',
+      width: '500',
+      height: '300',
+      align: 'center',
+    });
+    expect(parseMermaidFenceOptions('mermaid {theme="forest", w="80%", align=\'right\'}')).toEqual({
+      theme: 'forest',
+      width: '80%',
+      align: 'right',
+    });
+    expect(parseMermaidFenceOptions('mermaid {theme=custom w=600px}')).toEqual({
+      theme: 'custom',
+      width: '600px',
+    });
+    expect(parseMermaidFenceOptions('mermaid')).toEqual({});
+    expect(parseMermaidFenceOptions('python')).toBeNull();
+  });
+
+  it('resolves explicit mermaid themes and falls back to theme config or neutral', async () => {
+    const { resolveMermaidTheme, getMermaidConfig } = await loadRenderer();
+    expect(resolveMermaidTheme('dark', 'forest')).toBe('dark');
+    expect(resolveMermaidTheme('custom', 'neutral')).toBe('custom');
+    expect(resolveMermaidTheme(undefined, 'forest')).toBe('forest');
+    expect(resolveMermaidTheme(undefined, 'custom')).toBe('custom');
+    expect(resolveMermaidTheme(undefined, undefined)).toBe('neutral');
+
+    // Test getMermaidConfig
+    expect(getMermaidConfig(null).theme).toBe('neutral');
+    expect(getMermaidConfig({ mermaid: { theme: 'forest' } }).theme).toBe('forest');
+    expect(getMermaidConfig({ mermaid: { theme: 'custom', customColors: { primaryColor: '#123456' } as any } }).customColors.primaryColor).toBe('#123456');
+  });
+
+  it('injects init directive with theme and customColors and preserves YAML frontmatter', async () => {
+    const { injectMermaidThemeDirective } = await loadRenderer();
+    expect(injectMermaidThemeDirective('flowchart LR\nA --> B', 'neutral')).toBe('flowchart LR\nA --> B');
+    expect(injectMermaidThemeDirective('flowchart LR\nA --> B', 'dark')).toContain('%%{init: {"theme": "dark"}}%%');
+    expect(injectMermaidThemeDirective('flowchart LR\nA --> B', 'custom', { primaryColor: '#abcdef' })).toContain('"theme": "base"');
+    expect(injectMermaidThemeDirective('flowchart LR\nA --> B', 'custom', { primaryColor: '#abcdef' })).toContain('"primaryColor":"#abcdef"');
+
+    const frontmatterSource = '---\ntitle: Overview\n---\nflowchart LR\nA --> B';
+    const result = injectMermaidThemeDirective(frontmatterSource, 'forest');
+    expect(result.startsWith('---\ntitle: Overview\n---')).toBe(true);
+    expect(result).toContain('%%{init: {"theme": "forest"}}%%');
+
+    // Existing init directive should not be duplicated
+    const existingDirective = '%%{init: {"theme": "base"}}%%\nflowchart LR\nA --> B';
+    expect(injectMermaidThemeDirective(existingDirective, 'dark')).toBe(existingDirective);
+    expect(injectMermaidThemeDirective(existingDirective, 'custom', { primaryColor: '#abcdef' })).toBe(existingDirective);
+  });
+
+  it('applies data-width, data-height, and theme when rendering elements', async () => {
+    render.mockResolvedValue({
+      svg: '<svg viewBox="0 0 300 120"></svg>',
+    });
+    const { renderMermaidElements } = await loadRenderer();
+    document.body.innerHTML = '<div class="mermaid" data-theme="dark" data-width="480" data-height="240">flowchart LR\nA --> B</div>';
+
+    await renderMermaidElements(document.body);
+
+    const element = document.querySelector<HTMLElement>('.mermaid')!;
+    expect(element.dataset.mermaidRendered).toBe('true');
+    const svgEl = element.querySelector('svg');
+    expect(svgEl).not.toBeNull();
+    expect(svgEl?.style.maxWidth).toBe('');
+    expect(svgEl?.style.maxHeight).toBe('240px');
+    expect(render).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('%%{init: {"theme": "dark"}}%%'));
   });
 });

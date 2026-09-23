@@ -17,6 +17,7 @@ describe('migrateThemeData', () => {
     expect(theme.style.headingFonts).toEqual(PRESET_THEMES[0].style.headingFonts);
     expect(theme.cover).toEqual(PRESET_THEMES[0].cover);
     expect(theme.header).toEqual(PRESET_THEMES[0].header);
+    expect(theme.mermaid?.theme).toBe('neutral');
     expect(theme).not.toHaveProperty('meta');
     expect(info).toHaveBeenCalledWith('[SangDocCraft] 主题处理完成', {
       fromVersion: CURRENT_THEME_FORMAT_VERSION,
@@ -44,6 +45,23 @@ describe('migrateThemeData', () => {
     const theme = migrateThemeData(1, {});
 
     expect(theme).toEqual(PRESET_THEMES[0]);
+    info.mockRestore();
+  });
+
+  it('normalizes legacy auto mermaid theme and assigns default neutral for themes without mermaid', () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    const legacyAutoTheme = migrateThemeData(CURRENT_THEME_FORMAT_VERSION, {
+      id: 'legacy-auto',
+      mermaid: { theme: 'auto' },
+    });
+    expect(legacyAutoTheme.mermaid?.theme).toBe('neutral');
+
+    const customTheme = migrateThemeData(CURRENT_THEME_FORMAT_VERSION, {
+      id: 'custom-mermaid',
+      mermaid: { theme: 'custom', customColors: { primaryColor: '#ff0000' } },
+    });
+    expect(customTheme.mermaid?.theme).toBe('custom');
+    expect(customTheme.mermaid?.customColors?.primaryColor).toBe('#ff0000');
     info.mockRestore();
   });
 });

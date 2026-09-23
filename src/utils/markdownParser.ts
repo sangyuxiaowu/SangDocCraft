@@ -17,9 +17,34 @@ import { resolveImageSrc } from './tauriHelper';
 import { splitExplicitPages } from './pageBreaks';
 import { parseImageDimensions } from './imageDimensions';
 import { getMathRanges, registerMathExtensions } from './mathRenderer';
+import { isMermaidLang, parseMermaidFenceOptions, resolveMermaidTheme, getMermaidConfig, DEFAULT_MERMAID_CUSTOM_COLORS } from './mermaidRenderer';
+import type { MermaidConfig } from '../types';
 
 // 公式（$...$ / $$...$$）作为 marked 扩展全局注册：预览、独立 HTML 导出、DOCX 导出共用
 registerMathExtensions();
+
+let mermaidExtensionsRegistered = false;
+
+export function registerMermaidExtensions(): void {
+  if (mermaidExtensionsRegistered) return;
+  mermaidExtensionsRegistered = true;
+  marked.use({
+    renderer: {
+      code(token) {
+        if (isMermaidLang(token.lang)) {
+          const options = parseMermaidFenceOptions(token.lang);
+          const optionsAttr = options && Object.keys(options).length > 0
+            ? ` data-mermaid-options="${escapeHtmlAttr(JSON.stringify(options))}"`
+            : '';
+          return `<pre><code class="language-mermaid"${optionsAttr}>${token.text}</code></pre>`;
+        }
+        return false;
+      },
+    },
+  });
+}
+
+registerMermaidExtensions();
 
 export { formatPageNumber, getFooterSlots, getHeadingText, getTocChunks, TOC_ITEMS_PER_PAGE } from './documentStructure';
 export {
@@ -510,12 +535,13 @@ export function paginateContentByDom(
         const tempContainer = document.createElement('template');
         const rawTokenHtml = marked.parse(token.raw || '') as string;
         tempContainer.innerHTML = postProcessRenderedHtml(rawTokenHtml, options.style);
-        if (token.type === 'code' && token.lang?.toLowerCase() === 'mermaid') {
+        if (token.type === 'code' && isMermaidLang(token.lang)) {
           const mermaidElement = tempContainer.content.querySelector<HTMLElement>('.mermaid');
           const source = mermaidElement?.textContent?.trim();
           const measuredHeight = source ? options.mermaidHeights?.[source] : undefined;
-          if (mermaidElement && measuredHeight !== undefined) {
-            mermaidElement.style.height = `${Math.min(720, Math.max(180, measuredHeight))}px`;
+          if (mermaidElement && measuredHeight !== undefined && !mermaidElement.style.height) {
+            const maxHeightLimit = mermaidElement.style.maxHeight ? parseFloat(mermaidElement.style.maxHeight) : 720;
+            mermaidElement.style.height = `${Math.min(maxHeightLimit, Math.max(180, measuredHeight))}px`;
           }
         }
         const tokenNodes = Array.from(tempContainer.content.childNodes);
@@ -554,7 +580,7 @@ export function paginateContentByDom(
             processToken(newToken);
             return;
           }
-        } else if (token.type === 'code' && token.lang?.toLowerCase() !== 'mermaid') {
+        } else if (token.type === 'code' && !isMermaidLang(token.lang)) {
           const splitRes = findDomCodeSplit(token, measurer, maxHeight);
           if (splitRes) {
             currentPageTokens.push(splitRes.part1Md);
@@ -854,6 +880,16 @@ export function splitContentByPages(markdown: string, h1PageBreak: boolean = fal
       return textLines * 1.0 + 0.2;
     }
     if (token.type === 'code') {
+      if (isMermaidLang(token.lang)) {
+        const options = parseMermaidFenceOptions(token.lang);
+        if (options?.height) {
+          const numH = parseFloat(String(options.height));
+          if (Number.isFinite(numH) && numH > 0) {
+            return Math.min(30, Math.max(6, numH / 24));
+          }
+        }
+        return 12.0;
+      }
       const text = token.text || token.raw || '';
       const lines = text.split('\n').length;
       return lines * 0.77 + 0.8;
@@ -1096,7 +1132,7 @@ export function splitContentByPages(markdown: string, h1PageBreak: boolean = fal
           marked.lexer(splitRes.secondRaw).forEach(processToken);
           return;
         }
-      } else if (token.type === 'code') {
+      } else if (token.type === 'code' && !isMermaidLang(token.lang)) {
         const splitRes = splitCode(token, availUnits);
         if (splitRes) {
           currentPageTokens.push(splitRes.firstRaw);
@@ -1151,13 +1187,76 @@ function escapeHtmlAttr(str: string): string {
 export function postProcessRenderedHtml(
   html: string,
   style?: StyleConfig,
-  counters: { imgCount: number; tableCount: number } = { imgCount: 0, tableCount: 0 }
+  counters: { imgCount: number; tableCount: number } = { imgCount: 0, tableCount: 0 },
+  mermaidConfigInput?: MermaidConfig
 ): string {
   if (!html) return '';
 
+  const docMermaid = getMermaidConfig(mermaidConfigInput || style?.mermaid);
+
   const mermaidProcessed = html.replace(
-    /<pre><code class=["']language-mermaid["']>([\s\S]*?)<\/code><\/pre>/gi,
-    '<div class="mermaid">$1</div>'
+    /<pre><code([^>]*?class=["'][^"']*language-mermaid[^"']*["'][^>]*)>([\s\S]*?)<\/code><\/pre>/gi,
+    (_match, attrs, codeContent) => {
+      let options = null;
+      const dataOptMatch = attrs.match(/data-mermaid-options=["']([^"']*)["']/i);
+      if (dataOptMatch) {
+        try {
+          const decoded = dataOptMatch[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+          options = JSON.parse(decoded);
+        } catch {
+          options = parseMermaidFenceOptions(dataOptMatch[1]);
+        }
+      }
+      if (!options) {
+        options = parseMermaidFenceOptions(attrs);
+      }
+
+      const resolvedTheme = resolveMermaidTheme(options?.theme, docMermaid.theme);
+
+      const dataAttrs = ['class="mermaid"'];
+      if (resolvedTheme && resolvedTheme !== 'neutral') {
+        dataAttrs.push(`data-theme="${escapeHtmlAttr(resolvedTheme)}"`);
+      } else if (options?.theme) {
+        dataAttrs.push(`data-theme="${escapeHtmlAttr(resolvedTheme)}"`);
+      }
+
+      if (resolvedTheme === 'custom') {
+        const customColors = docMermaid.customColors || DEFAULT_MERMAID_CUSTOM_COLORS;
+        dataAttrs.push(`data-mermaid-custom-colors="${escapeHtmlAttr(JSON.stringify(customColors))}"`);
+      }
+
+      if (options?.align) dataAttrs.push(`data-align="${escapeHtmlAttr(options.align)}"`);
+      if (options?.width) dataAttrs.push(`data-width="${escapeHtmlAttr(String(options.width))}"`);
+      if (options?.height) dataAttrs.push(`data-height="${escapeHtmlAttr(String(options.height))}"`);
+
+      const inlineStyles: string[] = [];
+      if (options?.align === 'left') {
+        inlineStyles.push('justify-content: flex-start', 'text-align: left');
+      } else if (options?.align === 'right') {
+        inlineStyles.push('justify-content: flex-end', 'text-align: right');
+      } else if (options?.align === 'center') {
+        inlineStyles.push('justify-content: center', 'text-align: center');
+      }
+
+      if (options?.width) {
+        const w = /^\d+$/.test(String(options.width)) ? `${options.width}px` : String(options.width);
+        inlineStyles.push(`max-width: ${w}`, 'width: 100%');
+        if (options.align === 'left') inlineStyles.push('margin-left: 0', 'margin-right: auto');
+        else if (options.align === 'right') inlineStyles.push('margin-left: auto', 'margin-right: 0');
+        else inlineStyles.push('margin-left: auto', 'margin-right: auto');
+      }
+
+      if (options?.height && options.height !== 'auto') {
+        const h = /^\d+$/.test(String(options.height)) ? `${options.height}px` : String(options.height);
+        inlineStyles.push(`height: ${h}`, `max-height: ${h}`, 'min-height: 0');
+      }
+
+      if (inlineStyles.length > 0) {
+        dataAttrs.push(`style="${escapeHtmlAttr(inlineStyles.join('; '))};"`);
+      }
+
+      return `<div ${dataAttrs.join(' ')}>${codeContent}</div>`;
+    }
   );
 
   const imgConfig: ImageStyleConfig = {

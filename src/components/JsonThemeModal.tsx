@@ -15,7 +15,7 @@ interface JsonThemeModalProps {
   isDark?: boolean;
 }
 
-export type ThemeTabKey = 'cover' | 'header' | 'footer' | 'toc' | 'style' | 'all';
+export type ThemeTabKey = 'cover' | 'header' | 'footer' | 'toc' | 'style' | 'mermaid' | 'all';
 
 interface ThemeTabOption {
   key: ThemeTabKey;
@@ -30,6 +30,7 @@ const THEME_TABS: ThemeTabOption[] = [
   { key: 'footer', label: '页脚', tag: 'footer', desc: '页脚说明、页码格式与对齐规则' },
   { key: 'toc', label: '目录', tag: 'toc', desc: '目录标题、层级深度与引导符样式' },
   { key: 'style', label: '排版样式', tag: 'style', desc: '配色方案、字体、正文间距与水印配置' },
+  { key: 'mermaid', label: 'Mermaid', tag: 'mermaid', desc: '图表主题与自定义配色' },
   { key: 'all', label: '全部配置', tag: 'all', desc: '完整样式代码 (不含 ID / 名称 / 描述)' },
 ];
 

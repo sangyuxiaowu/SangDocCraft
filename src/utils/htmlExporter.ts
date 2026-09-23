@@ -814,7 +814,7 @@ export function generateStandaloneHtml(
       const preprocessed = preprocessMarkdownCaptions(pageMd || '');
       const rawHtml = marked.parse(preprocessed) as string;
       const numberedHtml = addHeadingNumbers(rawHtml, toc.headingNumbering, headingCounters);
-      const renderedHtml = postProcessRenderedHtml(numberedHtml, style, exportCounters);
+      const renderedHtml = postProcessRenderedHtml(numberedHtml, style, exportCounters, theme.mermaid);
       const pageHtml = toc.show ? addTocAnchors(renderedHtml, toc.maxDepth || 3, tocAnchorIndex) : renderedHtml;
 
       return `

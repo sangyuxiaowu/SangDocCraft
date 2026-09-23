@@ -39,6 +39,25 @@ describe('Markdown pagination and numbering', () => {
     }
   });
 
+  it('keeps a declared Mermaid height for pagination even after measuring the SVG', () => {
+    const observedHeights: string[] = [];
+    const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      const height = this.querySelector<HTMLElement>('.mermaid')?.style.height || '';
+      if (height) observedHeights.push(height);
+      return Number.parseFloat(height) || 180;
+    });
+    try {
+      paginateContentByDom('```mermaid {h=320}\nflowchart LR\nA --> B\n```', {
+        style: theme.style,
+        mermaidHeights: { 'flowchart LR\nA --> B': 100 },
+      });
+      expect(observedHeights).toContain('320px');
+      expect(observedHeights).not.toContain('180px');
+    } finally {
+      scrollHeight.mockRestore();
+    }
+  });
+
   it.each([4, 5])('measures %i list items with the same width and direct-child margins as the page', (itemCount) => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       expect(this.style.width).toBe('180mm');
@@ -344,6 +363,55 @@ describe('Rendered Markdown post-processing', () => {
     expect(html).toContain('<div class="mermaid">flowchart TD');
     expect(html).not.toContain('language-mermaid');
     expect(css).toContain('max-height: 720px');
+  });
+
+  it('supports single-diagram fence attributes with custom theme, width, height, and alignment', () => {
+    const markdown = '```mermaid {theme=dark w=520 h=320 align=center}\nflowchart LR\nA --> B\n```';
+    const parsed = marked.parse(markdown) as string;
+    const html = postProcessRenderedHtml(parsed, theme.style);
+
+    expect(html).toContain('class="mermaid"');
+    expect(html).toContain('data-theme="dark"');
+    expect(html).toContain('data-width="520"');
+    expect(html).toContain('data-height="320"');
+    expect(html).toContain('data-align="center"');
+    expect(html).toContain('max-width: 520px');
+    expect(html).toContain('max-height: 320px');
+    expect(html).toContain('height: 320px');
+    expect(html).toContain('justify-content: center');
+  });
+
+  it('resolves mermaid theme according to mermaidConfig or neutral fallback', () => {
+    const markdown = '```mermaid {w=80% align=left}\nflowchart LR\nA --> B\n```';
+    const parsed = marked.parse(markdown) as string;
+
+    const darkHtml = postProcessRenderedHtml(parsed, theme.style, undefined, { theme: 'dark' });
+    expect(darkHtml).toContain('data-theme="dark"');
+    expect(darkHtml).toContain('justify-content: flex-start');
+
+    const neutralHtml = postProcessRenderedHtml(parsed, theme.style);
+    expect(neutralHtml).not.toContain('data-theme=');
+
+    const explicitNeutralHtml = postProcessRenderedHtml(marked.parse('```mermaid {theme=neutral}\nflowchart LR\nA --> B\n```') as string, theme.style);
+    expect(explicitNeutralHtml).toContain('data-theme="neutral"');
+
+    const customHtml = postProcessRenderedHtml(parsed, theme.style, undefined, {
+      theme: 'custom',
+      customColors: { primaryColor: '#2563eb', primaryTextColor: '#ffffff', primaryBorderColor: '#1d4ed8', lineColor: '#64748b' },
+    });
+    expect(customHtml).toContain('data-theme="custom"');
+    expect(customHtml).toContain('data-mermaid-custom-colors');
+  });
+
+  it('uses the global Mermaid theme for standard fences but lets explicit fences override it', () => {
+    const markdown = '```mermaid\nflowchart LR\nA --> B\n```';
+    const standardHtml = postProcessRenderedHtml(marked.parse(markdown) as string, theme.style, undefined, { theme: 'forest' });
+    expect(standardHtml).toContain('data-theme="forest"');
+
+    const explicitMarkdown = '```mermaid {theme=dark}\nflowchart LR\nA --> B\n```';
+    const explicitHtml = postProcessRenderedHtml(marked.parse(explicitMarkdown) as string, theme.style, undefined, { theme: 'forest' });
+    expect(explicitHtml).toContain('data-theme="dark"');
+    expect(explicitHtml).not.toContain('data-theme="forest"');
   });
 
   it('applies custom heading typography and spacing', () => {
