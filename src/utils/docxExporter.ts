@@ -15,6 +15,7 @@ import {
   WidthType,
   ShadingType,
   PageBreak,
+  SimpleField,
   TableOfContents,
   ImageRun,
 } from 'docx';
@@ -27,6 +28,7 @@ import { isMermaidLang, parseMermaidFenceOptions, resolveMermaidTheme, renderMer
 import { registerMathExtensions, renderMathPng } from './mathRenderer';
 import { splitExplicitPages } from './pageBreaks';
 import { extractImageDimensionSuffix } from './imageDimensions';
+import { resolveCoverList, resolveDynamicText } from './dynamicFields';
 
 // 公式需要先注册 marked 扩展，才能在此链路中拿到 mathInline / mathBlock token
 registerMathExtensions();
@@ -37,6 +39,14 @@ registerMathExtensions();
 function cleanHex(hex: string): string {
   if (!hex) return '000000';
   return hex.replace('#', '').trim();
+}
+
+function dynamicWordRuns(text: string, meta: DocumentMeta, font: { ascii: string; hAnsi: string; eastAsia: string }, headings: Set<number>): (TextRun | SimpleField)[] {
+  if (text === '@h1' || text === '@h2') {
+    const level = text === '@h1' ? 1 : headings.has(2) ? 2 : 1;
+    return headings.has(level) ? [new SimpleField(`STYLEREF "Heading ${level}"`)] : [];
+  }
+  return [new TextRun({ text: resolveDynamicText(text, meta), size: 18, color: '64748B', font })];
 }
 
 function parseDimensionToNumber(val?: string | number, containerMax = 560): number | undefined {
@@ -59,6 +69,10 @@ export async function exportToDocx(markdownText: string, meta: DocumentMeta, the
   const cover = theme.cover;
   const coverTemplate = getCoverTemplate(cover.coverStyle);
   const bodyText = markdownText;
+  const headings = new Set<number>();
+  for (const token of marked.lexer(bodyText)) {
+    if (token.type === 'heading') headings.add(token.depth);
+  }
 
   const primaryHex = cleanHex(style.primaryColor);
   const accentHex = cleanHex(style.accentColor);
@@ -260,7 +274,7 @@ export async function exportToDocx(markdownText: string, meta: DocumentMeta, the
 
   // 1. Cover Page
   if (cover.showCover) {
-    const coverListItems = cover.coverlist ?? [];
+    const coverListItems = resolveCoverList(cover.coverlist ?? [], meta);
 
     sectionsChildren.push(...await coverTemplate.renderDocx({
       meta,
@@ -677,7 +691,7 @@ export async function exportToDocx(markdownText: string, meta: DocumentMeta, the
           borders: noTableBorders,
           children: [new Paragraph({ alignment: cell.alignment, children: [
             ...(cell.logoRun ? [cell.logoRun] : []),
-            new TextRun({ text: cell.text, size: 18, color: '64748B', font: docxFont }),
+            ...dynamicWordRuns(cell.text, meta, docxFont, headings),
           ] })],
         })),
         })],
@@ -708,7 +722,7 @@ export async function exportToDocx(markdownText: string, meta: DocumentMeta, the
         rows: [new TableRow({ children: footerCells.map((cell) => new TableCell({
           borders: noTableBorders,
           children: [new Paragraph({ alignment: cell.alignment, children: [
-            new TextRun({ text: cell.text, size: 18, color: '64748B', font: docxFont }),
+            ...dynamicWordRuns(cell.text, meta, docxFont, headings),
             ...(cell.includePage ? pageNumberRuns() : []),
           ] })],
         })) })],

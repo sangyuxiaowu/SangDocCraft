@@ -8,10 +8,11 @@ import { renderMermaidInHtml } from './mermaidRenderer';
 import { ensureMathLoaded } from './mathRenderer';
 import { getTocTitleCss } from './markdownParser';
 import { renderWatermarkHtml, renderWatermarkImageDefinition } from './watermark';
+import { getPageSections, resolveCoverList, resolveDynamicText, type SectionNames } from './dynamicFields';
 
-function renderFooterHtml(pageNum: number, totalPages: number, footer: FooterConfig, meta: DocumentMeta): string {
+function renderFooterHtml(pageNum: number, totalPages: number, footer: FooterConfig, meta: DocumentMeta, section?: SectionNames): string {
   if (!footer.show) return '';
-  const slots = getFooterSlots(pageNum, totalPages, footer, meta);
+  const slots = getFooterSlots(pageNum, totalPages, footer, meta, section);
   return `
     <div class="doc-footer">
       <span class="footer-left">${slots.left}</span>
@@ -94,6 +95,8 @@ export function generateStandaloneHtml(
     style,
     mermaidHeights,
   });
+  const contentSections = getPageSections(rawContentPages);
+  const tocSection = { h1: toc.title || '目 录', h2: toc.title || '目 录' };
 
   // Build TOC page numbers from the exact pages used by the export.
   // 目录分页与预览共用同一套「真实高度自适应」测量，保证页码一致。
@@ -124,7 +127,7 @@ export function generateStandaloneHtml(
   let pageNumCounter = 1;
   const coverPageNum = cover.showCover ? pageNumCounter++ : 0;
 
-  const coverListItems = cover.coverlist ?? [];
+  const coverListItems = resolveCoverList(cover.coverlist ?? [], meta);
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -458,6 +461,11 @@ export function generateStandaloneHtml(
     .doc-header-left {
       transition: margin-left 0.1s ease;
     }
+    .doc-header-center {
+      flex: 1;
+      min-width: 0;
+      text-align: center;
+    }
     .doc-footer {
       width: 100%;
       display: flex;
@@ -759,8 +767,9 @@ export function generateStandaloneHtml(
     ${renderWatermarkHtml(style.watermark, true, 'cover')}
     ${header.show && !header.hideOnCover ? `
     <div class="doc-header">
-      <span>${header.leftText || ''}</span>
-      <span>${header.rightText || meta.title || ''}</span>
+      <span>${resolveDynamicText(header.leftText || '', meta, { h1: '', h2: '' })}</span>
+      <span class="doc-header-center">${resolveDynamicText(header.centerText || '', meta, { h1: '', h2: '' })}</span>
+      <span>${resolveDynamicText(header.rightText || meta.title || '', meta, { h1: '', h2: '' })}</span>
     </div>
     ` : ''}
 
@@ -768,7 +777,7 @@ export function generateStandaloneHtml(
       ${coverTemplate.renderHtml({ meta, cover, style, coverListItems })}
     </div>
 
-    ${footer.show && !footer.hideOnCover ? renderFooterHtml(coverPageNum, totalPages, footer, meta) : ''}
+    ${footer.show && !footer.hideOnCover ? renderFooterHtml(coverPageNum, totalPages, footer, meta, { h1: '', h2: '' }) : ''}
   </div>
   ` : ''}
 
@@ -781,9 +790,10 @@ export function generateStandaloneHtml(
     ${header.logoUrl ? `<img src="${header.logoUrl}" style="position: absolute; top: ${header.logoTopOffset ?? 15}px; z-index: 10; height: ${header.logoHeight || 20}px; width: auto; object-fit: contain; opacity: ${header.logoOpacity ?? 1}; pointer-events: none;" alt="Header Logo" />` : ''}
     <div class="doc-header">
       <div class="doc-header-left" style="margin-left: ${header.leftTextOffset ?? 0}px;">
-        <span>${header.leftText || ''}</span>
+        <span>${resolveDynamicText(header.leftText || '', meta, tocSection)}</span>
       </div>
-      <span>${header.rightText || meta.title || ''}</span>
+      <span class="doc-header-center">${resolveDynamicText(header.centerText || '', meta, tocSection)}</span>
+      <span>${resolveDynamicText(header.rightText || meta.title || '', meta, tocSection)}</span>
     </div>
     ` : ''}
 
@@ -800,7 +810,7 @@ export function generateStandaloneHtml(
       `}
     </div>
 
-    ${footer.show ? renderFooterHtml(tocPageNum, totalPages, footer, meta) : ''}
+    ${footer.show ? renderFooterHtml(tocPageNum, totalPages, footer, meta, tocSection) : ''}
   </div>
   `;
   }).join('') : ''}
@@ -811,6 +821,7 @@ export function generateStandaloneHtml(
     const tocAnchorIndex = { value: 0 };
     return rawContentPages.map((pageMd, idx) => {
       const pageNum = (cover.showCover ? 1 : 0) + (toc.show ? tocPages.length : 0) + idx + 1;
+      const section = contentSections[idx];
       const preprocessed = preprocessMarkdownCaptions(pageMd || '');
       const rawHtml = marked.parse(preprocessed) as string;
       const numberedHtml = addHeadingNumbers(rawHtml, toc.headingNumbering, headingCounters);
@@ -824,9 +835,10 @@ export function generateStandaloneHtml(
     ${header.logoUrl ? `<img src="${header.logoUrl}" style="position: absolute; top: ${header.logoTopOffset ?? 15}px; z-index: 10; height: ${header.logoHeight || 20}px; width: auto; object-fit: contain; opacity: ${header.logoOpacity ?? 1}; pointer-events: none;" alt="Header Logo" />` : ''}
     <div class="doc-header">
       <div class="doc-header-left" style="margin-left: ${header.leftTextOffset ?? 0}px;">
-        <span>${header.leftText || ''}</span>
+        <span>${resolveDynamicText(header.leftText || '', meta, section)}</span>
       </div>
-      <span>${header.rightText || meta.title || ''}</span>
+      <span class="doc-header-center">${resolveDynamicText(header.centerText || '', meta, section)}</span>
+      <span>${resolveDynamicText(header.rightText || meta.title || '', meta, section)}</span>
     </div>
     ` : ''}
 
@@ -834,7 +846,7 @@ export function generateStandaloneHtml(
       ${pageHtml}
     </div>
 
-    ${footer.show ? renderFooterHtml(pageNum, totalPages, footer, meta) : ''}
+    ${footer.show ? renderFooterHtml(pageNum, totalPages, footer, meta, section) : ''}
   </div>
   `;
     }).join('');

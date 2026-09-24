@@ -64,6 +64,42 @@ const ColorPickerInput: React.FC<ColorPickerInputProps> = ({
   );
 };
 
+const FIELD_OPTIONS = [
+  ['title', '标题'], ['subtitle', '副标题'], ['author', '作者'],
+  ['department', '部门'], ['organization', '组织'], ['date', '日期'],
+  ['number', '编号'], ['version', '版本'],
+];
+
+function DynamicFieldInput({ value, onChange, inputClass, className, section = false, label }: {
+  value: string;
+  onChange: (value: string) => void;
+  inputClass: string;
+  className?: string;
+  section?: boolean;
+  label: string;
+}) {
+  const insert = (field: string) => {
+    onChange(`@${field}`);
+  };
+
+  return <div className={`relative min-w-0 ${className ?? ''}`}>
+    <input type="text" aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}
+      className={`w-full min-w-0 rounded pl-2 pr-9 py-1.5 ${inputClass}`} />
+    <Plus aria-hidden="true" size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
+    <select aria-label={`${label}插入变量`} title="插入动态字段" defaultValue="" onChange={(event) => {
+      insert(event.target.value);
+      event.target.value = '';
+    }} className="absolute right-0 top-0 h-full w-8 cursor-pointer opacity-0">
+      <option value="" disabled>＋</option>
+      {FIELD_OPTIONS.map(([field, name]) => <option key={field} value={field}>@{field} {name}</option>)}
+      {section && <>
+        <option value="h1">@h1 一级章节</option>
+        <option value="h2">@h2 二级章节</option>
+      </>}
+    </select>
+  </div>;
+}
+
 interface StyleConfigPanelProps {
   theme: DocumentTheme;
   meta: DocumentMeta;
@@ -738,12 +774,12 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                               className={`flex-1 min-w-0 rounded px-2 py-1 text-[11px] font-medium ${inputClass}`}
                             />
                             <span className={`${textMutedClass} shrink-0 font-bold`}>:</span>
-                            <input
-                              type="text"
+                            <DynamicFieldInput
+                              label={`${item.label}的值`}
                               value={item.value}
-                              onChange={(e) => handleEditCoverListItem(idx, 'value', e.target.value)}
-                              placeholder="内容 (如: Project Hyperion)"
-                              className={`w-32 sm:w-36 shrink-0 rounded px-2 py-1 text-[11px] ${inputClass}`}
+                              onChange={(value) => handleEditCoverListItem(idx, 'value', value)}
+                              className="w-32 sm:w-36 shrink-0"
+                              inputClass={`text-[11px] ${inputClass}`}
                             />
                             <button
                               type="button"
@@ -819,29 +855,32 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   <div className="grid grid-cols-3 gap-2">
                     <div className="min-w-0">
                       <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>左侧</label>
-                      <input
-                        type="text"
+                      <DynamicFieldInput
+                        label="页眉左侧"
+                        section
                         value={theme.header.leftText}
-                        onChange={(e) => updateHeader('leftText', e.target.value)}
-                        className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}
+                        onChange={(value) => updateHeader('leftText', value)}
+                        inputClass={inputClass}
                       />
                     </div>
                     <div className="min-w-0">
                       <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>中间</label>
-                      <input
-                        type="text"
+                      <DynamicFieldInput
+                        label="页眉中间"
+                        section
                         value={theme.header.centerText}
-                        onChange={(e) => updateHeader('centerText', e.target.value)}
-                        className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}
+                        onChange={(value) => updateHeader('centerText', value)}
+                        inputClass={inputClass}
                       />
                     </div>
                     <div className="min-w-0">
                       <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>右侧</label>
-                      <input
-                        type="text"
+                      <DynamicFieldInput
+                        label="页眉右侧"
+                        section
                         value={theme.header.rightText}
-                        onChange={(e) => updateHeader('rightText', e.target.value)}
-                        className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}
+                        onChange={(value) => updateHeader('rightText', value)}
+                        inputClass={inputClass}
                       />
                     </div>
                   </div>
@@ -1001,29 +1040,32 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
                   <div className="grid grid-cols-3 gap-2">
                     <div className="min-w-0">
                       <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>左侧</label>
-                      <input
-                        type="text"
+                      <DynamicFieldInput
+                        label="页脚左侧"
+                        section
                         value={theme.footer.leftText}
-                        onChange={(e) => updateFooter('leftText', e.target.value)}
-                        className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}
+                        onChange={(value) => updateFooter('leftText', value)}
+                        inputClass={inputClass}
                       />
                     </div>
                     <div className="min-w-0">
                       <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>中间</label>
-                      <input
-                        type="text"
+                      <DynamicFieldInput
+                        label="页脚中间"
+                        section
                         value={theme.footer.centerText}
-                        onChange={(e) => updateFooter('centerText', e.target.value)}
-                        className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}
+                        onChange={(value) => updateFooter('centerText', value)}
+                        inputClass={inputClass}
                       />
                     </div>
                     <div className="min-w-0">
                       <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>右侧</label>
-                      <input
-                        type="text"
+                      <DynamicFieldInput
+                        label="页脚右侧"
+                        section
                         value={theme.footer.rightText}
-                        onChange={(e) => updateFooter('rightText', e.target.value)}
-                        className={`w-full min-w-0 rounded px-2 py-1.5 ${inputClass}`}
+                        onChange={(value) => updateFooter('rightText', value)}
+                        inputClass={inputClass}
                       />
                     </div>
                   </div>

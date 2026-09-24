@@ -18,6 +18,43 @@ describe('StyleConfigPanel - Watermark Settings in Other Tab', () => {
     document.body.innerHTML = '';
   });
 
+  it('sets an entire field from the quick selector', async () => {
+    const onChange = vi.fn();
+    const theme = {
+      ...PRESET_THEMES[0],
+      cover: { ...PRESET_THEMES[0].cover, coverlist: [{ label: '标题', value: '原有文字' }] },
+      header: { ...PRESET_THEMES[0].header, show: true, leftText: '原有页眉' },
+    };
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    roots.push(root);
+
+    await act(async () => root.render(<StyleConfigPanel theme={theme} meta={DEFAULT_DOCUMENT_META}
+      onChange={onChange} onMetaChange={() => undefined} assets={[]} uiMode="light" />));
+    const coverPicker = container.querySelector<HTMLSelectElement>('select[aria-label="标题的值插入变量"]')!;
+    expect(coverPicker.parentElement?.querySelector('input[aria-label="标题的值"]')?.className).toContain('pr-9');
+    expect(coverPicker.className).toContain('absolute right-0');
+    expect(Array.from(coverPicker.options).some((option) => option.value === 'h1')).toBe(false);
+    await act(async () => {
+      coverPicker.value = 'title';
+      coverPicker.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      cover: expect.objectContaining({ coverlist: [{ label: '标题', value: '@title' }] }),
+    }));
+
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === '页眉')?.click());
+    const headerPicker = container.querySelector<HTMLSelectElement>('select[aria-label="页眉左侧插入变量"]')!;
+    await act(async () => {
+      headerPicker.value = 'h2';
+      headerPicker.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      header: expect.objectContaining({ leftText: '@h2' }),
+    }));
+  });
+
   it('renders watermark section under Other tab and toggles enable', async () => {
     const theme = {
       ...PRESET_THEMES[0],

@@ -24,6 +24,39 @@ vi.mock('./tauriHelper', async (importOriginal) => ({
 
 afterEach(() => vi.restoreAllMocks());
 
+it('exports exact metadata references and Word chapter fields', async () => {
+  let exportedBlob: Blob | undefined;
+  vi.stubGlobal('URL', {
+    createObjectURL: (blob: Blob) => { exportedBlob = blob; return 'blob:document'; },
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const base = PRESET_THEMES[0];
+  try {
+    await exportToDocx('# 第一章\n\n## 第二节', { ...DEFAULT_DOCUMENT_META, title: '动态标题' }, {
+      ...base,
+      cover: { ...base.cover, coverlist: [{ label: '标题', value: '@title' }] },
+      header: { ...base.header, show: true, leftText: '@h1', centerText: '@title', rightText: '文字@title' },
+      footer: { ...base.footer, show: true, leftText: '@h2', centerText: '@number', rightText: '@version' },
+    });
+    const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
+    const xml = strFromU8(files['word/document.xml']);
+    const headers = Object.entries(files).filter(([name]) => /^word\/header\d+\.xml$/.test(name))
+      .map(([, bytes]) => strFromU8(bytes)).join('');
+    const footers = Object.entries(files).filter(([name]) => /^word\/footer\d+\.xml$/.test(name))
+      .map(([, bytes]) => strFromU8(bytes)).join('');
+    expect(xml).toContain('动态标题');
+    expect(headers).toContain('STYLEREF');
+    expect(headers).toContain('Heading 1');
+    expect(headers).toContain('文字@title');
+    expect(headers).toContain('动态标题');
+    expect(footers).toContain('Heading 2');
+    expect(footers).not.toContain('>@h2<');
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 it('exports a Mermaid caption with the shared figure number into DOCX', async () => {
   let exportedBlob: Blob | undefined;
   vi.stubGlobal('URL', {
@@ -52,6 +85,32 @@ it('exports a Mermaid caption with the shared figure number into DOCX', async ()
     expect(xml).not.toContain('<!-- caption:');
     expect(xml).not.toContain('{align=right}');
     expect(xml).toMatch(/<w:p>\s*<w:pPr>[\s\S]*?<w:jc w:val="right"\/>[\s\S]*?<\/w:pPr>[\s\S]*?<wp:docPr[^>]*descr="后续图片"/);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it('falls back to the first-level Word field when no second-level heading exists', async () => {
+  let exportedBlob: Blob | undefined;
+  vi.stubGlobal('URL', {
+    createObjectURL: (blob: Blob) => { exportedBlob = blob; return 'blob:document'; },
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const base = PRESET_THEMES[0];
+  try {
+    await exportToDocx('# 第一章', DEFAULT_DOCUMENT_META, {
+      ...base,
+      cover: { ...base.cover, showCover: false },
+      toc: { ...base.toc, show: false },
+      header: { ...base.header, show: true, leftText: '@h2' },
+    });
+    const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
+    const headers = Object.entries(files).filter(([name]) => /^word\/header\d+\.xml$/.test(name))
+      .map(([, bytes]) => strFromU8(bytes)).join('');
+    expect(headers).toContain('STYLEREF');
+    expect(headers).toContain('Heading 1');
+    expect(headers).not.toContain('Heading 2');
   } finally {
     vi.unstubAllGlobals();
   }

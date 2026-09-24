@@ -14,6 +14,28 @@ const generateStandaloneHtml = (
 ) => generateHtml(markdown, documentMeta, theme, mermaidHeights);
 
 describe('generateStandaloneHtml', () => {
+  it('resolves exact references per page including TOC and empty chapter fallbacks', () => {
+    const base = PRESET_THEMES[0];
+    const html = generateStandaloneHtml('# 第一章\n\n正文\n\n<!-- pagebreak -->\n\n续页\n\n<!-- pagebreak -->\n\n## 第二节', {
+      ...base,
+      cover: { ...base.cover, coverlist: [{ label: '编号', value: '@number' }] },
+      toc: { ...base.toc, show: true, title: '章节目录' },
+      header: { ...base.header, show: true, hideOnCover: false, leftText: '@h1', centerText: '@title', rightText: '@h2' },
+      footer: { ...base.footer, show: true, hideOnCover: false, leftText: '@h2', centerText: '@title', rightText: '前缀@title', pageNumberFormat: 'none' },
+    });
+    document.documentElement.innerHTML = html;
+    expect(document.querySelector('.cover-page-wrapper .doc-header')?.textContent).not.toContain('@h1');
+    expect(document.querySelector('.toc-page-wrapper .doc-header')?.textContent).toContain('章节目录');
+    const pages = Array.from(document.querySelectorAll('.content-page-wrapper'));
+    expect(pages).toHaveLength(3);
+    expect(pages[0].querySelector('.doc-header')?.textContent).toContain('第一章');
+    expect(pages[1].querySelector('.doc-footer')?.textContent).toContain('第一章');
+    expect(pages[2].querySelector('.doc-footer')?.textContent).toContain('第二节');
+    expect(pages[2].querySelector('.footer-right')?.textContent).toBe('前缀@title');
+    expect(pages[2].querySelector('.doc-header-center')?.textContent).toBe(documentMeta.title);
+    document.documentElement.innerHTML = '';
+  });
+
   it('adds a non-printing attribution after all document pages', () => {
     const html = generateStandaloneHtml('# Body', PRESET_THEMES[0]);
     document.documentElement.innerHTML = html;

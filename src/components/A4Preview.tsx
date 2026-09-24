@@ -31,6 +31,7 @@ import { renderMermaidElements } from '../utils/mermaidRenderer';
 import { containsMath, ensureMathLoaded, onMathReady } from '../utils/mathRenderer';
 import { getTocTitleCss } from '../utils/markdownParser';
 import { WatermarkOverlay } from './WatermarkOverlay';
+import { getPageSections, resolveCoverList, resolveDynamicText, type SectionNames } from '../utils/dynamicFields';
 
 interface A4PreviewProps {
   markdown: string;
@@ -116,6 +117,7 @@ export function getPreviewPageLocation(markdown: string, pages: string[], positi
 interface PageItem {
   type: 'cover' | 'toc' | 'content';
   pageNum: number;
+  section?: SectionNames;
   contentHtml?: string;
   tocChunk?: TocItem[];
   tocChunkIdx?: number;
@@ -406,6 +408,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
 
   // Build Pages Array
   const pages: PageItem[] = [];
+  const contentSections = getPageSections(rawContentPages);
   let pageCounter = 1;
 
   // 1. Cover Page
@@ -413,6 +416,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
     pages.push({
       type: 'cover',
       pageNum: pageCounter++,
+      section: { h1: '', h2: '' },
     });
   }
 
@@ -422,6 +426,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
       pages.push({
         type: 'toc',
         pageNum: pageCounter++,
+        section: { h1: toc.title || '目 录', h2: toc.title || '目 录' },
         tocChunk: chunk,
         tocChunkIdx: chunkIdx,
         totalTocPages: tocPages.length,
@@ -445,6 +450,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
       pages.push({
         type: 'content',
         pageNum: pageCounter++,
+        section: contentSections[contentPageIndex],
         contentHtml: html,
         contentPageIndex,
       });
@@ -491,7 +497,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
     onOverflowPageNumbersChange?.(overflowPageNumbers);
   }, [onOverflowPageNumbersChange, overflowPageNumbers]);
 
-  const coverListItems = cover.coverlist ?? [];
+  const coverListItems = resolveCoverList(cover.coverlist ?? [], meta);
 
   return (
     <div className="a4-preview-shell w-full h-full flex flex-col overflow-hidden relative">
@@ -717,10 +723,10 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
                   }}
                 >
                   <div className="font-medium text-slate-600 shrink-0" style={{ marginLeft: `${header.leftTextOffset ?? 0}px` }}>
-                    <span>{header.leftText || ''}</span>
+                    <span>{resolveDynamicText(header.leftText || '', meta, page.section)}</span>
                   </div>
-                  <span className="text-slate-400 truncate px-4 text-center flex-1">{header.centerText || ''}</span>
-                  <span className="text-slate-400 truncate">{header.rightText || meta.title || ''}</span>
+                  <span className="text-slate-400 truncate px-4 text-center flex-1">{resolveDynamicText(header.centerText || '', meta, page.section)}</span>
+                  <span className="text-slate-400 truncate">{resolveDynamicText(header.rightText || meta.title || '', meta, page.section)}</span>
                 </div>
               )}
 
@@ -810,7 +816,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
 
               {/* Page Footer Bar */}
               {footer.show && (page.type !== 'cover' || !footer.hideOnCover) && (() => {
-                const slots = getFooterSlots(page.pageNum, totalPages, footer, meta);
+                const slots = getFooterSlots(page.pageNum, totalPages, footer, meta, page.section);
                 return (
                   <div className="w-full flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-200 select-none shrink-0" style={{ paddingTop: '6px', marginTop: '16px' }}>
                     <span className="text-left flex-1 min-w-0 truncate">{slots.left}</span>

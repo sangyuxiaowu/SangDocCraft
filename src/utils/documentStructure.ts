@@ -1,4 +1,5 @@
 import { DocumentMeta, FooterConfig, TocConfig, TocItem, TocLevelStyle, TocTitleFont } from '../types';
+import { resolveDynamicText, type SectionNames } from './dynamicFields';
 
 /** 无 DOM 环境（SSR/单测）的兜底目录分页容量 */
 export const TOC_ITEMS_PER_PAGE = 22;
@@ -146,20 +147,21 @@ export function getFooterSlots(
   pageNum: number,
   totalPages: number,
   footer: FooterConfig,
-  meta: DocumentMeta
+  meta: DocumentMeta,
+  section?: SectionNames,
 ) {
   const pageText = formatPageNumber(pageNum, totalPages, footer.pageNumberFormat);
   const position = footer.pageNumberPosition || 'right';
 
-  let left = footer.leftText || meta.organization || '';
-  let center = footer.centerText || '';
-  let right = footer.rightText || '';
+  let left = resolveDynamicText(footer.leftText || meta.organization || '', meta, section);
+  let center = resolveDynamicText(footer.centerText || '', meta, section);
+  let right = resolveDynamicText(footer.rightText || '', meta, section);
 
   if (pageText) {
     if (position === 'left') {
       left = left ? `${left} \u00A0\u00A0 ${pageText}` : pageText;
     } else if (position === 'center') {
-      center = pageText;
+      center = center ? `${center} \u00A0\u00A0 ${pageText}` : pageText;
     } else {
       right = right ? `${right} \u00A0\u00A0 ${pageText}` : pageText;
     }
