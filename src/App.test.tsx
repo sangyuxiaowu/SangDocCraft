@@ -8,15 +8,29 @@ import { createDiffHunks } from './utils/diffUtils';
 import type { AiToolContext } from './utils/aiAssistantService';
 import App from './App';
 
-const saveDraft = vi.hoisted(() => vi.fn());
+const { saveDraft, saveSangDocument, listChatSessions, isTauriEnvironment } = vi.hoisted(() => ({
+  saveDraft: vi.fn(),
+  saveSangDocument: vi.fn(),
+  listChatSessions: vi.fn(),
+  isTauriEnvironment: vi.fn(() => false),
+}));
 
 vi.mock('./utils/draftStore', async (importOriginal) => ({
   ...await importOriginal<typeof import('./utils/draftStore')>(),
   saveDraft,
+  deleteDraft: async () => {},
   getUnsavedDraftSummaries: async () => [],
   runStorageGC: async () => {},
 }));
-vi.mock('./utils/documentFileOperations', () => ({ readStartupDocument: async () => undefined }));
+vi.mock('./utils/documentFileOperations', () => ({
+  readStartupDocument: async () => undefined,
+  saveSangDocument,
+}));
+vi.mock('./utils/tauriHelper', async (importOriginal) => ({
+  ...await importOriginal<typeof import('./utils/tauriHelper')>(),
+  isTauriEnvironment,
+  updateTauriWindowTitle: async () => {},
+}));
 vi.mock('./lib/aiConfig', () => ({
   loadAiConfig: () => ({ endpoints: [], activeSelection: {} }),
   loadAiConfigWithSecrets: async () => ({ endpoints: [], activeSelection: {} }),
@@ -24,11 +38,12 @@ vi.mock('./lib/aiConfig', () => ({
 vi.mock('./utils/imageRepository', () => ({
   listDocumentAssets: async () => [],
   listLibraryAssets: async () => [],
+  listChatSessions,
 }));
 vi.mock('./components/HeaderBar', () => ({
   HeaderBar: ({ onSaveDocument }: { onSaveDocument: () => void }) => <button onClick={onSaveDocument}>保存</button>,
 }));
-vi.mock('./utils/modalDialog', () => ({ modal: { confirm: async () => true } }));
+vi.mock('./utils/modalDialog', () => ({ modal: { confirm: async () => true, alert: async () => {} } }));
 vi.mock('./components/Editor', () => ({
   Editor: ({ value, onChange, saveStatus, reviewSession, onRejectAllHunks, onApplyResolution }: {
     value: string;
@@ -78,6 +93,9 @@ describe('document saving', () => {
   beforeEach(() => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
     vi.useFakeTimers();
+    isTauriEnvironment.mockReturnValue(false);
+    listChatSessions.mockResolvedValue([]);
+    saveSangDocument.mockResolvedValue('document.sdc');
     saveDraft.mockImplementation(() => new Promise<void>((resolve) => pendingSaves.push(resolve)));
     container = document.createElement('div');
     document.body.append(container);
@@ -147,6 +165,43 @@ describe('document saving', () => {
     await act(async () => { click('第二次编辑'); });
     await act(async () => { pendingSaves[0](); });
     expect(container.querySelector('output')?.textContent).toBe('unsaved');
+  });
+
+  it('keeps the new file path when editing during the first desktop save', async () => {
+    isTauriEnvironment.mockReturnValue(true);
+    let finishWrite!: (path: string) => void;
+    saveSangDocument.mockImplementationOnce(() => new Promise<string>((resolve) => { finishWrite = resolve; }));
+    await act(async () => { root.render(<App />); });
+    await act(async () => { click('新建'); });
+    await act(async () => { click('第一次编辑'); });
+    await act(async () => { click('保存'); });
+    expect(saveSangDocument).toHaveBeenCalledTimes(1);
+
+    await act(async () => { click('第二次编辑'); });
+    await act(async () => { finishWrite('document.sdc'); });
+    await act(async () => { vi.advanceTimersByTime(1500); });
+
+    expect(saveSangDocument).toHaveBeenCalledTimes(2);
+    expect(saveSangDocument.mock.calls[1][1]).toBe('document.sdc');
+    expect(saveSangDocument.mock.calls[1][0].markdown).toBe('second');
+  });
+
+  it('writes desktop auto-save before a newer manual save even when the first build is slow', async () => {
+    isTauriEnvironment.mockReturnValue(true);
+    let finishBuild!: (sessions: []) => void;
+    listChatSessions.mockResolvedValueOnce([]).mockImplementationOnce(() => new Promise<[]>(resolve => { finishBuild = resolve; }));
+    await act(async () => { root.render(<App />); });
+    await act(async () => { click('新建'); });
+    await act(async () => { click('保存'); });
+    saveSangDocument.mockClear();
+
+    await act(async () => { click('第一次编辑'); });
+    await act(async () => { vi.advanceTimersByTime(1500); });
+    await act(async () => { click('第二次编辑'); });
+    await act(async () => { click('保存'); });
+    await act(async () => { finishBuild([]); });
+
+    expect(saveSangDocument.mock.calls.map(([document]) => document.markdown)).toEqual(['first', 'second']);
   });
 
   it('applies the latest AI review decisions', async () => {

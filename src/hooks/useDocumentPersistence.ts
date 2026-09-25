@@ -121,16 +121,15 @@ export function useDocumentPersistence({
         if (isCurrentSave(snapshot)) await refreshUnsavedDrafts();
         return;
       }
-      const documentToSave = await buildCurrentDocument(nextHistory);
-      const savedPath = await queueSaveWrite(() => saveSangDocument(documentToSave, documentPath));
+      const savedPath = await queueSaveWrite(async () => saveSangDocument(await buildCurrentDocument(nextHistory), documentPath));
       if (!savedPath) {
         if (isCurrentSave(snapshot)) setSaveStatus(isDocumentDirty ? 'unsaved' : 'saved');
         return;
       }
-      if (!isCurrentSave(snapshot)) return;
+      if (currentSaveSnapshotRef.current.documentId !== snapshot.documentId) return;
       setDocumentPath(savedPath);
       finishSave(snapshot);
-      await queueSaveWrite(() => deleteDraft(documentId));
+      if (isCurrentSave(snapshot)) await queueSaveWrite(() => deleteDraft(documentId));
       const updated = addRecentDocument({
         title: meta.title || '未命名文档',
         path: savedPath,
@@ -177,7 +176,7 @@ export function useDocumentPersistence({
       activeSaveSnapshotRef.current = snapshot;
       setSaveStatus('saving');
       if (isTauriEnvironment() && documentPath) {
-        void buildCurrentDocument().then(doc => queueSaveWrite(() => saveSangDocument(doc, documentPath))).then((savedPath) => {
+        void queueSaveWrite(async () => saveSangDocument(await buildCurrentDocument(), documentPath)).then((savedPath) => {
           if (savedPath) {
             finishSave(snapshot);
             if (isCurrentSave(snapshot)) void queueSaveWrite(() => deleteDraft(documentId));
@@ -222,7 +221,7 @@ export function useDocumentPersistence({
         const nextHistory = appendUniqueHistory(history, entry);
         setHistory(nextHistory);
         if (isTauriEnvironment() && documentPath && nextHistory !== history) {
-          void buildCurrentDocument(nextHistory).then(doc => queueSaveWrite(() => saveSangDocument(doc, documentPath)));
+          void queueSaveWrite(async () => saveSangDocument(await buildCurrentDocument(nextHistory), documentPath));
         } else if (nextHistory !== history) {
           void queueSaveWrite(() => saveDraft({
             formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
