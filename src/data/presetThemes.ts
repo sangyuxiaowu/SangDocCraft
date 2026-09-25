@@ -17,14 +17,14 @@ export const PRESET_THEMES: DocumentTheme[] = [
       showCover: true,
       coverStyle: 'enterprise',
       coverlist: [
-        { label: '撰写团队', value: '架构设计专家团队' },
-        { label: '所属部门', value: '技术研发中心 / 基础架构部' }
+        { label: '撰写团队', value: '@organization' },
+        { label: '所属部门', value: '@department' }
       ]
     },
     header: {
       show: true,
-      leftText: '某某科技有限公司 | 技术交付文档',
-      centerText: '',
+      leftText: '@organization',
+      centerText: '技术交付文档',
       rightText: '系统架构设计说明书',
       lineStyle: 'solid',
       hideOnCover: true,
@@ -91,13 +91,13 @@ export const PRESET_THEMES: DocumentTheme[] = [
       showCover: true,
       coverStyle: 'modern',
       coverlist: [
-        { label: '撰写团队', value: '后端研发小组' },
-        { label: '所属部门', value: '数据工程部' }
+        { label: '撰写团队', value: '@organization' },
+        { label: '所属部门', value: '@department' }
       ]
     },
     header: {
       show: true,
-      leftText: '某某科技有限公司 技术规格书',
+      leftText: '技术规格书',
       centerText: '',
       rightText: 'Confidential',
       lineStyle: 'accent',
@@ -105,7 +105,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
     },
     footer: {
       show: true,
-      leftText: '某某科技有限公司',
+      leftText: '@organization',
       centerText: '',
       rightText: '',
       pageNumberFormat: 'pageOfTotal',
@@ -150,7 +150,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
     },
     header: {
       show: true,
-      leftText: '某某科技有限公司交付文档',
+      leftText: '@organization',
       centerText: '',
       rightText: '绝密 ★ 内部参阅',
       lineStyle: 'double',
@@ -158,7 +158,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
     },
     footer: {
       show: true,
-      leftText: '某某科技有限公司',
+      leftText: '@organization',
       centerText: '',
       rightText: '',
       pageNumberFormat: 'pageOfTotal',
@@ -203,15 +203,15 @@ export const PRESET_THEMES: DocumentTheme[] = [
     },
     header: {
       show: true,
-      leftText: '某某科技有限公司设计规范',
+      leftText: '设计规范',
       centerText: '',
-      rightText: '某某科技有限公司',
+      rightText: '@organization',
       lineStyle: 'solid',
       hideOnCover: true,
     },
     footer: {
       show: true,
-      leftText: '© 2026 某某科技有限公司。保留所有权利。',
+      leftText: '保留所有权利',
       centerText: '',
       rightText: '',
       pageNumberFormat: 'simple',
@@ -256,14 +256,14 @@ export const PRESET_THEMES: DocumentTheme[] = [
       coverlist: [
         { label: '📁项目名称', value: 'Project Name' },
         { label: '🏷️文档版本', value: 'v1.5' },
-        { label: '✍️撰写团队', value: '前沿探索组' },
-        { label: '🏢所属部门', value: '基础架构研发中心' },
+        { label: '✍️撰写团队', value: '@organization' },
+        { label: '🏢所属部门', value: '@department' },
         { label: '📅交付日期', value: '2026年Q3' },
       ],
     },
     header: {
       show: true,
-      leftText: '某某科技有限公司项目蓝图',
+      leftText: '@organization',
       centerText: '',
       rightText: 'CONFIDENTIAL',
       lineStyle: 'accent',
@@ -271,7 +271,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
     },
     footer: {
       show: true,
-      leftText: '某某科技有限公司',
+      leftText: '@organization',
       centerText: '',
       rightText: '',
       pageNumberFormat: 'pageOfTotal',
@@ -315,16 +315,16 @@ export const PRESET_THEMES: DocumentTheme[] = [
       coverStyle: 'signature',
       coverListColumns: 2,
       coverlist: [
-        { label: '编制', value: '项目交付组' },
-        { label: '审核', value: '部门负责人' },
-        { label: '批准', value: '项目负责人' },
-        { label: '版本', value: 'V1.0' },
+        { label: '编制', value: '@department' },
+        { label: '审核', value: '@author' },
+        { label: '批准', value: '@author' },
+        { label: '版本', value: '@version' },
       ],
     },
     header: {
       show: true,
-      leftText: '某某科技有限公司 | 项目交付文件',
-      centerText: '',
+      leftText: '@organization',
+      centerText: '项目交付文件',
       rightText: '内部资料',
       lineStyle: 'solid',
       hideOnCover: true,
@@ -393,23 +393,23 @@ export const PRESET_THEMES: DocumentTheme[] = [
       coverStyle: 'briefing',
       coverListColumns: 2,
       coverlist: [
-        { label: '汇报部门', value: '战略与运营中心' },
-        { label: '汇报人', value: '项目负责人' },
+        { label: '汇报部门', value: '@department' },
+        { label: '汇报人', value: '@author' },
         { label: '汇报周期', value: '2026年第三季度' },
         { label: '保密级别', value: '内部公开' },
       ],
     },
     header: {
       show: true,
-      leftText: '某某科技有限公司 | 经营简报',
-      centerText: '',
+      leftText: '@organization',
+      centerText: '经营简报',
       rightText: 'MANAGEMENT BRIEFING',
       lineStyle: 'accent',
       hideOnCover: true,
     },
     footer: {
       show: true,
-      leftText: '战略与运营中心',
+      leftText: '@department',
       centerText: '',
       rightText: '',
       pageNumberFormat: 'simple',
@@ -469,9 +469,9 @@ export const PRESET_THEMES: DocumentTheme[] = [
       coverStyle: 'academic',
       coverlist: [
         { label: '学号', value: '2022000001' },
-        { label: '姓名', value: '张三' },
-        { label: '学院', value: '经济管理学院' },
-        { label: '专业', value: '工商管理' },
+        { label: '姓名', value: '@author' },
+        { label: '学院', value: '@organization' },
+        { label: '专业', value: '@department' },
         { label: '指导教师', value: '李教授' },
       ],
     },
