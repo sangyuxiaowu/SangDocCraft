@@ -22,7 +22,8 @@ import {
   Image as ImageIcon,
   Stamp,
   Info,
-  GitFork
+  GitFork,
+  X
 } from 'lucide-react';
 import { DocumentAsset, DocumentMeta, DocumentTheme, CoverConfig, CoverStyle, FontChoice, CoverListItem, HeadingFontStyle, TocLevelStyle, TocTitleFont, WatermarkConfig, MermaidConfig, MermaidCustomColors, MermaidThemeChoice } from '../types';
 import { getCoverTemplate, getCoverTemplates } from '../themes/themeRegistry';
@@ -102,6 +103,9 @@ function DynamicFieldInput({ value, onChange, inputClass, className, section = f
 
 interface StyleConfigPanelProps {
   theme: DocumentTheme;
+  themes: DocumentTheme[];
+  customThemeIds: string[];
+  onThemeChange: (theme: DocumentTheme) => void;
   meta: DocumentMeta;
   onChange: (updatedTheme: DocumentTheme) => void;
   onMetaChange: (updatedMeta: DocumentMeta) => void;
@@ -111,6 +115,9 @@ interface StyleConfigPanelProps {
 
 export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({ 
   theme,
+  themes,
+  customThemeIds,
+  onThemeChange,
   meta,
   onChange,
   onMetaChange,
@@ -119,6 +126,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'cover' | 'headerFooter' | 'toc' | 'style' | 'headingList' | 'other'>('cover');
   const [imagePickerTarget, setImagePickerTarget] = useState<'cover' | 'header' | 'watermark'>();
+  const [isThemePickerOpen, setIsThemePickerOpen] = useState(false);
   const isDark = uiMode === 'dark';
 
   // Dynamic theme class helpers for light/dark mode
@@ -469,9 +477,61 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/80';
 
   return (
-    <div className={`border-l h-full flex flex-col overflow-hidden text-xs transition-colors duration-200 ${
+    <div className={`relative border-l h-full flex flex-col overflow-hidden text-xs transition-colors duration-200 ${
       isDark ? 'bg-[#181818] border-[#2A2A2A] text-zinc-200' : 'bg-white border-slate-200 text-slate-800'
     }`}>
+      {isThemePickerOpen && (
+        <div role="dialog" aria-modal="true" aria-label="更换主题"
+          className={`absolute inset-0 z-20 flex flex-col ${isDark ? 'bg-[#181818]' : 'bg-white'}`}>
+          <div className={`flex items-center justify-between border-b px-4 py-3 ${sectionBorderClass}`}>
+            <div>
+              <h2 className={`text-sm font-semibold ${textMainClass}`}>更换主题</h2>
+              <p className={`mt-0.5 text-[11px] ${textMutedClass}`}>选择交付规范，立即应用到当前文档</p>
+            </div>
+            <button type="button" aria-label="关闭主题选择" title="关闭主题选择" onClick={() => setIsThemePickerOpen(false)}
+              className={`rounded p-1.5 ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-slate-100'}`}>
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {[
+              { label: '自定义主题', items: themes.filter((item) => customThemeIds.includes(item.id)) },
+              { label: '内置主题', items: themes.filter((item) => !customThemeIds.includes(item.id)) },
+            ].filter((group) => group.items.length > 0).map((group) => (
+              <section key={group.label} className="mb-5">
+                <h3 className={`mb-2 text-[10px] font-bold tracking-wider ${textMutedClass}`}>{group.label}</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {group.items.map((item) => {
+                    const selected = item.id === theme.id;
+                    return <button key={item.id} type="button" aria-pressed={selected}
+                      onClick={() => { onThemeChange(item); setIsThemePickerOpen(false); }}
+                      className={`min-w-0 overflow-hidden rounded border text-left transition ${selected
+                        ? 'border-blue-500 ring-1 ring-blue-500'
+                        : isDark ? 'border-zinc-700 hover:border-zinc-500' : 'border-slate-200 hover:border-slate-400'}`}>
+                      <div className="flex h-14 items-center justify-center gap-1.5 border-b border-black/10 bg-white px-3">
+                        <div className="h-9 w-6 rounded-sm border border-slate-200 bg-white shadow-sm" style={{ borderTop: `5px solid ${item.style.primaryColor}` }}>
+                          <div className="mx-1 mt-1 h-0.5 rounded" style={{ backgroundColor: item.style.accentColor }} />
+                          <div className="mx-1 mt-1 h-0.5 rounded bg-slate-200" />
+                          <div className="mx-1 mt-0.5 h-0.5 rounded bg-slate-200" />
+                        </div>
+                        <span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: item.style.primaryColor }} />
+                        <span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: item.style.accentColor }} />
+                      </div>
+                      <div className="p-2">
+                        <span className={`flex items-start justify-between gap-1 text-[11px] font-semibold leading-4 ${textMainClass}`}>
+                          <span className="break-words">{item.name}</span>
+                          {selected && <Check className="h-3.5 w-3.5 shrink-0 text-blue-500" />}
+                        </span>
+                        <span className={`mt-1 block text-[10px] leading-4 ${textMutedClass}`}>{item.description}</span>
+                      </div>
+                    </button>;
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
+      )}
       
       {/* Tab Selector Header */}
       <div className={`flex items-center border-b p-1.5 gap-1 shrink-0 ${
@@ -543,9 +603,15 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
       <div className="flex-1 overflow-y-auto p-4 space-y-5">
         {activeTab === 'cover' && (
           <div className="space-y-4">
-            <div className={`flex items-center gap-1.5 pb-2 border-b text-[10px] font-bold uppercase tracking-widest ${sectionBorderClass} ${labelClass}`}>
-              <FileText className="w-4 h-4 text-blue-500" />
-              文档元数据
+            <div className={`flex items-center justify-between gap-2 pb-2 border-b ${sectionBorderClass}`}>
+              <span className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>
+                <FileText className="w-4 h-4 text-blue-500" />
+                文档元数据
+              </span>
+              <button type="button" onClick={() => setIsThemePickerOpen(true)}
+                className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold transition ${isDark ? 'text-blue-400 hover:bg-zinc-800' : 'text-blue-600 hover:bg-blue-50'}`}>
+                <Palette className="w-3.5 h-3.5" />更换主题
+              </button>
             </div>
             <div className="grid grid-cols-1 gap-3">
               <div className="grid grid-cols-1 gap-3">

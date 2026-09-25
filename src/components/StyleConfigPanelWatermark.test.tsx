@@ -18,6 +18,30 @@ describe('StyleConfigPanel - Watermark Settings in Other Tab', () => {
     document.body.innerHTML = '';
   });
 
+  it('opens the theme picker and applies a selected theme', async () => {
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    roots.push(root);
+    const onThemeChange = vi.fn();
+    const customTheme = { ...PRESET_THEMES[1], id: 'custom-theme', name: '自定义方案' };
+
+    await act(async () => root.render(<StyleConfigPanel
+      theme={PRESET_THEMES[0]} themes={[PRESET_THEMES[0], customTheme]}
+      customThemeIds={[customTheme.id]} onThemeChange={onThemeChange}
+      meta={DEFAULT_DOCUMENT_META} onChange={() => undefined}
+      onMetaChange={() => undefined} assets={[]} uiMode="light" />));
+
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('更换主题'))?.click());
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain('自定义主题');
+    expect(Array.from(container.querySelectorAll('[role="dialog"] h3')).map((heading) => heading.textContent)).toEqual(['自定义主题', '内置主题']);
+    expect(container.querySelector('button[aria-pressed="true"]')?.textContent).toContain(PRESET_THEMES[0].name);
+
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('自定义方案'))?.click());
+    expect(onThemeChange).toHaveBeenCalledWith(customTheme);
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
   it('sets an entire field from the quick selector', async () => {
     const onChange = vi.fn();
     const theme = {
@@ -31,6 +55,7 @@ describe('StyleConfigPanel - Watermark Settings in Other Tab', () => {
     roots.push(root);
 
     await act(async () => root.render(<StyleConfigPanel theme={theme} meta={DEFAULT_DOCUMENT_META}
+      themes={PRESET_THEMES} customThemeIds={[]} onThemeChange={() => undefined}
       onChange={onChange} onMetaChange={() => undefined} assets={[]} uiMode="light" />));
     const coverPicker = container.querySelector<HTMLSelectElement>('select[aria-label="标题的值插入变量"]')!;
     expect(coverPicker.parentElement?.querySelector('input[aria-label="标题的值"]')?.className).toContain('pr-9');
@@ -77,6 +102,9 @@ describe('StyleConfigPanel - Watermark Settings in Other Tab', () => {
       root.render(
         <StyleConfigPanel
           theme={theme}
+          themes={PRESET_THEMES}
+          customThemeIds={[]}
+          onThemeChange={() => undefined}
           meta={DEFAULT_DOCUMENT_META}
           onChange={onChange}
           onMetaChange={() => undefined}
@@ -134,6 +162,9 @@ describe('StyleConfigPanel - Watermark Settings in Other Tab', () => {
       root.render(
         <StyleConfigPanel
           theme={theme}
+          themes={PRESET_THEMES}
+          customThemeIds={[]}
+          onThemeChange={() => undefined}
           meta={DEFAULT_DOCUMENT_META}
           onChange={onChange}
           onMetaChange={() => undefined}

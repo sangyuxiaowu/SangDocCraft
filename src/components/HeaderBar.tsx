@@ -20,13 +20,9 @@ import {
   Printer,
   AlertTriangle,
 } from 'lucide-react';
-import { DocumentTheme, ThemeMode, ViewMode } from '../types';
+import { ThemeMode, ViewMode } from '../types';
 
 interface HeaderBarProps {
-  currentTheme: DocumentTheme;
-  themes: DocumentTheme[];
-  customThemeIds: string[];
-  onThemeChange: (theme: DocumentTheme) => void;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   onExportDocx: () => void;
@@ -53,10 +49,6 @@ interface HeaderBarProps {
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
-  currentTheme,
-  themes,
-  customThemeIds,
-  onThemeChange,
   viewMode,
   onViewModeChange,
   onExportDocx,
@@ -81,7 +73,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onToggleAiAssistant,
   isAiAssistantOpen,
 }) => {
-  const [activeDropdown, setActiveDropdown] = useState<'file' | 'preset' | 'export' | 'appearance' | null>(null);
+  const [activeDropdown, setActiveDropdown] = useState<'file' | 'export' | 'appearance' | null>(null);
 
   const isDark = effectiveUiMode === 'dark';
   const headerRef = useRef<HTMLElement>(null);
@@ -97,7 +89,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const toggleDropdown = (key: 'file' | 'preset' | 'export' | 'appearance') => {
+  const toggleDropdown = (key: 'file' | 'export' | 'appearance') => {
     setActiveDropdown((prev) => (prev === key ? null : key));
   };
 
@@ -379,74 +371,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
           <div className={`w-px h-5 ${isDark ? 'bg-zinc-800' : 'bg-slate-200'}`} />
 
-          {/* Group 3: Active Document Delivery Theme Selector */}
-          <div className="relative shrink-0">
-            <button
-              onClick={() => toggleDropdown('preset')}
-              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition max-w-[120px] sm:max-w-[150px] lg:max-w-[180px] ${
-                activeDropdown === 'preset'
-                  ? isDark ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-slate-200 border-slate-300 text-slate-900'
-                  : isDark ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-200' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-800'
-              }`}
-              title={`当前交付规范主题：${currentTheme.name}`}
-            >
-              <div 
-                className="w-2.5 h-2.5 rounded-full ring-1 ring-black/20 shrink-0" 
-                style={{ backgroundColor: currentTheme.style.primaryColor }} 
-              />
-              <span className="truncate">{currentTheme.name}</span>
-              <ChevronDown className="w-3 h-3 text-zinc-400 shrink-0" />
-            </button>
-
-            {activeDropdown === 'preset' && (
-              <div 
-                className={`absolute right-0 top-full mt-1.5 w-72 border rounded-xl shadow-2xl z-50 p-1.5 animate-in fade-in slide-in-from-top-1 duration-150 ${
-                  isDark ? 'bg-[#181818] border-zinc-800 text-zinc-200' : 'bg-white border-slate-200 text-slate-800'
-                }`}
-              >
-                <div className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>
-                  选择交付规范主题
-                </div>
-                <div className="max-h-72 overflow-y-auto space-y-0.5">
-                  {themes.map((preset, index) => {
-                    const isSelected = preset.id === currentTheme.id;
-                    const isCustom = customThemeIds.includes(preset.id);
-                    return (
-                      <React.Fragment key={preset.id}>
-                        {isCustom && (index === 0 || !customThemeIds.includes(themes[index - 1].id)) && (
-                          <div className={`px-2.5 pt-2 pb-1 text-[9px] font-bold uppercase tracking-wider border-t mt-1 ${isDark ? 'text-zinc-500 border-zinc-800' : 'text-slate-400 border-slate-200'}`}>
-                            自定义主题方案
-                          </div>
-                        )}
-                        <button
-                          onClick={() => {
-                            onThemeChange(preset);
-                            setActiveDropdown(null);
-                          }}
-                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition ${
-                            isSelected
-                              ? 'bg-blue-600 text-white font-semibold'
-                              : isDark ? 'hover:bg-zinc-800 text-zinc-200' : 'hover:bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div 
-                              className="w-3 h-3 rounded-full border border-white/20 shrink-0" 
-                              style={{ backgroundColor: preset.style.primaryColor }} 
-                            />
-                            <span className="truncate">{preset.name}</span>
-                          </div>
-                          {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
-                        </button>
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Group 4: Export CTA */}
+          {/* Group 3: Export CTA */}
           <div className="relative shrink-0">
             <button
               onClick={() => toggleDropdown('export')}

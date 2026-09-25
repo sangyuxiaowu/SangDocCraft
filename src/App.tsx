@@ -637,10 +637,6 @@ export default function App() {
       
       {/* Top Header Controls Bar */}
       <HeaderBar
-        currentTheme={theme}
-        themes={[...builtinThemes, ...customThemes]}
-        customThemeIds={customThemes.map((item) => item.id)}
-        onThemeChange={handlePresetThemeChange}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onExportDocx={handleExportDocx}
@@ -777,6 +773,9 @@ export default function App() {
           }`}>
             <StyleConfigPanel 
               theme={theme}
+              themes={[...builtinThemes, ...customThemes]}
+              customThemeIds={customThemes.map((item) => item.id)}
+              onThemeChange={handlePresetThemeChange}
               meta={meta}
               assets={assets}
               onChange={(value) => { setTheme(value); setIsDocumentDirty(true); }}
