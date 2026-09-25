@@ -80,5 +80,7 @@ describe('resolveDocumentTemplate', () => {
     expect(resolved.theme.cover.showCover).toBe(theme.cover.showCover);
     expect(resolved.theme.toc).toEqual(theme.toc);
     expect(resolved.theme.style).toEqual(theme.style);
+    expect(resolved.theme.header).toEqual({ ...theme.header, leftText: '', centerText: '', rightText: '' });
+    expect(resolved.theme.footer).toEqual({ ...theme.footer, leftText: '', centerText: '', rightText: '' });
   });
 });

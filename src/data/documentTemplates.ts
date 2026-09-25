@@ -1,4 +1,4 @@
-import type { CoverConfig, DocumentMeta, DocumentTheme, StyleConfig, TocConfig } from '../types';
+import type { CoverConfig, DocumentMeta, DocumentTheme, FooterConfig, HeaderConfig, StyleConfig, TocConfig } from '../types';
 import { DEFAULT_DOCUMENT_META } from './defaultDocumentMeta';
 
 // 每个模板的 Markdown 正文独立存放在 ./templates/*.md，便于单独维护与编辑。
@@ -57,6 +57,8 @@ export interface DocumentTemplateItem {
   metaConfig?: Partial<DocumentMeta>;
   /** 封面差异项：仅声明需要偏离推荐主题的字段（如 showCover: false 关闭封面） */
   coverConfig?: Partial<CoverConfig>;
+  headerConfig?: Partial<HeaderConfig>;
+  footerConfig?: Partial<FooterConfig>;
   /** 目录差异项：仅声明需要偏离推荐主题的字段（如 show: false 关闭目录） */
   tocConfig?: Partial<TocConfig>;
   /** 正文排版差异项：仅声明需要偏离推荐主题的字段（如 h1Center: true 一级标题居中） */
@@ -84,6 +86,8 @@ export function resolveDocumentTemplate(
     theme: {
       ...baseTheme,
       cover: { ...baseTheme.cover, ...template.coverConfig },
+      header: { ...baseTheme.header, ...template.headerConfig },
+      footer: { ...baseTheme.footer, ...template.footerConfig },
       toc: { ...baseTheme.toc, ...template.tocConfig },
       style: { ...baseTheme.style, ...template.styleConfig },
     },
@@ -109,6 +113,8 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     iconName: 'file-text',
     recommendedThemeId: 'minimal-clean',
     markdown: blankMarkdown,
+    headerConfig: { leftText: '', centerText: '', rightText: '' },
+    footerConfig: { leftText: '', centerText: '', rightText: '' },
     metaConfig: {
       title: '未命名文档',
       subtitle: '在此输入文档副标题',
