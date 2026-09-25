@@ -205,6 +205,34 @@ export default function App() {
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showPrintPdfModal, setShowPrintPdfModal] = useState(false);
   const [assets, setAssets] = useState<DocumentAsset[]>([]);
+  const currentSaveSnapshotRef = useRef({ documentId, markdown, meta, theme, documentSettings, history, assets });
+  currentSaveSnapshotRef.current = { documentId, markdown, meta, theme, documentSettings, history, assets };
+  const getSaveSnapshot = (savedHistory = history) => ({ documentId, markdown, meta, theme, documentSettings, history: savedHistory, assets });
+  const activeSaveSnapshotRef = useRef<ReturnType<typeof getSaveSnapshot> | null>(null);
+  const pendingSaveWriteRef = useRef(Promise.resolve());
+  const queueSaveWrite = <T,>(write: () => Promise<T>): Promise<T> => {
+    const result = pendingSaveWriteRef.current.then(write, write);
+    pendingSaveWriteRef.current = result.then(() => {}, () => {});
+    return result;
+  };
+  const isCurrentSave = (snapshot: ReturnType<typeof getSaveSnapshot>) => {
+    const current = currentSaveSnapshotRef.current;
+    return current.documentId === snapshot.documentId && current.markdown === snapshot.markdown
+      && current.meta === snapshot.meta && current.theme === snapshot.theme
+      && current.documentSettings === snapshot.documentSettings && current.history === snapshot.history
+      && current.assets === snapshot.assets;
+  };
+  const finishSave = (snapshot: ReturnType<typeof getSaveSnapshot>) => {
+    if (!isCurrentSave(snapshot)) {
+      if (activeSaveSnapshotRef.current === snapshot && currentSaveSnapshotRef.current.documentId === snapshot.documentId) {
+        setSaveStatus('unsaved');
+      }
+      return;
+    }
+    setIsDocumentDirty(false);
+    setSaveStatus('saved');
+    setLastSavedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
+  };
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [previewNavigationTarget, setPreviewNavigationTarget] = useState<PreviewNavigationTarget>();
@@ -665,15 +693,23 @@ export default function App() {
 
   const handleSaveDocument = async () => {
     setSaveStatus('saving');
+    let snapshot = getSaveSnapshot();
+    activeSaveSnapshotRef.current = snapshot;
     try {
       let nextHistory = history;
       if (documentSettings.historyEnabled) {
         nextHistory = appendUniqueHistory(history, await createHistoryEntry(markdown, meta, theme, 'manual'));
+        if (!isCurrentSave(snapshot)) {
+          finishSave(snapshot);
+          return;
+        }
         setHistory(nextHistory);
+        snapshot = getSaveSnapshot(nextHistory);
+        activeSaveSnapshotRef.current = snapshot;
       }
       if (!isTauriEnvironment()) {
         // Web 模式：仅保存内容至本地数据库 (IndexedDB 草稿)，不触发文件下载（导出时才会下载）
-        await saveDraft({
+        await queueSaveWrite(() => saveDraft({
           formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
           documentId,
           createdAt: documentCreatedAt,
@@ -685,29 +721,31 @@ export default function App() {
           settings: documentSettings,
           history: nextHistory,
           savedToSdc: false,
-        });
-        setIsDocumentDirty(false);
-        setSaveStatus('saved');
-        setLastSavedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
-        await refreshUnsavedDrafts();
+        }));
+        finishSave(snapshot);
+        if (isCurrentSave(snapshot)) await refreshUnsavedDrafts();
         return;
       }
-      const savedPath = await saveSangDocument(await buildCurrentDocument(nextHistory), documentPath);
+      const documentToSave = await buildCurrentDocument(nextHistory);
+      const savedPath = await queueSaveWrite(() => saveSangDocument(documentToSave, documentPath));
       if (!savedPath) {
-        setSaveStatus(isDocumentDirty ? 'unsaved' : 'saved');
+        if (isCurrentSave(snapshot)) setSaveStatus(isDocumentDirty ? 'unsaved' : 'saved');
         return;
       }
+      if (!isCurrentSave(snapshot)) return;
       setDocumentPath(savedPath);
-      setIsDocumentDirty(false);
-      setSaveStatus('saved');
-      setLastSavedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
-      await deleteDraft(documentId);
+      finishSave(snapshot);
+      await queueSaveWrite(() => deleteDraft(documentId));
       const updated = addRecentDocument({
         title: meta.title || '未命名文档',
         path: savedPath,
       });
       setRecentDocuments(updated);
     } catch (error) {
+      if (!isCurrentSave(snapshot)) {
+        finishSave(snapshot);
+        return;
+      }
       setSaveStatus('unsaved');
       await modal.alert({
         title: '保存文档失败',
@@ -718,13 +756,14 @@ export default function App() {
   };
 
   const handleExportSdc = async () => {
+    const snapshot = getSaveSnapshot();
     try {
       const doc = await buildCurrentDocument();
       downloadSangDocument(doc);
-      if (!isTauriEnvironment()) {
+      if (!isTauriEnvironment() && isCurrentSave(snapshot)) {
         // Web 模式：已下载保存为 sdc，无需再保留为未保存草稿
-        await markDraftSaved(documentId, true);
-        setIsDocumentDirty(false);
+        await queueSaveWrite(() => isCurrentSave(snapshot) ? markDraftSaved(documentId, true) : Promise.resolve());
+        if (isCurrentSave(snapshot)) setIsDocumentDirty(false);
         await refreshUnsavedDrafts();
       }
     } catch (error) {
@@ -739,21 +778,22 @@ export default function App() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       if (!isDocumentDirty) return;
+      const snapshot = getSaveSnapshot();
+      activeSaveSnapshotRef.current = snapshot;
       setSaveStatus('saving');
       if (isTauriEnvironment() && documentPath) {
-        void buildCurrentDocument().then(doc => saveSangDocument(doc, documentPath)).then((savedPath) => {
+        void buildCurrentDocument().then(doc => queueSaveWrite(() => saveSangDocument(doc, documentPath))).then((savedPath) => {
           if (savedPath) {
-            setIsDocumentDirty(false);
-            setSaveStatus('saved');
-            setLastSavedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
-            void deleteDraft(documentId);
+            finishSave(snapshot);
+            if (isCurrentSave(snapshot)) void queueSaveWrite(() => deleteDraft(documentId));
           }
         }).catch((error) => {
-          setSaveStatus('unsaved');
+          if (isCurrentSave(snapshot)) setSaveStatus('unsaved');
+          else finishSave(snapshot);
           console.error('Auto-save failed:', error);
         });
       } else {
-        void saveDraft({
+        void queueSaveWrite(() => saveDraft({
           formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
           documentId,
           createdAt: documentCreatedAt,
@@ -765,13 +805,12 @@ export default function App() {
           settings: documentSettings,
           history,
           savedToSdc: false,
-        }).then(() => {
-          setIsDocumentDirty(false);
-          setSaveStatus('saved');
-          setLastSavedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
-          void refreshUnsavedDrafts();
+        })).then(() => {
+          finishSave(snapshot);
+          if (isCurrentSave(snapshot)) void refreshUnsavedDrafts();
         }).catch((error) => {
-          setSaveStatus('unsaved');
+          if (isCurrentSave(snapshot)) setSaveStatus('unsaved');
+          else finishSave(snapshot);
           console.error('Auto-save failed:', error);
         });
       }
@@ -782,13 +821,15 @@ export default function App() {
   useEffect(() => {
     if (!documentSettings.historyEnabled) return;
     const timer = window.setTimeout(() => {
+      const snapshot = getSaveSnapshot();
       void createHistoryEntry(markdown, meta, theme, 'idle').then((entry) => {
+        if (!isCurrentSave(snapshot)) return;
         const nextHistory = appendUniqueHistory(history, entry);
         setHistory(nextHistory);
         if (isTauriEnvironment() && documentPath && nextHistory !== history) {
-          void buildCurrentDocument(nextHistory).then(doc => saveSangDocument(doc, documentPath));
+          void buildCurrentDocument(nextHistory).then(doc => queueSaveWrite(() => saveSangDocument(doc, documentPath)));
         } else if (nextHistory !== history) {
-          void saveDraft({
+          void queueSaveWrite(() => saveDraft({
             formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
             documentId,
             createdAt: documentCreatedAt,
@@ -798,7 +839,7 @@ export default function App() {
             theme,
             settings: documentSettings,
             history: nextHistory,
-          });
+          }));
         }
       });
     }, documentSettings.historyIdleMinutes * 60_000);
