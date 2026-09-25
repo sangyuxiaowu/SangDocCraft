@@ -581,7 +581,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             aria-label="关于 SangDocCraft"
           >
             <Info className="w-3.5 h-3.5 text-blue-500" />
-            <span className="hidden sm:inline">关于</span>
           </button>
 
         </div>
