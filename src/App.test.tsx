@@ -4,6 +4,8 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DOCUMENT_TEMPLATES } from './data/documentTemplates';
+import { createDiffHunks } from './utils/diffUtils';
+import type { AiToolContext } from './utils/aiAssistantService';
 import App from './App';
 
 const saveDraft = vi.hoisted(() => vi.fn());
@@ -28,8 +30,20 @@ vi.mock('./components/HeaderBar', () => ({
 }));
 vi.mock('./utils/modalDialog', () => ({ modal: { confirm: async () => true } }));
 vi.mock('./components/Editor', () => ({
-  Editor: ({ onChange, saveStatus }: { onChange: (value: string) => void; saveStatus: string }) => (
-    <><button onClick={() => onChange('first')}>第一次编辑</button><button onClick={() => onChange('second')}>第二次编辑</button><output>{saveStatus}</output></>
+  Editor: ({ value, onChange, saveStatus, reviewSession, onRejectAllHunks, onApplyResolution }: {
+    value: string;
+    onChange: (value: string) => void;
+    saveStatus: string;
+    reviewSession?: unknown;
+    onRejectAllHunks: () => void;
+    onApplyResolution: () => void;
+  }) => (
+    <>
+      <button onClick={() => onChange('first')}>第一次编辑</button>
+      <button onClick={() => onChange('second')}>第二次编辑</button>
+      <output>{saveStatus}</output><output data-testid="body">{value}</output>
+      {reviewSession && <><button onClick={onRejectAllHunks}>全部拒绝</button><button onClick={onApplyResolution}>应用审查</button></>}
+    </>
   ),
 }));
 vi.mock('./components/A4Preview', () => ({ A4Preview: () => null }));
@@ -39,7 +53,14 @@ vi.mock('./components/WelcomeDashboard', () => ({
     <button onClick={() => onSelectTemplate(DOCUMENT_TEMPLATES[0])}>新建</button>
   ),
 }));
-vi.mock('./components/ai/AiAssistantFloat', () => ({ AiAssistantFloat: () => null }));
+vi.mock('./components/ai/AiAssistantFloat', () => ({
+  AiAssistantFloat: ({ toolContext }: { toolContext: AiToolContext }) => (
+    <button onClick={() => { void toolContext.onStartDiffReview({
+      id: 'review', originalText: 'first', modifiedText: 'second',
+      hunks: createDiffHunks('first', 'second'), createdAt: new Date().toISOString(),
+    }); }}>开始审查</button>
+  ),
+}));
 vi.mock('./components/ai/AiSettingsModal', () => ({ AiSettingsModal: () => null }));
 vi.mock('./components/ModalDialogContainer', () => ({ ModalDialogContainer: () => null }));
 vi.mock('./components/DocumentHistoryModal', () => ({ DocumentHistoryModal: () => null }));
@@ -55,7 +76,7 @@ describe('document saving', () => {
   const click = (text: string) => [...container.querySelectorAll('button')].find((button) => button.textContent === text)!.click();
 
   beforeEach(() => {
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
     vi.useFakeTimers();
     saveDraft.mockImplementation(() => new Promise<void>((resolve) => pendingSaves.push(resolve)));
     container = document.createElement('div');
@@ -126,5 +147,16 @@ describe('document saving', () => {
     await act(async () => { click('第二次编辑'); });
     await act(async () => { pendingSaves[0](); });
     expect(container.querySelector('output')?.textContent).toBe('unsaved');
+  });
+
+  it('applies the latest AI review decisions', async () => {
+    await act(async () => { root.render(<App />); });
+    await act(async () => { click('新建'); });
+    await act(async () => { click('第一次编辑'); });
+    await act(async () => { click('开始审查'); });
+    await act(async () => { click('全部拒绝'); });
+    await act(async () => { click('应用审查'); });
+
+    expect(container.querySelector('[data-testid="body"]')?.textContent).toBe('first');
   });
 });

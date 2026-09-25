@@ -15,25 +15,20 @@ import { DocumentAsset, DocumentHistoryEntry, DocumentMeta, DocumentTheme, Theme
 import { getRegisteredThemes } from './themes/themeRegistry';
 import { loadCustomThemes, saveCustomThemes } from './themes/customThemeStore';
 import { loadCurrentTheme, saveCurrentTheme } from './themes/currentThemeCache';
-import { clearDocumentAssets, clearDocumentChatSessions, listChatSessions, listDocumentAssets, listLibraryAssets } from './utils/imageRepository';
+import { clearDocumentAssets, clearDocumentChatSessions, listDocumentAssets, listLibraryAssets } from './utils/imageRepository';
 import { registerAssetUrls } from './utils/assetUrlRegistry';
 import { clearDocumentAssetUrls } from './utils/assetUrlRegistry';
 import { isTauriEnvironment, resolveImageSrc, updateTauriWindowTitle } from './utils/tauriHelper';
 import { putChatSession, putDocumentAsset, putLibraryAsset } from './utils/imageRepository';
 import { collectImageReferences } from './utils/imageReferences';
-import { downloadSangDocument, openSangDocument, openSangDocumentByPath, readSangDocumentFile, readStartupDocument, saveSangDocument } from './utils/documentFileOperations';
+import { openSangDocument, openSangDocumentByPath, readSangDocumentFile, readStartupDocument } from './utils/documentFileOperations';
 import type { SangDocument } from './types';
-import { appendUniqueHistory, createHistoryEntry } from './utils/documentHistory';
 import { 
-  deleteDraft,
   deleteDraftWithAssets, 
-  saveDraft, 
   getDraft,
   getUnsavedDraftSummaries,
-  markDraftSaved, 
   clearAllDraftsWithAssets,
   runStorageGC, 
-  CURRENT_DRAFT_FORMAT_VERSION,
   type DocumentDraftSummary,
 } from './utils/draftStore';
 import { getRecentDocuments, addRecentDocument, removeRecentDocument, clearRecentDocuments, type RecentDocumentItem } from './utils/recentDocumentsStore';
@@ -42,11 +37,12 @@ import { resolveDocumentTemplate, type DocumentTemplateItem } from './data/docum
 import { DEFAULT_DOCUMENT_META } from './data/defaultDocumentMeta';
 import { formatApplicationTitle, resolveDocumentTitle } from './utils/applicationTitle';
 import { loadAiConfig, loadAiConfigWithSecrets, saveAiConfig } from './lib/aiConfig';
-import { AiConfig, DiffReviewSession } from './types/ai';
+import { AiConfig } from './types/ai';
 import { AiAssistantFloat } from './components/ai/AiAssistantFloat';
 import { AiSettingsModal } from './components/ai/AiSettingsModal';
-import { acceptHunk, rejectHunk, acceptAllHunks, rejectAllHunks, reconstructFromHunks } from './utils/diffUtils';
-import { AiToolContext, type DiffReviewResult } from './utils/aiAssistantService';
+import { AiToolContext } from './utils/aiAssistantService';
+import { useDocumentPersistence } from './hooks/useDocumentPersistence';
+import { useAiDiffReview } from './hooks/useAiDiffReview';
 
 export default function App() {
   const builtinThemes = getRegisteredThemes();
@@ -62,93 +58,10 @@ export default function App() {
   const [aiConfig, setAiConfig] = useState<AiConfig>(loadAiConfig);
   const [isAiFloatOpen, setIsAiFloatOpen] = useState(false);
   const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false);
-  const [diffReviewSession, setDiffReviewSession] = useState<DiffReviewSession | null>(null);
-  const diffReviewResolverRef = useRef<((result: DiffReviewResult) => void) | null>(null);
-  // 取消审查可能由流式请求中断触发（异步、跳转多次渲染），必须用 ref 读当前会话，否则会用上旧闭包里的 null。
-  const diffReviewSessionRef = useRef<DiffReviewSession | null>(null);
 
   useEffect(() => {
     void loadAiConfigWithSecrets().then(setAiConfig);
   }, []);
-
-  const handleAcceptHunk = (hunkId: string) => {
-    if (!diffReviewSession) return;
-    setDiffReviewSession(prev => prev ? {
-      ...prev,
-      hunks: acceptHunk(prev.hunks, hunkId)
-    } : null);
-  };
-
-  const handleRejectHunk = (hunkId: string) => {
-    if (!diffReviewSession) return;
-    setDiffReviewSession(prev => prev ? {
-      ...prev,
-      hunks: rejectHunk(prev.hunks, hunkId)
-    } : null);
-  };
-
-  const handleAcceptAllHunks = () => {
-    if (!diffReviewSession) return;
-    setDiffReviewSession(prev => prev ? {
-      ...prev,
-      hunks: acceptAllHunks(prev.hunks)
-    } : null);
-  };
-
-  const handleRejectAllHunks = () => {
-    if (!diffReviewSession) return;
-    setDiffReviewSession(prev => prev ? {
-      ...prev,
-      hunks: rejectAllHunks(prev.hunks)
-    } : null);
-  };
-
-  const handleApplyResolution = async () => {
-    const session = diffReviewSessionRef.current;
-    if (!session) return;
-    // 审查期间用户可能手动改过正文：直接应用会用审查结果整体覆盖那些改动，必须先确认。
-    if (markdown !== session.originalText) {
-      const ok = await modal.confirm({
-        title: '文档已被修改',
-        message: '审查开始后正文发生了变化（可能是手动编辑）。继续应用会用审查结果覆盖这些改动，是否继续？',
-        confirmText: '仍然应用',
-        cancelText: '放弃应用',
-        variant: 'danger',
-      });
-      if (!ok) {
-        handleCancelReview();
-        return;
-      }
-    }
-    const finalMarkdown = reconstructFromHunks(session.hunks);
-    const changeHunks = session.hunks.filter(hunk => hunk.type === 'change');
-    setMarkdown(finalMarkdown);
-    setIsDocumentDirty(true);
-    setDiffReviewSession(null);
-    diffReviewSessionRef.current = null;
-    diffReviewResolverRef.current?.({
-      markdown: finalMarkdown,
-      acceptedCount: changeHunks.filter(hunk => hunk.status !== 'rejected').length,
-      rejectedCount: changeHunks.filter(hunk => hunk.status === 'rejected').length,
-      cancelled: false
-    });
-    diffReviewResolverRef.current = null;
-  };
-
-  const handleCancelReview = () => {
-    const session = diffReviewSessionRef.current;
-    const resolve = diffReviewResolverRef.current;
-    if (!session || !resolve) return;
-    diffReviewSessionRef.current = null;
-    diffReviewResolverRef.current = null;
-    setDiffReviewSession(null);
-    resolve({
-      markdown: session.originalText,
-      acceptedCount: 0,
-      rejectedCount: session.hunks.filter(hunk => hunk.type === 'change').length,
-      cancelled: true
-    });
-  };
 
   // Welcome Dashboard State
   const [isWelcomeOpen, setIsWelcomeOpen] = useState(true);
@@ -171,6 +84,10 @@ export default function App() {
   }, [meta]);
 
   const [markdown, setMarkdown] = useState('');
+  const {
+    diffReviewSession, handleAcceptHunk, handleRejectHunk, handleAcceptAllHunks,
+    handleRejectAllHunks, handleApplyResolution, handleCancelReview, startDiffReview,
+  } = useAiDiffReview(markdown, setMarkdown, setIsDocumentDirty);
 
   // UI Theme Mode: 'system' | 'light' | 'dark' (Default is 'system')
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
@@ -205,36 +122,6 @@ export default function App() {
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showPrintPdfModal, setShowPrintPdfModal] = useState(false);
   const [assets, setAssets] = useState<DocumentAsset[]>([]);
-  const currentSaveSnapshotRef = useRef({ documentId, markdown, meta, theme, documentSettings, history, assets });
-  currentSaveSnapshotRef.current = { documentId, markdown, meta, theme, documentSettings, history, assets };
-  const getSaveSnapshot = (savedHistory = history) => ({ documentId, markdown, meta, theme, documentSettings, history: savedHistory, assets });
-  const activeSaveSnapshotRef = useRef<ReturnType<typeof getSaveSnapshot> | null>(null);
-  const pendingSaveWriteRef = useRef(Promise.resolve());
-  const queueSaveWrite = <T,>(write: () => Promise<T>): Promise<T> => {
-    const result = pendingSaveWriteRef.current.then(write, write);
-    pendingSaveWriteRef.current = result.then(() => {}, () => {});
-    return result;
-  };
-  const isCurrentSave = (snapshot: ReturnType<typeof getSaveSnapshot>) => {
-    const current = currentSaveSnapshotRef.current;
-    return current.documentId === snapshot.documentId && current.markdown === snapshot.markdown
-      && current.meta === snapshot.meta && current.theme === snapshot.theme
-      && current.documentSettings === snapshot.documentSettings && current.history === snapshot.history
-      && current.assets === snapshot.assets;
-  };
-  const finishSave = (snapshot: ReturnType<typeof getSaveSnapshot>) => {
-    if (!isCurrentSave(snapshot)) {
-      if (activeSaveSnapshotRef.current === snapshot && currentSaveSnapshotRef.current.documentId === snapshot.documentId) {
-        setSaveStatus('unsaved');
-      }
-      return;
-    }
-    setIsDocumentDirty(false);
-    setSaveStatus('saved');
-    setLastSavedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
-  };
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
-  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [previewNavigationTarget, setPreviewNavigationTarget] = useState<PreviewNavigationTarget>();
   const [scrollSyncEnabled, setScrollSyncEnabled] = useState(false);
   const [overflowPageNumbers, setOverflowPageNumbers] = useState<number[]>([]);
@@ -286,11 +173,6 @@ export default function App() {
   }, [documentId, hasActiveDocument]);
 
   useEffect(() => {
-    setSaveStatus('saved');
-    setLastSavedAt(null);
-  }, [documentId]);
-
-  useEffect(() => {
     let title: string;
     if (isWelcomeOpen) {
       title = formatApplicationTitle(undefined, true);
@@ -320,6 +202,12 @@ export default function App() {
       console.error('Failed to load unsaved drafts:', e);
     }
   };
+
+  const { saveStatus, lastSavedAt, handleSaveDocument, handleExportSdc } = useDocumentPersistence({
+    documentId, documentCreatedAt, documentPath, documentSettings, isDocumentDirty,
+    history, markdown, meta, theme, assets, setDocumentPath, setHistory,
+    setIsDocumentDirty, setRecentDocuments, refreshUnsavedDrafts,
+  });
 
   const refreshRecentDocs = () => {
     try {
@@ -673,190 +561,6 @@ export default function App() {
     }
   };
 
-  const buildCurrentDocument = async (documentHistory = history): Promise<SangDocument> => {
-    const references = collectImageReferences(markdown, theme);
-    const packageAssets = assets.filter((asset) => asset.scope === 'document' || references.has(`@library/${asset.id}`));
-    return {
-      id: documentId,
-      title: meta.title.trim() || '未命名文档',
-      createdAt: documentCreatedAt,
-      modifiedAt: new Date().toISOString(),
-      markdown,
-      meta,
-      theme,
-      settings: documentSettings,
-      history: documentHistory,
-      chatSessions: await listChatSessions(documentId),
-      assets: packageAssets,
-    };
-  };
-
-  const handleSaveDocument = async () => {
-    setSaveStatus('saving');
-    let snapshot = getSaveSnapshot();
-    activeSaveSnapshotRef.current = snapshot;
-    try {
-      let nextHistory = history;
-      if (documentSettings.historyEnabled) {
-        nextHistory = appendUniqueHistory(history, await createHistoryEntry(markdown, meta, theme, 'manual'));
-        if (!isCurrentSave(snapshot)) {
-          finishSave(snapshot);
-          return;
-        }
-        setHistory(nextHistory);
-        snapshot = getSaveSnapshot(nextHistory);
-        activeSaveSnapshotRef.current = snapshot;
-      }
-      if (!isTauriEnvironment()) {
-        // Web 模式：仅保存内容至本地数据库 (IndexedDB 草稿)，不触发文件下载（导出时才会下载）
-        await queueSaveWrite(() => saveDraft({
-          formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
-          documentId,
-          createdAt: documentCreatedAt,
-          updatedAt: new Date().toISOString(),
-          path: undefined,
-          markdown,
-          meta,
-          theme,
-          settings: documentSettings,
-          history: nextHistory,
-          savedToSdc: false,
-        }));
-        finishSave(snapshot);
-        if (isCurrentSave(snapshot)) await refreshUnsavedDrafts();
-        return;
-      }
-      const documentToSave = await buildCurrentDocument(nextHistory);
-      const savedPath = await queueSaveWrite(() => saveSangDocument(documentToSave, documentPath));
-      if (!savedPath) {
-        if (isCurrentSave(snapshot)) setSaveStatus(isDocumentDirty ? 'unsaved' : 'saved');
-        return;
-      }
-      if (!isCurrentSave(snapshot)) return;
-      setDocumentPath(savedPath);
-      finishSave(snapshot);
-      await queueSaveWrite(() => deleteDraft(documentId));
-      const updated = addRecentDocument({
-        title: meta.title || '未命名文档',
-        path: savedPath,
-      });
-      setRecentDocuments(updated);
-    } catch (error) {
-      if (!isCurrentSave(snapshot)) {
-        finishSave(snapshot);
-        return;
-      }
-      setSaveStatus('unsaved');
-      await modal.alert({
-        title: '保存文档失败',
-        message: error instanceof Error ? error.message : '保存文档失败',
-        type: 'error',
-      });
-    }
-  };
-
-  const handleExportSdc = async () => {
-    const snapshot = getSaveSnapshot();
-    try {
-      const doc = await buildCurrentDocument();
-      downloadSangDocument(doc);
-      if (!isTauriEnvironment() && isCurrentSave(snapshot)) {
-        // Web 模式：已下载保存为 sdc，无需再保留为未保存草稿
-        await queueSaveWrite(() => isCurrentSave(snapshot) ? markDraftSaved(documentId, true) : Promise.resolve());
-        if (isCurrentSave(snapshot)) setIsDocumentDirty(false);
-        await refreshUnsavedDrafts();
-      }
-    } catch (error) {
-      await modal.alert({
-        title: '导出 .sdc 失败',
-        message: error instanceof Error ? error.message : '导出失败',
-        type: 'error',
-      });
-    }
-  };
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      if (!isDocumentDirty) return;
-      const snapshot = getSaveSnapshot();
-      activeSaveSnapshotRef.current = snapshot;
-      setSaveStatus('saving');
-      if (isTauriEnvironment() && documentPath) {
-        void buildCurrentDocument().then(doc => queueSaveWrite(() => saveSangDocument(doc, documentPath))).then((savedPath) => {
-          if (savedPath) {
-            finishSave(snapshot);
-            if (isCurrentSave(snapshot)) void queueSaveWrite(() => deleteDraft(documentId));
-          }
-        }).catch((error) => {
-          if (isCurrentSave(snapshot)) setSaveStatus('unsaved');
-          else finishSave(snapshot);
-          console.error('Auto-save failed:', error);
-        });
-      } else {
-        void queueSaveWrite(() => saveDraft({
-          formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
-          documentId,
-          createdAt: documentCreatedAt,
-          updatedAt: new Date().toISOString(),
-          path: documentPath,
-          markdown,
-          meta,
-          theme,
-          settings: documentSettings,
-          history,
-          savedToSdc: false,
-        })).then(() => {
-          finishSave(snapshot);
-          if (isCurrentSave(snapshot)) void refreshUnsavedDrafts();
-        }).catch((error) => {
-          if (isCurrentSave(snapshot)) setSaveStatus('unsaved');
-          else finishSave(snapshot);
-          console.error('Auto-save failed:', error);
-        });
-      }
-    }, 1500);
-    return () => window.clearTimeout(timer);
-  }, [documentId, documentCreatedAt, documentPath, documentSettings, markdown, meta, theme, history, assets, isDocumentDirty]);
-
-  useEffect(() => {
-    if (!documentSettings.historyEnabled) return;
-    const timer = window.setTimeout(() => {
-      const snapshot = getSaveSnapshot();
-      void createHistoryEntry(markdown, meta, theme, 'idle').then((entry) => {
-        if (!isCurrentSave(snapshot)) return;
-        const nextHistory = appendUniqueHistory(history, entry);
-        setHistory(nextHistory);
-        if (isTauriEnvironment() && documentPath && nextHistory !== history) {
-          void buildCurrentDocument(nextHistory).then(doc => queueSaveWrite(() => saveSangDocument(doc, documentPath)));
-        } else if (nextHistory !== history) {
-          void queueSaveWrite(() => saveDraft({
-            formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
-            documentId,
-            createdAt: documentCreatedAt,
-            updatedAt: new Date().toISOString(),
-            markdown,
-            meta,
-            theme,
-            settings: documentSettings,
-            history: nextHistory,
-          }));
-        }
-      });
-    }, documentSettings.historyIdleMinutes * 60_000);
-    return () => window.clearTimeout(timer);
-  }, [documentSettings.historyEnabled, documentSettings.historyIdleMinutes, markdown, meta, theme]);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
-        event.preventDefault();
-        void handleSaveDocument();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [documentId, documentPath, documentCreatedAt, documentSettings, markdown, meta, theme, history, assets]);
-
   const handleDeleteCustomTheme = (id: string) => {
     setCustomThemes((themes) => themes.filter((item) => item.id !== id));
     if (theme.id === id) handlePresetThemeChange(builtinThemes[0]);
@@ -922,11 +626,7 @@ export default function App() {
       setDocumentSettings(update);
     },
     onSetHistory: setHistory,
-    onStartDiffReview: (session) => new Promise(resolve => {
-      diffReviewResolverRef.current = resolve;
-      diffReviewSessionRef.current = session;
-      setDiffReviewSession(session);
-    }),
+    onStartDiffReview: startDiffReview,
     onCancelDiffReview: handleCancelReview
   };
 
