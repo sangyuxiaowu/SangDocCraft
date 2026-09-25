@@ -62,7 +62,7 @@ vi.mock('./components/Editor', () => ({
   ),
 }));
 vi.mock('./components/A4Preview', () => ({ A4Preview: () => null }));
-vi.mock('./components/StyleConfigPanel', () => ({ StyleConfigPanel: () => null }));
+vi.mock('./components/styleConfig/Panel', () => ({ StyleConfigPanel: () => null }));
 vi.mock('./components/WelcomeDashboard', () => ({
   WelcomeDashboard: ({ onSelectTemplate }: { onSelectTemplate: (template: typeof DOCUMENT_TEMPLATES[number]) => void }) => (
     <button onClick={() => onSelectTemplate(DOCUMENT_TEMPLATES[0])}>新建</button>

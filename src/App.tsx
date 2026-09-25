@@ -4,7 +4,7 @@ import { HeaderBar } from './components/HeaderBar';
 import { Editor, type EditorHandle } from './components/Editor';
 import { ImageManager } from './components/ImageManager';
 import { DocumentHistoryModal } from './components/DocumentHistoryModal';
-import { StyleConfigPanel } from './components/StyleConfigPanel';
+import { StyleConfigPanel } from './components/styleConfig/Panel';
 import { A4Preview, type PreviewNavigationTarget } from './components/A4Preview';
 import { JsonThemeModal } from './components/JsonThemeModal';
 import { AboutModal } from './components/AboutModal';

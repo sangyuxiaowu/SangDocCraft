@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
-import React, { act } from 'react';
+import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { StyleConfigPanel } from './StyleConfigPanel';
-import { PRESET_THEMES } from '../data/presetThemes';
-import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
-import { DEFAULT_WATERMARK_CONFIG } from '../utils/watermark';
+import { StyleConfigPanel } from './Panel';
+import { PRESET_THEMES } from '../../data/presetThemes';
+import { DEFAULT_DOCUMENT_META } from '../../data/defaultDocumentMeta';
+import { DEFAULT_WATERMARK_CONFIG } from '../../utils/watermark';
 
 describe('StyleConfigPanel - Watermark Settings in Other Tab', () => {
   const roots: ReturnType<typeof createRoot>[] = [];
@@ -77,6 +77,50 @@ describe('StyleConfigPanel - Watermark Settings in Other Tab', () => {
     });
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
       header: expect.objectContaining({ leftText: '@h2' }),
+    }));
+  });
+
+  it('updates the toc, color scheme, and typography from their tabs', async () => {
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    roots.push(root);
+    const onChange = vi.fn();
+    const theme = { ...PRESET_THEMES[0], toc: { ...PRESET_THEMES[0].toc, show: true } };
+
+    await act(async () => root.render(<StyleConfigPanel
+      theme={theme} themes={PRESET_THEMES} customThemeIds={[]}
+      onThemeChange={() => undefined} meta={DEFAULT_DOCUMENT_META}
+      onChange={onChange} onMetaChange={() => undefined} assets={[]} uiMode="light" />));
+
+    const tab = (label: string) => Array.from(container.querySelectorAll('button'))
+      .find((button) => button.textContent?.trim() === label)!;
+
+    await act(async () => tab('目录').click());
+    const titleStyle = container.querySelector<HTMLSelectElement>('#toc-title-style')!;
+    await act(async () => {
+      titleStyle.value = 'minimal';
+      titleStyle.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      toc: expect.objectContaining({ titleStyle: 'minimal' }),
+    }));
+
+    await act(async () => tab('配色').click());
+    await act(async () => tab('暖调琥珀').click());
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      style: expect.objectContaining({ primaryColor: '#451a03', accentColor: '#d97706' }),
+    }));
+
+    await act(async () => tab('样式').click());
+    const fontFamily = Array.from(container.querySelectorAll('select'))
+      .find((select) => Array.from(select.options).some((option) => option.value === 'heiti'))!;
+    await act(async () => {
+      fontFamily.value = 'heiti';
+      fontFamily.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      style: expect.objectContaining({ fontFamily: 'heiti' }),
     }));
   });
 
