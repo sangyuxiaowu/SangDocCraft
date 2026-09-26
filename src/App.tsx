@@ -748,6 +748,8 @@ export default function App() {
           }`}>
             <A4Preview
               markdown={markdown}
+              onMarkdownChange={handleMarkdownChange}
+              isConfigPanelOpen={isConfigPanelOpen}
               meta={meta}
               theme={previewTheme}
               uiMode={uiMode}

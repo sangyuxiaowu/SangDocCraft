@@ -45,6 +45,7 @@ Markdown 使用标准图片语法，例如：
 
 ```markdown
 ![系统架构](@images/img-0123456789abcdef01234567)
+![系统架构](@images/img-0123456789abcdef01234567){w=640 h=360 align=right}
 ```
 
 封面 Logo 与页眉 Logo 直接保存内部引用。保存自定义主题时，主题使用的文档图片会提升到永久库，并改写为 `@library/<id>`。

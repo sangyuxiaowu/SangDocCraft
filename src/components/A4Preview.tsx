@@ -12,6 +12,9 @@ import {
   ArrowUpToLine,
   ArrowDownToLine,
   TriangleAlert,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
 } from 'lucide-react';
 import { DocumentMeta, DocumentTheme, TocItem, ViewMode } from '../types';
 import {
@@ -32,6 +35,7 @@ import { containsMath, ensureMathLoaded, onMathReady } from '../utils/mathRender
 import { getTocTitleCss } from '../utils/markdownParser';
 import { WatermarkOverlay } from './WatermarkOverlay';
 import { getPageSections, resolveCoverList, resolveDynamicText, type SectionNames } from '../utils/dynamicFields';
+import { findPreviewFigures, getPreviewFigureOptions, updatePreviewFigure } from '../utils/previewFigureEditing';
 
 interface A4PreviewProps {
   markdown: string;
@@ -44,6 +48,8 @@ interface A4PreviewProps {
   scrollSyncEnabled?: boolean;
   onScrollPositionChange?: (position: number) => void;
   onOverflowPageNumbersChange?: (pageNumbers: number[]) => void;
+  onMarkdownChange?: (markdown: string) => void;
+  isConfigPanelOpen?: boolean;
 }
 
 export interface PreviewNavigationTarget {
@@ -59,6 +65,16 @@ export interface PreviewPageLocation {
 
 const PAGE_BREAK_PATTERN = /<!--\s*pagebreak\s*-->/gi;
 const A4_PAGE_HEIGHT_PX = 1124;
+
+export function getFigureViewportRect(element: HTMLElement, zoom: number): DOMRect {
+  const native = element.getBoundingClientRect();
+  const scaled = new DOMRect(native.x * zoom, native.y * zoom, native.width * zoom, native.height * zoom);
+  const score = (rect: DOMRect) => ([0.12, 0.5, 0.88] as const).reduce((hits, fraction) => {
+    const target = document.elementFromPoint(rect.left + rect.width * fraction, rect.top + rect.height * fraction);
+    return hits + (target && (target === element || element.contains(target)) ? 1 : 0);
+  }, 0);
+  return score(scaled) > score(native) ? scaled : native;
+}
 
 export function getOverflowPageNumbers(sheets: Iterable<HTMLElement>): number[] {
   return Array.from(sheets)
@@ -152,7 +168,7 @@ export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
   );
 });
 
-export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiMode = 'dark', viewMode = 'split', navigationTarget, onNavigateToEditor, scrollSyncEnabled = false, onScrollPositionChange, onOverflowPageNumbersChange }) => {
+export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiMode = 'dark', viewMode = 'split', navigationTarget, onNavigateToEditor, scrollSyncEnabled = false, onScrollPositionChange, onOverflowPageNumbersChange, onMarkdownChange, isConfigPanelOpen }) => {
   const { header, footer, toc, style } = theme;
   const cover = theme.cover;
   const coverTemplate = getCoverTemplate(cover.coverStyle);
@@ -171,6 +187,159 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollFrameRef = useRef(0);
   const expectedScrollTopRef = useRef<number | null>(null);
+  const [selectedFigureIndex, setSelectedFigureIndex] = useState<number | null>(null);
+  const [figureRect, setFigureRect] = useState<DOMRect | null>(null);
+  const [widthInput, setWidthInput] = useState('');
+  const [heightInput, setHeightInput] = useState('');
+  const [toolbarHeight, setToolbarHeight] = useState(48);
+  const [toolbarWidth, setToolbarWidth] = useState(350);
+  const figureElementRef = useRef<HTMLElement | null>(null);
+  const previewFigures = findPreviewFigures(markdown);
+  const selectedFigure = selectedFigureIndex === null ? undefined : previewFigures[selectedFigureIndex];
+  const selectedOptions = selectedFigure ? getPreviewFigureOptions(markdown, selectedFigure) : undefined;
+  const previewRect = containerRef.current?.getBoundingClientRect();
+
+  const getRenderedFigures = () => Array.from(containerRef.current?.querySelectorAll<HTMLElement>(
+    '.a4-sheet-page .markdown-rendered-body .doc-image, .a4-sheet-page .markdown-rendered-body .mermaid'
+  ) ?? []);
+
+  const positionFigureControls = () => {
+    const element = figureElementRef.current;
+    setFigureRect(element?.isConnected ? getFigureViewportRect(element, zoom / 100) : null);
+  };
+
+  useEffect(() => {
+    setSelectedFigureIndex(null);
+    setFigureRect(null);
+  }, [isConfigPanelOpen]);
+
+  useEffect(() => {
+    if (selectedFigureIndex === null) return;
+    const elements = getRenderedFigures();
+    const element = elements.length === previewFigures.length ? elements[selectedFigureIndex] : undefined;
+    if (!element || !selectedFigure || (element.matches('.mermaid') ? 'mermaid' : 'image') !== selectedFigure.kind) {
+      figureElementRef.current = null;
+      setFigureRect(null);
+      return;
+    }
+    figureElementRef.current = element;
+    setWidthInput(String(Math.round(Number('width' in (selectedOptions ?? {}) && selectedOptions?.width) || element.offsetWidth)));
+    setHeightInput(String('height' in (selectedOptions ?? {}) && selectedOptions?.height !== 'auto'
+      ? selectedOptions?.height ?? '' : ''));
+    positionFigureControls();
+    const observer = new ResizeObserver(positionFigureControls);
+    observer.observe(element);
+    const container = containerRef.current;
+    const clearOnScroll = () => {
+      setSelectedFigureIndex(null);
+      setFigureRect(null);
+    };
+    container?.addEventListener('scroll', clearOnScroll);
+    window.addEventListener('resize', positionFigureControls);
+    return () => {
+      observer.disconnect();
+      container?.removeEventListener('scroll', clearOnScroll);
+      window.removeEventListener('resize', positionFigureControls);
+    };
+  }, [selectedFigureIndex, markdown, zoom, mermaidHeights]);
+
+  const applyFigureChange = (change: Parameters<typeof updatePreviewFigure>[2]) => {
+    if (!selectedFigure || !onMarkdownChange) return;
+    const next = updatePreviewFigure(markdown, selectedFigure, change);
+    if (next !== markdown) onMarkdownChange(next);
+  };
+
+  const handleFigureClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!onMarkdownChange) return;
+    const target = event.target as Element;
+    const element = target.closest<HTMLElement>('.doc-image, .mermaid');
+    const rendered = getRenderedFigures();
+    const index = element && rendered.length === previewFigures.length ? rendered.indexOf(element) : -1;
+    if (index < 0 || previewFigures[index].kind !== (element?.matches('.mermaid') ? 'mermaid' : 'image')) {
+      setSelectedFigureIndex(null);
+      setFigureRect(null);
+      return;
+    }
+    figureElementRef.current = element;
+    setSelectedFigureIndex(index);
+    positionFigureControls();
+  };
+
+  const handleResizeStart = (event: React.PointerEvent<HTMLButtonElement>, axis: 'width' | 'height') => {
+    if (!selectedFigure || !figureElementRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const element = figureElementRef.current;
+    const initialWidth = element.offsetWidth;
+    const initialHeight = element.offsetHeight;
+    const rect = getFigureViewportRect(element, zoom / 100);
+    const scale = axis === 'width' ? rect.width / initialWidth || 1 : rect.height / initialHeight || 1;
+    const start = axis === 'width' ? event.clientX : event.clientY;
+    const initialStyles = {
+      width: element.style.width,
+      height: element.style.height,
+      maxWidth: element.style.maxWidth,
+      maxHeight: element.style.maxHeight,
+      minHeight: element.style.minHeight,
+    };
+    const getSize = (pointer: PointerEvent) => Math.min(2000, Math.max(40, Math.round(
+      (axis === 'width' ? initialWidth : initialHeight)
+      + ((axis === 'width' ? pointer.clientX : pointer.clientY) - start) / scale
+    )));
+    const restoreStyles = () => {
+      Object.assign(element.style, initialStyles);
+    };
+    const restoreInputs = () => {
+      setWidthInput(String('width' in (selectedOptions ?? {}) && selectedOptions?.width
+        ? Number(selectedOptions.width) || initialWidth : initialWidth));
+      setHeightInput(String('height' in (selectedOptions ?? {}) && selectedOptions?.height !== 'auto'
+        ? selectedOptions?.height ?? '' : ''));
+    };
+    const move = (pointer: PointerEvent) => {
+      const size = getSize(pointer);
+      if (axis === 'width') {
+        element.style.width = `${size}px`;
+        if (selectedFigure.kind === 'mermaid') element.style.maxWidth = `${size}px`;
+        setWidthInput(String(size));
+      } else {
+        if (selectedFigure.kind === 'image' && !('width' in (selectedOptions ?? {}))) {
+          element.style.width = `${initialWidth}px`;
+        }
+        element.style.height = `${size}px`;
+        if (selectedFigure.kind === 'mermaid') {
+          element.style.maxHeight = `${size}px`;
+          element.style.minHeight = '0';
+        }
+        setHeightInput(String(size));
+      }
+      positionFigureControls();
+    };
+    const finish = (pointer: PointerEvent) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', cancel);
+      const size = getSize(pointer);
+      restoreStyles();
+      if (size !== (axis === 'width' ? initialWidth : initialHeight)) {
+        applyFigureChange(axis === 'width'
+          ? { width: size }
+          : { height: size, ...(selectedFigure.kind === 'image' && !('width' in (selectedOptions ?? {}))
+            ? { width: initialWidth } : {}) });
+      } else restoreInputs();
+      positionFigureControls();
+    };
+    const cancel = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', cancel);
+      restoreStyles();
+      restoreInputs();
+      positionFigureControls();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', cancel);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -603,8 +772,121 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
       <div 
         ref={containerRef}
         onWheel={handleWheel}
+        onClick={handleFigureClick}
         className={`flex-1 overflow-auto p-4 md:p-8 select-text transition-colors duration-200 relative ${isDark ? 'bg-[#1E1E1E]' : 'bg-slate-200/80'}`}
       >
+        {figureRect && previewRect && selectedFigure && onMarkdownChange && (
+          <div
+            className="fixed z-40 pointer-events-none overflow-hidden print-hide"
+            style={{ left: previewRect.left, top: previewRect.top, width: previewRect.width, height: previewRect.height }}
+          >
+            <div
+              className="absolute pointer-events-none border-2 border-blue-500"
+              style={{ left: figureRect.left - previewRect.left, top: figureRect.top - previewRect.top, width: figureRect.width, height: figureRect.height }}
+            />
+            <button
+              type="button"
+              aria-label="拖动调整宽度"
+              title="拖动调整宽度"
+              onPointerDown={(event) => handleResizeStart(event, 'width')}
+              onClick={(event) => event.stopPropagation()}
+              className="absolute pointer-events-auto z-10 w-4 h-7 -translate-x-1/2 -translate-y-1/2 rounded-sm border-2 border-blue-600 bg-white shadow-md cursor-ew-resize touch-none"
+              style={{ left: figureRect.right - previewRect.left, top: figureRect.top + figureRect.height / 2 - previewRect.top }}
+            />
+            <button
+              type="button"
+              aria-label="拖动调整高度"
+              title="拖动调整高度"
+              onPointerDown={(event) => handleResizeStart(event, 'height')}
+              onClick={(event) => event.stopPropagation()}
+              className="absolute pointer-events-auto z-10 w-7 h-4 -translate-x-1/2 -translate-y-1/2 rounded-sm border-2 border-blue-600 bg-white shadow-md cursor-ns-resize touch-none"
+              style={{ left: figureRect.left + figureRect.width / 2 - previewRect.left, top: figureRect.bottom - previewRect.top }}
+            />
+            <div
+              ref={(element) => {
+                if (element) {
+                  setToolbarHeight(element.offsetHeight);
+                  setToolbarWidth(element.offsetWidth);
+                }
+              }}
+              onClick={(event) => event.stopPropagation()}
+              className="absolute pointer-events-auto z-10 flex items-center flex-wrap gap-1.5 p-1.5 rounded-md border border-slate-300 bg-white text-slate-800 shadow-xl"
+              style={{
+                left: Math.max(8, Math.min(figureRect.left - previewRect.left, previewRect.width - toolbarWidth - 8)),
+                top: figureRect.top - previewRect.top > toolbarHeight + 12
+                  ? figureRect.top - previewRect.top - toolbarHeight - 8
+                  : Math.min(previewRect.height - toolbarHeight - 8, figureRect.bottom - previewRect.top + 8),
+                maxWidth: Math.max(0, previewRect.width - 16),
+              }}
+            >
+              <label className="flex items-center gap-1 text-xs" title="宽度（像素）">
+                宽
+                <input
+                  type="number"
+                  min="40"
+                  max="2000"
+                  aria-label="宽度（像素）"
+                  value={widthInput}
+                  onChange={(event) => setWidthInput(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }}
+                  onBlur={() => { const width = Number(widthInput); if (width >= 40 && width <= 2000) applyFigureChange({ width }); }}
+                  className="w-16 rounded-sm border border-slate-300 px-1 py-0.5 text-xs"
+                />
+              </label>
+              <label className="flex items-center gap-1 text-xs" title="高度（像素）；留空为自动">
+                高
+                <input
+                  type="number"
+                  min="40"
+                  max="2000"
+                  placeholder="自动"
+                  aria-label="高度（像素）"
+                  value={heightInput}
+                  onChange={(event) => setHeightInput(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }}
+                  onBlur={() => {
+                    if (!heightInput) applyFigureChange({ height: null });
+                    else { const height = Number(heightInput); if (height >= 40 && height <= 2000) applyFigureChange({ height }); }
+                  }}
+                  className="w-16 rounded-sm border border-slate-300 px-1 py-0.5 text-xs"
+                />
+              </label>
+              <span className="mx-0.5 h-5 w-px bg-slate-200" />
+              {(['left', 'center', 'right'] as const).map((align) => {
+                const Icon = align === 'left' ? AlignLeft : align === 'right' ? AlignRight : AlignCenter;
+                return (
+                  <button
+                    key={align}
+                    type="button"
+                    title={`${align === 'left' ? '左' : align === 'right' ? '右' : '居中'}对齐`}
+                    aria-label={`${align === 'left' ? '左' : align === 'right' ? '右' : '居中'}对齐`}
+                    aria-pressed={selectedOptions?.align === align}
+                    onClick={() => applyFigureChange({ align })}
+                    className={`p-1 rounded-sm ${selectedOptions?.align === align ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-100'}`}
+                  >
+                    <Icon size={16} />
+                  </button>
+                );
+              })}
+              {selectedFigure.kind === 'mermaid' && (
+                <select
+                  title={/%%\{init:\s*\{.*theme/i.test(figureElementRef.current?.dataset.mermaidRawSource ?? '')
+                    ? '图表源码中的 init 主题优先，无法在此覆盖' : '单图主题'}
+                  aria-label="单图主题"
+                  value={selectedOptions && 'theme' in selectedOptions ? selectedOptions.theme ?? '' : ''}
+                  disabled={/%%\{init:\s*\{.*theme/i.test(figureElementRef.current?.dataset.mermaidRawSource ?? '')}
+                  onChange={(event) => applyFigureChange({ theme: event.target.value })}
+                  className="max-w-24 rounded-sm border border-slate-300 bg-white px-1 py-0.5 text-xs disabled:opacity-50"
+                >
+                  <option value="">文档默认</option>
+                  {['neutral', 'default', 'dark', 'forest', 'base', 'custom'].map((choice) => (
+                    <option key={choice} value={choice}>{choice}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
+        )}
         <div
           className={`mx-auto flex flex-col gap-2 mb-3 select-none print-hide ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}
           style={{ width: `${210 * zoom / 100}mm` }}
@@ -986,7 +1268,10 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
         }
         .markdown-rendered-body .doc-image {
           max-width: 100%;
+          max-height: none;
           height: auto;
+          object-fit: fill;
+          margin: 0;
           display: block;
         }
         .markdown-rendered-body .doc-img-border-none {

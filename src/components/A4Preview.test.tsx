@@ -2,8 +2,27 @@
 
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { afterEach, describe, expect, it } from 'vitest';
-import { getMarkdownPositionForPreviewLocation, getMarkdownPositionForPreviewPage, getOverflowPageNumbers, getPreviewPageLocation, RenderedMarkdownPage } from './A4Preview';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { getFigureViewportRect, getMarkdownPositionForPreviewLocation, getMarkdownPositionForPreviewPage, getOverflowPageNumbers, getPreviewPageLocation, RenderedMarkdownPage } from './A4Preview';
+
+describe('getFigureViewportRect', () => {
+  it.each([
+    { visible: { left: 100, top: 50, right: 300, bottom: 150 }, expectedLeft: 100 },
+    { visible: { left: 200, top: 100, right: 600, bottom: 300 }, expectedLeft: 200 },
+  ])('selects the rectangle that actually hits the rendered image', ({ visible, expectedLeft }) => {
+    const image = document.createElement('img');
+    vi.spyOn(image, 'getBoundingClientRect').mockReturnValue(new DOMRect(200, 100, 400, 200));
+    const original = document.elementFromPoint;
+    document.elementFromPoint = vi.fn((x, y) => (
+      x >= visible.left && x <= visible.right && y >= visible.top && y <= visible.bottom ? image : null
+    ));
+    try {
+      expect(getFigureViewportRect(image, 0.5).left).toBe(expectedLeft);
+    } finally {
+      document.elementFromPoint = original;
+    }
+  });
+});
 
 describe('getMarkdownPositionForPreviewPage', () => {
   it('maps a preview page to the first source character on that page', () => {
