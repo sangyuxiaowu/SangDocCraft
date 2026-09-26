@@ -96,7 +96,7 @@ describe('Markdown pagination and numbering', () => {
     expect(document.querySelector('.pagination-measurer')).toBeNull();
   });
 
-  it('reserves the rendered header, footer and one reflowed text line', () => {
+  it('reserves the rendered header and footer for complete blocks', () => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       return this.querySelectorAll('p').length * 435;
     });
@@ -108,6 +108,19 @@ describe('Markdown pagination and numbering', () => {
       });
 
       expect(pages).toEqual(['First paragraph', 'Second paragraph']);
+    } finally {
+      height.mockRestore();
+    }
+  });
+
+  it('keeps an intact paragraph when it fits without the split-only line allowance', () => {
+    const paragraph = 'A complete paragraph with `inline code` that fits within the remaining page height.';
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.querySelectorAll('h2').length * 600 + this.querySelectorAll('p').length * 268;
+    });
+    try {
+      expect(paginateContentByDom(`## Previous section\n\n${paragraph}`, { style: theme.style }))
+        .toEqual([`## Previous section\n\n${paragraph}`]);
     } finally {
       height.mockRestore();
     }
@@ -590,6 +603,8 @@ describe('Rendered Markdown post-processing', () => {
     expect(css).toContain(rowRule);
     expect(css).toContain(headerRule);
     expect(css).toContain(cellRule);
+    expect(css).toMatch(/\.body th \{[^}]*padding: 8px;/);
+    expect(css).toMatch(/\.body td \{[^}]*padding: 8px;/);
     if (tableStyle === 'minimal') {
       expect(css).toContain(`border-top: 1px solid ${theme.style.primaryColor}; border-bottom: 1px solid ${theme.style.primaryColor}`);
       expect(css).toContain('text-align: center');

@@ -201,8 +201,8 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
     ${selector} ol li { margin-bottom: 0.3em; }
     ${style.numberStyle === 'paren' ? `${selector} ol { counter-reset: item; } ${selector} ol li { counter-increment: item; } ${selector} ol li::before { content: '(' counter(item) ') '; color: var(--accent-color); font-weight: 700; }` : ''}
     ${selector} table { width: 100%; border-collapse: collapse; ${tableBorder} margin: 1.2em 0; font-size: 0.9em; table-layout: auto; word-break: break-word; overflow-wrap: break-word; }
-    ${selector} th { background: ${tableHeaderBackground}; color: ${tableHeaderColor}; ${tableHeaderBorder} padding: 8px 12px; text-align: ${tableTextAlign}; font-weight: ${tableHeaderWeight}; }
-    ${selector} td { ${tableCellBorder} padding: 8px 12px; text-align: ${tableTextAlign}; }
+    ${selector} th { background: ${tableHeaderBackground}; color: ${tableHeaderColor}; ${tableHeaderBorder} padding: 8px; text-align: ${tableTextAlign}; font-weight: ${tableHeaderWeight}; }
+    ${selector} td { ${tableCellBorder} padding: 8px; text-align: ${tableTextAlign}; }
     ${selector} tr:nth-child(even) { background: ${style.tableStyle === 'striped' ? '#f8fafc' : 'transparent'}; }
     ${selector} .doc-table-caption { margin-top: 4px; margin-bottom: 6px; font-size: 0.88em; color: #475569; font-weight: 600; line-height: 1.4; }
     ${selector} hr { border: none; border-top: 1px solid #cbd5e1; margin: 1.8em 0; }
@@ -510,11 +510,11 @@ export function paginateContentByDom(
   document.body.appendChild(measurer);
 
   // Match the rendered sheet's outer header/footer boxes, including their 16px margins.
-  // Reserve one text line because closing inline Markdown after a paragraph split can reflow
-  // the final HTML, plus a small allowance for browser font rounding.
+  // Splitting a paragraph can reflow its last line; keep that allowance for other blocks too.
   const headerHeight = options.headerShow ? 42 : 0;
   const footerHeight = options.footerShow ? 42 : 0;
-  const renderingTolerance = Math.ceil((options.fontSize || 14) * (options.lineHeight || 1.6)) + 8;
+  const paragraphSplitTolerance = Math.ceil((options.fontSize || 14) * (options.lineHeight || 1.6));
+  const renderingTolerance = paragraphSplitTolerance + 8;
   const maxHeight = 1122.5 - 151.2 - headerHeight - footerHeight - renderingTolerance;
 
   try {
@@ -598,7 +598,9 @@ export function paginateContentByDom(
           measurer.append(...tokenNodes);
         }
 
-        if (measurer.scrollHeight <= maxHeight) {
+        const hasInlineCode = token.type === 'paragraph'
+          && token.tokens?.some((inlineToken: { type: string }) => inlineToken.type === 'codespan');
+        if (measurer.scrollHeight <= maxHeight + (hasInlineCode && !isImageParagraph ? paragraphSplitTolerance : 0)) {
           currentPageTokens.push(token.raw);
           return;
         }
