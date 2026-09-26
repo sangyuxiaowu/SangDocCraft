@@ -74,11 +74,11 @@ describe('getPreviewPageLocation', () => {
 });
 
 describe('getOverflowPageNumbers', () => {
-  it('returns only the page numbers whose rendered height exceeds A4', () => {
+  it('returns pages with oversized sheets or clipped content', () => {
     const sheets = [
-      { offsetHeight: 1124, dataset: { pageNum: '1' } },
-      { offsetHeight: 1125, dataset: { pageNum: '2' } },
-      { offsetHeight: 1280, dataset: { pageNum: '4' } },
+      { offsetHeight: 1124, clientHeight: 1124, scrollHeight: 1124, dataset: { pageNum: '1' } },
+      { offsetHeight: 1124, clientHeight: 1124, scrollHeight: 1240, dataset: { pageNum: '2' } },
+      { offsetHeight: 1280, clientHeight: 1280, scrollHeight: 1280, dataset: { pageNum: '4' } },
     ] as unknown as HTMLElement[];
 
     expect(getOverflowPageNumbers(sheets)).toEqual([2, 4]);

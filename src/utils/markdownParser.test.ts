@@ -14,6 +14,7 @@ import {
   paginateTocItemsByDom,
   parseTableOfContents,
   postProcessRenderedHtml,
+  rememberImageDimensions,
   splitContentByPages,
 } from './markdownParser';
 
@@ -154,6 +155,25 @@ describe('Markdown pagination and numbering', () => {
     } finally {
       complete.mockRestore();
       naturalWidth.mockRestore();
+      height.mockRestore();
+    }
+  });
+
+  it('keeps a previously loaded image on the preceding page when it fits', () => {
+    const source = 'https://example.test/cached-image.png';
+    rememberImageDimensions(source, 858, 708);
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      const image = this.querySelector<HTMLImageElement>('img');
+      if (image) {
+        expect(image.width).toBe(858);
+        expect(image.height).toBe(708);
+      }
+      return this.querySelectorAll('p').length * 100 + (image ? 380 : 0);
+    });
+    try {
+      const pages = paginateContentByDom(`Intro\n\n![Example](${source}){w=455}`, { style: theme.style });
+      expect(pages).toHaveLength(1);
+    } finally {
       height.mockRestore();
     }
   });

@@ -1,7 +1,7 @@
 import { marked } from 'marked';
 import { DocumentTheme, FooterConfig, DocumentMeta } from '../types';
 import { getFooterSlots, getHeadingText, getTocTitleStyleObject, styleObjectToCss } from './documentStructure';
-import { extractTocHeadings, assignTocPageNumbers, paginateTocItemsByDom, buildTocItemHtml, buildTocTitleHtml, buildTocPageIndicator, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss } from './markdownParser';
+import { extractTocHeadings, assignTocPageNumbers, paginateTocItemsByDom, buildTocItemHtml, buildTocTitleHtml, buildTocPageIndicator, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss, hasImageDimensions, rememberImageDimensions } from './markdownParser';
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidInHtml } from './mermaidRenderer';
@@ -892,11 +892,28 @@ async function measureMermaidHeights(html: string, sources: string[]): Promise<R
   }
 }
 
+async function preloadImageDimensions(html: string): Promise<boolean> {
+  const parsed = new DOMParser().parseFromString(html, 'text/html');
+  const sources = [...new Set(Array.from(parsed.querySelectorAll<HTMLImageElement>('.doc-image'))
+    .map((image) => image.getAttribute('src') || '')
+    .filter((source) => source && !hasImageDimensions(source)))];
+  const loaded = await Promise.all(sources.map((source) => new Promise<boolean>((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(rememberImageDimensions(source, image.naturalWidth, image.naturalHeight));
+    image.onerror = () => resolve(false);
+    image.src = source;
+  })));
+  return loaded.some(Boolean);
+}
+
 export async function generatePreparedHtml(markdownText: string, meta: DocumentMeta, theme: DocumentTheme): Promise<string> {
   // 公式需要先渲染为 SVG，否则导出的 HTML 只会得到 LaTeX 源码回退文本
   await ensureMathLoaded().catch((error) => console.warn('公式模块加载失败:', error));
 
-  const initialHtml = generateStandaloneHtml(markdownText, meta, theme);
+  let initialHtml = generateStandaloneHtml(markdownText, meta, theme);
+  if (await preloadImageDimensions(initialHtml)) {
+    initialHtml = generateStandaloneHtml(markdownText, meta, theme);
+  }
   const parsed = new DOMParser().parseFromString(initialHtml, 'text/html');
   const mermaidSources = Array.from(parsed.querySelectorAll<HTMLElement>('.mermaid'))
     .map((element) => element.textContent?.trim() || '');

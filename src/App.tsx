@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { HeaderBar } from './components/HeaderBar';
 import { Editor, type EditorHandle } from './components/Editor';
@@ -600,9 +600,12 @@ export default function App() {
     : themeMode;
   const uiMode = effectiveUiMode;
   const isDark = effectiveUiMode === 'dark';
-  const previewTheme = structuredClone(hasActiveDocument ? theme : builtinThemes[0]);
-  if (previewTheme.cover.logoUrl) previewTheme.cover.logoUrl = resolveImageSrc(previewTheme.cover.logoUrl);
-  if (previewTheme.header.logoUrl) previewTheme.header.logoUrl = resolveImageSrc(previewTheme.header.logoUrl);
+  const previewTheme = useMemo(() => {
+    const nextTheme = structuredClone(hasActiveDocument ? theme : builtinThemes[0]);
+    if (nextTheme.cover.logoUrl) nextTheme.cover.logoUrl = resolveImageSrc(nextTheme.cover.logoUrl);
+    if (nextTheme.header.logoUrl) nextTheme.header.logoUrl = resolveImageSrc(nextTheme.header.logoUrl);
+    return nextTheme;
+  }, [hasActiveDocument, theme]);
 
   const aiToolContext: AiToolContext = {
     markdown,

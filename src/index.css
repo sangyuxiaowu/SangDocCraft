@@ -302,8 +302,6 @@ mjx-container[jax="SVG"][display="true"] > svg {
   white-space: pre-wrap;
   word-break: break-all;
   overflow-wrap: break-word;
-  max-height: 180mm;
-  overflow-y: auto;
   page-break-inside: auto;
   break-inside: auto;
 }

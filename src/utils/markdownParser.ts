@@ -69,6 +69,20 @@ export interface DomPaginationOptions {
   mermaidHeights?: Record<string, number>;
 }
 
+const imageDimensions = new Map<string, { width: number; height: number }>();
+
+export function hasImageDimensions(source: string): boolean {
+  return imageDimensions.has(source);
+}
+
+export function rememberImageDimensions(source: string, width: number, height: number): boolean {
+  if (!source || width <= 0 || height <= 0) return false;
+  const previous = imageDimensions.get(source);
+  if (previous?.width === width && previous.height === height) return false;
+  imageDimensions.set(source, { width, height });
+  return true;
+}
+
 export function getDocumentFontStack(style: Pick<StyleConfig, 'fontFamily' | 'latinFontFamily'>): string {
   const chineseFontStack = style.fontFamily === 'serif' ? 'SimSun, "Songti SC", STSong, serif' :
     style.fontFamily === 'kaiti' ? 'KaiTi, "Kaiti SC", STKaiti, serif' :
@@ -572,7 +586,13 @@ export function paginateContentByDom(
           ? tokenNodes.find((node) => node instanceof Element && node.querySelector('img')) as Element | undefined
           : undefined;
         const imageElement = image?.querySelector<HTMLImageElement>('img');
-        if (isImageParagraph && currentPageTokens.length > 0 && (!imageElement?.complete || !imageElement.naturalWidth)) {
+        const imageSource = imageElement?.getAttribute('src') || '';
+        const dimensions = imageDimensions.get(imageSource);
+        if (imageElement && dimensions) {
+          imageElement.width = dimensions.width;
+          imageElement.height = dimensions.height;
+        }
+        if (isImageParagraph && currentPageTokens.length > 0 && !dimensions && (!imageElement?.complete || !imageElement.naturalWidth)) {
           tokenNodes.forEach((node) => node.remove());
           flushPage();
           measurer.append(...tokenNodes);

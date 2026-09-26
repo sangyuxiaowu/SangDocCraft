@@ -27,7 +27,7 @@ import {
   getTocTextStyleObject,
   getTocTitleStyleObject,
 } from '../utils/documentStructure';
-import { parseTableOfContents, extractTocHeadings, assignTocPageNumbers, paginateTocItemsByDom, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss } from '../utils/markdownParser';
+import { parseTableOfContents, extractTocHeadings, assignTocPageNumbers, paginateTocItemsByDom, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss, rememberImageDimensions } from '../utils/markdownParser';
 import { resolveImageSrc, resolvePreviewImageSrc } from '../utils/tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidElements } from '../utils/mermaidRenderer';
@@ -78,7 +78,7 @@ export function getFigureViewportRect(element: HTMLElement, zoom: number): DOMRe
 
 export function getOverflowPageNumbers(sheets: Iterable<HTMLElement>): number[] {
   return Array.from(sheets)
-    .filter(sheet => sheet.offsetHeight > A4_PAGE_HEIGHT_PX)
+    .filter(sheet => sheet.offsetHeight > A4_PAGE_HEIGHT_PX || sheet.scrollHeight > sheet.clientHeight + 1)
     .map(sheet => Number(sheet.dataset.pageNum))
     .filter(Number.isInteger);
 }
@@ -563,14 +563,23 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
   useEffect(() => {
     const images = Array.from(containerRef.current?.querySelectorAll<HTMLImageElement>('.markdown-rendered-body img') ?? []);
     if (images.length === 0) return;
-    const onLoad = () => setImageEpoch((epoch) => epoch + 1);
+    const onLoad = (image: HTMLImageElement) => {
+      if (rememberImageDimensions(image.getAttribute('src') || '', image.naturalWidth, image.naturalHeight)) {
+        setImageEpoch((epoch) => epoch + 1);
+      }
+    };
     const pending = images.filter((image) => !image.complete);
-    pending.forEach((image) => image.addEventListener('load', onLoad));
-    const frame = images.some((image) => image.complete && image.naturalWidth > 0)
-      ? requestAnimationFrame(onLoad)
+    const listeners = pending.map((image) => {
+      const listener = () => onLoad(image);
+      image.addEventListener('load', listener);
+      return { image, listener };
+    });
+    const loaded = images.filter((image) => image.complete && image.naturalWidth > 0);
+    const frame = loaded.length > 0
+      ? requestAnimationFrame(() => loaded.forEach(onLoad))
       : 0;
     return () => {
-      pending.forEach((image) => image.removeEventListener('load', onLoad));
+      listeners.forEach(({ image, listener }) => image.removeEventListener('load', listener));
       cancelAnimationFrame(frame);
     };
   }, [markdown, theme]);
@@ -969,7 +978,6 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
               }`}
               style={{
                 padding: '20mm 15mm',
-                ...(page.type === 'content' ? { height: 'auto', minHeight: '297mm', maxHeight: 'none', overflow: 'visible' } : {}),
                 fontFamily: fontStack,
                 fontSize: `${style.fontSize}px`,
                 lineHeight: style.lineHeight,
