@@ -73,6 +73,13 @@ describe('resolveDocumentTemplate', () => {
     expect(resolved.meta.title).toBe(meetingMinutes.metaConfig?.title);
   });
 
+  it('调研报告模板的封面属性为单栏，其他封面配置沿用推荐主题', () => {
+    const template = DOCUMENT_TEMPLATES.find((item) => item.id === 'research-report')!;
+    const theme = PRESET_THEMES.find((item) => item.id === template.recommendedThemeId)!;
+    const resolved = resolveDocumentTemplate(template, theme);
+    expect(resolved.theme.cover).toEqual({ ...theme.cover, coverListColumns: 1 });
+  });
+
   it('未声明差异项的模板保持推荐主题的封面与目录配置', () => {
     const blank = DOCUMENT_TEMPLATES.find((template) => template.id === 'blank')!;
     const theme = PRESET_THEMES.find((item) => item.id === blank.recommendedThemeId)!;

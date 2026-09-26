@@ -41,7 +41,7 @@ describe('themeRegistry', () => {
   it('registers every preset theme and its cover template', async () => {
     const registry = await loadRegistry();
     expect(registry.getRegisteredThemes().map((theme) => theme.id)).toEqual(PRESET_THEMES.map((theme) => theme.id));
-    expect(registry.getRegisteredThemes().map((theme) => theme.cover.coverStyle)).toEqual(expect.arrayContaining(['signature', 'briefing']));
+    expect(registry.getRegisteredThemes().map((theme) => theme.cover.coverStyle)).toEqual(expect.arrayContaining(['signature', 'briefing', 'research']));
     expect(new Set(PRESET_THEMES.map((theme) => theme.id)).size).toBe(PRESET_THEMES.length);
     for (const theme of PRESET_THEMES) {
       expect(registry.hasCoverTemplate(theme.cover.coverStyle)).toBe(true);
@@ -62,7 +62,7 @@ describe('themeRegistry', () => {
 
   it.each(['enterprise', 'academic', 'signature', 'briefing'])('supports metadata layout defaults and overrides in %s', async (id) => {
     const registry = await loadRegistry();
-    expect(registry.getCoverTemplates()).toHaveLength(8);
+    expect(registry.getCoverTemplates()).toHaveLength(9);
     const plugin = registry.getCoverTemplate(id);
     const defaultColumns = ['signature', 'briefing'].includes(id) ? 2 : 1;
     expect(plugin.defaultCoverListColumns).toBe(defaultColumns);
@@ -95,6 +95,38 @@ describe('themeRegistry', () => {
       expect(html).toContain('Main title');
       expect(html).not.toMatch(/<img|文档编号|Subtitle|Company name|2026-09-14/);
     }
+  });
+
+  it('renders a vertical title without a subtitle in the research cover while keeping signature fields', async () => {
+    const registry = await loadRegistry();
+    const theme = PRESET_THEMES.find((preset) => preset.id === 'research-report');
+    expect(theme?.cover.coverStyle).toBe('research');
+    const plugin = registry.getCoverTemplate('research');
+    const context = {
+      meta: { ...DEFAULT_DOCUMENT_META, title: '实验报告', subtitle: 'Hidden subtitle', number: 'R-01', organization: '研究中心', date: '2026-09-26' },
+      cover: { ...theme!.cover, logoUrl: 'brand.png' },
+      style: theme!.style,
+      coverListItems: [{ label: '研究人员', value: 'Alice' }],
+    };
+    for (const html of [renderToStaticMarkup(plugin.renderPreview(context)), plugin.renderHtml(context)]) {
+      expect(html).toContain('writing-mode:vertical-rl');
+      expect(html).toContain('font-size:42px');
+      expect(html).toContain('letter-spacing:5px');
+      expect(html).toContain('实验报告');
+      expect(html).not.toContain('Hidden subtitle');
+      expect(['<img', 'R-01', '实验报告', 'Alice', '研究中心', '2026-09-26'].map((text) => html.indexOf(text))).toEqual(
+        [...['<img', 'R-01', '实验报告', 'Alice', '研究中心', '2026-09-26'].map((text) => html.indexOf(text))].sort((left, right) => left - right),
+      );
+    }
+    const children = await plugin.renderDocx({ ...context, primaryHex: '1E3A5F', accentHex: '2563EB', textHex: '243447', fontName: 'Arial', docxFont: { ascii: 'Arial', hAnsi: 'Arial', eastAsia: 'SimSun' }, createImageRun: vi.fn().mockResolvedValue(null) });
+    const document = new Document({ sections: [{ children }] });
+    const xml = JSON.stringify(document.Document.View.prepForXml({ file: document, viewWrapper: document.Document, stack: [] }));
+    expect(xml).toContain('"w:val":"tbRl"');
+    expect(xml).toContain('"w:sz":{"_attr":{"w:val":63}}');
+    expect(xml).toContain('"w:spacing":{"_attr":{"w:val":75}}');
+    expect(xml).toContain('实验报告');
+    expect(xml).not.toContain('Hidden subtitle');
+    expect((await Packer.toBuffer(document)).length).toBeGreaterThan(0);
   });
 
   it.each([20, 80, 120])('applies a %i px logo height to every cover preview and export', async (logoHeight) => {

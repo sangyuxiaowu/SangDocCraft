@@ -8,6 +8,7 @@ import enterpriseDeliveryMarkdown from './templates/enterprise-delivery.md?raw';
 import minimalWhitepaperMarkdown from './templates/minimal-whitepaper.md?raw';
 import architectureSpecMarkdown from './templates/architecture-spec.md?raw';
 import approvalDeliveryMarkdown from './templates/approval-delivery.md?raw';
+import researchReportMarkdown from './templates/research-report.md?raw';
 import uiDesignTokenMarkdown from './templates/ui-design-token.md?raw';
 import businessProposalMarkdown from './templates/business-proposal.md?raw';
 import academicThesisMarkdown from './templates/academic-thesis.md?raw';
@@ -214,6 +215,27 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
       department: '企业数字化中心',
       organization: '某某科技有限公司',
       number: 'SDC-2026-001',
+      version: 'V1.0',
+    },
+  },
+  {
+    id: 'research-report',
+    title: '调研与实验报告',
+    subtitle: 'Research and Experimental Report',
+    description: '适用于研究背景、实验方法、结果分析与结论建议的正式报告。',
+    category: 'academic',
+    badge: '研究报告',
+    iconName: 'clipboard-list',
+    recommendedThemeId: 'research-report',
+    markdown: researchReportMarkdown,
+    coverConfig: { coverListColumns: 1 },
+    metaConfig: {
+      title: '某某实验分析报告',
+      subtitle: '',
+      author: '研究小组',
+      department: '研发中心',
+      organization: '某某研究院',
+      number: 'RPT-2026-001',
       version: 'V1.0',
     },
   },

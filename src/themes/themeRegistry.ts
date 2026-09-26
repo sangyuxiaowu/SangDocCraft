@@ -9,13 +9,14 @@ import { minimalCoverPlugin } from './covers/minimal';
 import { creativeCoverPlugin } from './covers/creative';
 import { signatureCoverPlugin } from './covers/signature';
 import { briefingCoverPlugin } from './covers/briefing';
+import { researchCoverPlugin } from './covers/research';
 
 export type { CoverDocxRenderContext, CoverRenderContext, CoverTemplatePlugin, ThemePlugin } from './contracts';
 
 const coverTemplates = new Map<CoverStyle, CoverTemplatePlugin>([
   ...[enterpriseCoverPlugin, modernCoverPlugin, specCoverPlugin, minimalCoverPlugin, creativeCoverPlugin].map((plugin) => [plugin.id, plugin] as const),
   ['academic', academicCoverPlugin],
-  ...[signatureCoverPlugin, briefingCoverPlugin].map((plugin) => [plugin.id, plugin] as const),
+  ...[signatureCoverPlugin, briefingCoverPlugin, researchCoverPlugin].map((plugin) => [plugin.id, plugin] as const),
 ]);
 
 const themePlugins = new Map<string, ThemePlugin>(
