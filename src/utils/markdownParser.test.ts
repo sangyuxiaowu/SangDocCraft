@@ -490,6 +490,31 @@ describe('Markdown pagination and numbering', () => {
 });
 
 describe('Rendered Markdown post-processing', () => {
+  it('colors fenced SQL without changing its text or Mermaid diagrams', () => {
+    const markdown = '```sql\nSELECT name FROM users WHERE id = 1; -- <safe>\n```\n\n```mermaid\nflowchart LR\nA --> B\n```';
+    const html = postProcessRenderedHtml(marked.parse(markdown) as string, theme.style);
+    const container = document.createElement('div');
+    container.innerHTML = html;
+
+    const code = container.querySelector('pre code.language-sql');
+    expect(code?.querySelector('.hljs-keyword')).not.toBeNull();
+    expect(code?.textContent).toBe('SELECT name FROM users WHERE id = 1; -- <safe>');
+    expect(container.querySelector('.mermaid')?.textContent).toContain('flowchart LR');
+    expect(container.querySelector('.mermaid .hljs-keyword')).toBeNull();
+  });
+
+  it('leaves unknown and unfenced languages as escaped plain code', () => {
+    const markdown = '```not-a-language\n<tag> & text\n```\n\n```\nSELECT 1;\n```';
+    const html = postProcessRenderedHtml(marked.parse(markdown) as string, theme.style);
+    const container = document.createElement('div');
+    container.innerHTML = html;
+
+    expect(Array.from(container.querySelectorAll('pre code')).map(code => code.textContent?.trimEnd()))
+      .toEqual(['<tag> & text', 'SELECT 1;']);
+    expect(container.querySelector('.hljs-keyword')).toBeNull();
+    expect(html).not.toContain('<tag>');
+  });
+
   it('converts Mermaid fences and applies the page-safe height limit', () => {
     const html = postProcessRenderedHtml('<pre><code class="language-mermaid">flowchart TD\nA--&gt;B</code></pre>');
     const css = getMarkdownBodyCss('.body', theme.style);

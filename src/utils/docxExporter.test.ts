@@ -24,6 +24,104 @@ vi.mock('./tauriHelper', async (importOriginal) => ({
 
 afterEach(() => vi.restoreAllMocks());
 
+it.each(['light', 'dark'] as const)('exports editable %s highlighted SQL with blank lines', async (codeTheme) => {
+  let exportedBlob: Blob | undefined;
+  vi.stubGlobal('URL', {
+    createObjectURL: (blob: Blob) => { exportedBlob = blob; return 'blob:document'; },
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const base = PRESET_THEMES[0];
+  try {
+    await exportToDocx('```sql\n  SELECT name FROM users;\n\nWHERE id = 1;\n```', DEFAULT_DOCUMENT_META, {
+      ...base,
+      style: { ...base.style, codeTheme },
+      cover: { ...base.cover, showCover: false },
+      toc: { ...base.toc, show: false },
+    });
+    const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
+    const xml = new DOMParser().parseFromString(strFromU8(files['word/document.xml']), 'application/xml');
+    const paragraphs = Array.from(xml.getElementsByTagName('w:p'))
+      .filter(paragraph => paragraph.getElementsByTagName('w:shd').length > 0);
+    expect(paragraphs.map(paragraph => Array.from(paragraph.getElementsByTagName('w:t'))
+      .map(text => text.textContent).join(''))).toEqual(['  SELECT name FROM users;', '', 'WHERE id = 1;']);
+    expect(paragraphs[0].getElementsByTagName('w:t')[0]?.getAttribute('xml:space')).toBe('preserve');
+    expect(paragraphs[0].getElementsByTagName('w:r').length).toBeGreaterThan(1);
+    const keywordRun = Array.from(paragraphs[0].getElementsByTagName('w:r'))
+      .find(run => run.getElementsByTagName('w:t')[0]?.textContent === 'SELECT');
+    expect(keywordRun?.getElementsByTagName('w:color')[0]?.getAttribute('w:val'))
+      .toBe(codeTheme === 'light' ? 'A21CAF' : 'F0ABFC');
+    expect(paragraphs[0].getElementsByTagName('w:shd')[0]?.getAttribute('w:fill'))
+      .toBe(codeTheme === 'light' ? 'F1F5F9' : '0F172A');
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it('preserves unknown-language code literally without embedding HTML markup', async () => {
+  let exportedBlob: Blob | undefined;
+  vi.stubGlobal('URL', {
+    createObjectURL: (blob: Blob) => { exportedBlob = blob; return 'blob:document'; },
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const base = PRESET_THEMES[0];
+  try {
+    await exportToDocx('```not-a-language\n  <tag> & text\n```', DEFAULT_DOCUMENT_META, {
+      ...base,
+      cover: { ...base.cover, showCover: false },
+      toc: { ...base.toc, show: false },
+    });
+    const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
+    const xml = new DOMParser().parseFromString(strFromU8(files['word/document.xml']), 'application/xml');
+    const code = Array.from(xml.getElementsByTagName('w:p'))
+      .find(paragraph => paragraph.getElementsByTagName('w:shd').length > 0);
+    expect(code?.getElementsByTagName('w:t')[0]?.textContent).toBe('  <tag> & text');
+    expect(code?.getElementsByTagName('w:r').length).toBe(1);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it('separates code blocks from each other and surrounding text without spacing their lines', async () => {
+  let exportedBlob: Blob | undefined;
+  vi.stubGlobal('URL', {
+    createObjectURL: (blob: Blob) => { exportedBlob = blob; return 'blob:document'; },
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const base = PRESET_THEMES[0];
+  try {
+    await exportToDocx('Before\n\n```json\n{\n  "ok": true\n}\n```\n\n```ts\nconst done = true;\n```\n\nAfter', DEFAULT_DOCUMENT_META, {
+      ...base,
+      cover: { ...base.cover, showCover: false },
+      toc: { ...base.toc, show: false },
+    });
+    const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
+    const xml = new DOMParser().parseFromString(strFromU8(files['word/document.xml']), 'application/xml');
+    const codeParagraphs = Array.from(xml.getElementsByTagName('w:p'))
+      .filter(paragraph => paragraph.getElementsByTagName('w:shd').length > 0);
+    const spacing = codeParagraphs.map(paragraph => {
+      const element = paragraph.getElementsByTagName('w:spacing')[0];
+      return [element?.getAttribute('w:before'), element?.getAttribute('w:after')];
+    });
+    expect(spacing).toEqual([['0', '0'], ['0', '0'], ['0', '0'], ['0', '0']]);
+    const paragraphs = Array.from(xml.getElementsByTagName('w:p'));
+    const codeIndexes = codeParagraphs.map(paragraph => paragraphs.indexOf(paragraph));
+    const isSpacer = (paragraph: Element | undefined) => paragraph?.getElementsByTagName('w:shd').length === 0
+      && paragraph.getElementsByTagName('w:spacing')[0]?.getAttribute('w:before') === '160'
+      && paragraph.getElementsByTagName('w:t')[0]?.textContent === ' ';
+    expect(isSpacer(paragraphs[codeIndexes[0] - 1])).toBe(true);
+    expect(codeIndexes[1] - codeIndexes[0]).toBe(1);
+    expect(codeIndexes[2] - codeIndexes[1]).toBe(1);
+    expect(codeIndexes[3] - codeIndexes[2]).toBe(2);
+    expect(isSpacer(paragraphs[codeIndexes[2] + 1])).toBe(true);
+    expect(isSpacer(paragraphs[codeIndexes[3] + 1])).toBe(true);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 it('exports exact metadata references and Word chapter fields', async () => {
   let exportedBlob: Blob | undefined;
   vi.stubGlobal('URL', {

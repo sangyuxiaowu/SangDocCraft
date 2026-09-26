@@ -1,4 +1,5 @@
 import { marked } from 'marked';
+import hljs from 'highlight.js/lib/common';
 import { TocItem, CoverConfig, StyleConfig, ImageStyleConfig, TableCaptionConfig, TocConfig } from '../types';
 import {
   getHeadingText,
@@ -37,6 +38,11 @@ export function registerMermaidExtensions(): void {
             ? ` data-mermaid-options="${escapeHtmlAttr(JSON.stringify(options))}"`
             : '';
           return `<pre><code class="language-mermaid"${optionsAttr}>${token.text}</code></pre>`;
+        }
+        const language = token.lang?.trim().split(/\s+/)[0].toLowerCase();
+        if (language && hljs.getLanguage(language)) {
+          const highlighted = hljs.highlight(token.text, { language, ignoreIllegals: true }).value;
+          return `<pre><code class="language-${escapeHtmlAttr(language)}">${highlighted}</code></pre>`;
         }
         return false;
       },
@@ -176,9 +182,14 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
     ${selector} > p { margin-top: ${style.paragraphMarginBefore ?? 0}px; margin-bottom: ${style.paragraphMarginAfter ?? 6}px; line-height: inherit; text-indent: ${style.indentParagraph ? '2em' : '0'}; }
     ${selector} p.p-continuation, ${selector} .p-continuation p, ${selector} blockquote p, ${selector} li p, ${selector} table p { text-indent: 0 !important; }
     ${selector} blockquote { border-left: 4px solid var(--accent-color); background: #f8fafc; padding: 10px 16px; margin: 1.2em 0; border-radius: 0 6px 6px 0; color: #475569; font-style: italic; }
-    ${selector} pre { background: ${style.codeTheme === 'light' ? '#f1f5f9' : '#0f172a'}; color: ${style.codeTheme === 'light' ? '#0f172a' : '#f8fafc'}; padding: 12px 16px; border-radius: 6px; overflow-x: auto; font-family: Consolas, monospace; font-size: 0.85em; margin: 1em 0; white-space: pre-wrap; word-break: break-all; overflow-wrap: break-word; }
+    ${selector} pre { background: ${style.codeTheme === 'light' ? '#f1f5f9' : '#0f172a'}; color: ${style.codeTheme === 'light' ? '#0f172a' : '#f8fafc'}; --code-keyword: ${style.codeTheme === 'light' ? '#a21caf' : '#f0abfc'}; --code-string: ${style.codeTheme === 'light' ? '#166534' : '#86efac'}; --code-number: ${style.codeTheme === 'light' ? '#9a3412' : '#fdba74'}; --code-comment: ${style.codeTheme === 'light' ? '#64748b' : '#94a3b8'}; --code-title: ${style.codeTheme === 'light' ? '#1d4ed8' : '#93c5fd'}; padding: 12px 16px; border-radius: 6px; overflow-x: auto; font-family: Consolas, monospace; font-size: 0.85em; margin: 1em 0; white-space: pre-wrap; word-break: break-all; overflow-wrap: break-word; }
     ${selector} code { background: #f1f5f9; color: #0f172a; padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 0.88em; }
     ${selector} pre code { background: transparent; color: inherit; padding: 0; }
+    ${selector} pre .hljs-keyword, ${selector} pre .hljs-selector-tag, ${selector} pre .hljs-built_in, ${selector} pre .hljs-type { color: var(--code-keyword); }
+    ${selector} pre .hljs-string, ${selector} pre .hljs-attr, ${selector} pre .hljs-attribute, ${selector} pre .hljs-addition { color: var(--code-string); }
+    ${selector} pre .hljs-number, ${selector} pre .hljs-literal, ${selector} pre .hljs-symbol, ${selector} pre .hljs-deletion { color: var(--code-number); }
+    ${selector} pre .hljs-comment, ${selector} pre .hljs-quote, ${selector} pre .hljs-meta { color: var(--code-comment); }
+    ${selector} pre .hljs-title, ${selector} pre .hljs-section, ${selector} pre .hljs-selector-class, ${selector} pre .hljs-selector-id { color: var(--code-title); }
     ${selector} .mermaid { display: flex; align-items: center; justify-content: center; min-height: 180px; max-height: 720px; margin: 1.2em 0; overflow: hidden; text-indent: 0; }
     ${selector} .doc-mermaid-figure { margin: 1.2em 0; break-inside: avoid; }
     ${selector} .doc-mermaid-figure .mermaid { margin: 0; }

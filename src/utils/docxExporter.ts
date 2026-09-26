@@ -20,6 +20,7 @@ import {
   ImageRun,
 } from 'docx';
 import { marked } from 'marked';
+import hljs from 'highlight.js/lib/common';
 import { DocumentMeta, DocumentTheme } from '../types';
 import { getHeadingText, getTocLevelStyles, getTocTitleFont } from './documentStructure';
 import { fetchImageBinary } from './tauriHelper';
@@ -508,27 +509,65 @@ export async function exportToDocx(markdownText: string, meta: DocumentMeta, the
           }
         }
 
-        const lines = token.text.split('\n');
-        lines.forEach((line: string) => {
+        const isLightCode = style.codeTheme === 'light';
+        const codeBackground = isLightCode ? 'F1F5F9' : '0F172A';
+        const codeTextColor = isLightCode ? '0F172A' : 'F8FAFC';
+        const keywordColor = isLightCode ? 'A21CAF' : 'F0ABFC';
+        const stringColor = isLightCode ? '166534' : '86EFAC';
+        const numberColor = isLightCode ? '9A3412' : 'FDBA74';
+        const commentColor = isLightCode ? '64748B' : '94A3B8';
+        const titleColor = isLightCode ? '1D4ED8' : '93C5FD';
+        const highlightColors: Record<string, string> = {
+          'hljs-keyword': keywordColor, 'hljs-selector-tag': keywordColor, 'hljs-built_in': keywordColor, 'hljs-type': keywordColor,
+          'hljs-string': stringColor, 'hljs-attr': stringColor, 'hljs-attribute': stringColor, 'hljs-addition': stringColor,
+          'hljs-number': numberColor, 'hljs-literal': numberColor, 'hljs-symbol': numberColor, 'hljs-deletion': numberColor,
+          'hljs-comment': commentColor, 'hljs-quote': commentColor, 'hljs-meta': commentColor,
+          'hljs-title': titleColor, 'hljs-section': titleColor, 'hljs-selector-class': titleColor, 'hljs-selector-id': titleColor,
+        };
+        const lineRuns: TextRun[][] = [[]];
+        const appendCodeNode = (node: Node, color: string): void => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            (node.textContent || '').split('\n').forEach((part, index) => {
+              if (index > 0) lineRuns.push([]);
+              if (part) lineRuns[lineRuns.length - 1].push(new TextRun({ text: part, size: 20, font: 'Consolas', color }));
+            });
+          } else if (node instanceof Element) {
+            const tokenColor = Array.from(node.classList).map(name => highlightColors[name]).find(Boolean) || color;
+            node.childNodes.forEach(child => appendCodeNode(child, tokenColor));
+          }
+        };
+
+        const language = token.lang?.trim().split(/\s+/)[0].toLowerCase();
+        if (language && hljs.getLanguage(language)) {
+          const markup = document.createElement('template');
+          markup.innerHTML = hljs.highlight(token.text, { language, ignoreIllegals: true }).value;
+          markup.content.childNodes.forEach(node => appendCodeNode(node, codeTextColor));
+        } else {
+          appendCodeNode(document.createTextNode(token.text), codeTextColor);
+        }
+
+        const previousToken = tokens.slice(0, tokenIndex).reverse().find(item => item.type !== 'space');
+        const nextToken = tokens.slice(tokenIndex + 1).find(item => item.type !== 'space');
+        const addCodeGap = () => sectionsChildren.push(new Paragraph({
+          spacing: { before: 160, after: 0 },
+          children: [new TextRun({ text: ' ', size: 2 })],
+        }));
+        if (previousToken && previousToken.type !== 'pagebreak' && previousToken.type !== 'code') addCodeGap();
+
+        lineRuns.forEach((runs) => {
           sectionsChildren.push(
             new Paragraph({
-              spacing: { before: 40, after: 40 },
+              spacing: { before: 0, after: 0 },
               shading: {
-                fill: 'F1F5F9', // Slate 100
+                fill: codeBackground,
                 type: ShadingType.CLEAR,
               },
               indent: { left: 360, right: 360 },
-              children: [
-                new TextRun({
-                  text: line,
-                  size: 20, // 10pt
-                  font: 'Consolas',
-                  color: '0F172A',
-                }),
-              ],
+              children: runs,
             })
           );
         });
+        if (nextToken && nextToken.type !== 'pagebreak') addCodeGap();
         break;
       }
 

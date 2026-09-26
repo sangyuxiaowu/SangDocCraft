@@ -60,6 +60,21 @@ describe('generateStandaloneHtml', () => {
     expect(html).not.toContain('MathJax.js');
   });
 
+  it.each(['light', 'dark'] as const)('embeds %s syntax colors without runtime assets', (codeTheme) => {
+    const base = PRESET_THEMES[0];
+    const html = generateStandaloneHtml('```sql\nSELECT name FROM users WHERE id = 1;\n```', {
+      ...base,
+      style: { ...base.style, codeTheme },
+      cover: { ...base.cover, showCover: false },
+      toc: { ...base.toc, show: false },
+    });
+
+    expect(html).toContain('<span class="hljs-keyword">SELECT</span>');
+    expect(html).toContain(`--code-keyword: ${codeTheme === 'light' ? '#a21caf' : '#f0abfc'}`);
+    expect(html).toContain('.markdown-content pre .hljs-keyword');
+    expect(html).not.toMatch(/<script\b|<link\b|@import\b/i);
+  });
+
   it.each(['signature', 'briefing'])('keeps body heading borders off the %s cover title', (coverStyle) => {
     const base = PRESET_THEMES[0];
     const html = generateStandaloneHtml('# Body', { ...base, cover: { ...base.cover, coverStyle } });
