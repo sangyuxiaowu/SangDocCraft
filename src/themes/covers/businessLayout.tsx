@@ -1,9 +1,9 @@
 import React from 'react';
 import { AlignmentType, BorderStyle, Paragraph, Table, TextRun } from 'docx';
-import type { CoverDocxRenderContext, CoverRenderContext, CoverTemplatePlugin } from './contracts';
-import { CoverMetadata, coverMetadataDocx, coverMetadataHtml } from './coverMetadata';
+import type { CoverDocxRenderContext, CoverRenderContext } from '../contracts';
+import { CoverMetadata, coverMetadataDocx, coverMetadataHtml } from '../coverMetadata';
 
-function renderThumbnail(briefing = false): React.ReactNode {
+export function renderThumbnail(briefing = false): React.ReactNode {
   return <div className="h-full flex flex-col p-0.5">
     <div className={`w-6 h-2 ${briefing ? 'bg-emerald-700' : 'bg-blue-800'}`} />
     <div className="w-8 h-px bg-slate-400 mt-1" />
@@ -19,7 +19,7 @@ function renderThumbnail(briefing = false): React.ReactNode {
   </div>;
 }
 
-function renderPreview(context: CoverRenderContext, briefing = false): React.ReactNode {
+export function renderPreview(context: CoverRenderContext, briefing = false): React.ReactNode {
   const { meta, cover, style } = context;
   const hasTop = Boolean(cover.logoUrl || meta.number);
   const hasTitle = Boolean(meta.title || meta.subtitle);
@@ -43,7 +43,7 @@ function renderPreview(context: CoverRenderContext, briefing = false): React.Rea
   </div>;
 }
 
-function renderHtml(context: CoverRenderContext, briefing = false): string {
+export function renderHtml(context: CoverRenderContext, briefing = false): string {
   const { meta, cover, style } = context;
   const hasTop = Boolean(cover.logoUrl || meta.number);
   const hasTitle = Boolean(meta.title || meta.subtitle);
@@ -67,7 +67,7 @@ function renderHtml(context: CoverRenderContext, briefing = false): string {
   </div>`;
 }
 
-async function renderDocx(context: CoverDocxRenderContext, briefing = false): Promise<(Paragraph | Table)[]> {
+export async function renderDocx(context: CoverDocxRenderContext, briefing = false): Promise<(Paragraph | Table)[]> {
   const { meta, cover, primaryHex, accentHex, textHex, fontName, createImageRun } = context;
   const alignment = briefing ? AlignmentType.LEFT : AlignmentType.CENTER;
   const children: (Paragraph | Table)[] = [];
@@ -90,7 +90,3 @@ async function renderDocx(context: CoverDocxRenderContext, briefing = false): Pr
   return children;
 }
 
-export const businessCoverPlugins: CoverTemplatePlugin[] = [
-  { id: 'signature', name: '🏢企业签审', description: '左上标志、双栏签审与落款', defaultLogoHeight: 64, defaultCoverListColumns: 2, renderThumbnail: () => renderThumbnail(), renderPreview: (context) => renderPreview(context), renderHtml: (context) => renderHtml(context), renderDocx: (context) => renderDocx(context) },
-  { id: 'briefing', name: '🧑‍💼商务简报', description: '左对齐标题、细线分区与双栏信息', defaultLogoHeight: 64, defaultCoverListColumns: 2, renderThumbnail: () => renderThumbnail(true), renderPreview: (context) => renderPreview(context, true), renderHtml: (context) => renderHtml(context, true), renderDocx: (context) => renderDocx(context, true) },
-];

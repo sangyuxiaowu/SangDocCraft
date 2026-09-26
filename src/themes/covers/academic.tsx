@@ -5,8 +5,8 @@ import {
   Table,
   TextRun,
 } from 'docx';
-import type { CoverTemplatePlugin, CoverDocxRenderContext, CoverRenderContext } from './contracts';
-import { CoverMetadata, coverMetadataDocx, coverMetadataHtml } from './coverMetadata';
+import type { CoverTemplatePlugin, CoverDocxRenderContext, CoverRenderContext } from '../contracts';
+import { CoverMetadata, coverMetadataDocx, coverMetadataHtml } from '../coverMetadata';
 
 function renderThumbnail(): React.ReactNode {
   return (
