@@ -1,8 +1,10 @@
+import 'fake-indexeddb/auto';
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
 import { getRegisteredThemes } from '../themes/themeRegistry';
 import type { DocumentHistoryEntry, DocumentMeta, DocumentSettings, DocumentTheme } from '../types';
 import { buildAiTools, DEFAULT_SYSTEM_PROMPT } from './aiAssistantService';
+import { deleteAsset, putDocumentAsset, putLibraryAsset } from './imageRepository';
 
 const defaultMeta: DocumentMeta = {
   ...DEFAULT_DOCUMENT_META,
@@ -15,12 +17,13 @@ const staticMetaContext = {
 };
 
 describe('AI assistant setting tools', () => {
-  const createTools = (markdown: string, sessions: string[] = []) => {
+  const createTools = (markdown: string, sessions: string[] = [], documentId?: string) => {
     let theme = structuredClone(getRegisteredThemes()[0]);
     let meta = structuredClone(defaultMeta);
     const settings: DocumentSettings = { historyEnabled: true, historyIdleMinutes: 10 };
     return buildAiTools({
       markdown,
+      documentId,
       getMeta: () => meta,
       getTheme: () => theme,
       settings,
@@ -67,6 +70,35 @@ describe('AI assistant setting tools', () => {
       outline: [{ level: 1, text: '标题', line: 1 }],
       meta: expect.any(Object),
     });
+  });
+
+  it('lists current document and library images without exposing binary data', async () => {
+    const documentAsset = { id: 'doc-image', fileName: 'diagram.png', description: '架构图', mediaType: 'image/png', byteLength: 3, sha256: 'doc-hash', scope: 'document' as const, data: new Uint8Array([1, 2, 3]) };
+    const libraryAsset = { ...documentAsset, id: 'library-image', fileName: 'logo.png', scope: 'library' as const };
+    const otherAsset = { ...documentAsset, id: 'other-image' };
+    await putDocumentAsset('ai-test-doc', documentAsset);
+    await putDocumentAsset('ai-other-doc', otherAsset);
+    await putLibraryAsset(libraryAsset);
+    try {
+      const tool = createTools('').find(item => item.definition.function.name === 'get_image_library')!;
+      const scopedTool = createTools('', [], 'ai-test-doc').find(item => item.definition.function.name === 'get_image_library')!;
+      const all = JSON.parse(await scopedTool.handler({}));
+
+      expect(all).toEqual({ total: 2, assets: [
+        { id: 'doc-image', fileName: 'diagram.png', description: '架构图', mediaType: 'image/png', byteLength: 3, scope: 'document', reference: '@images/doc-image' },
+        { id: 'library-image', fileName: 'logo.png', description: '架构图', mediaType: 'image/png', byteLength: 3, scope: 'library', reference: '@library/library-image' },
+      ] });
+      expect(JSON.stringify(all)).not.toContain('data');
+      expect(JSON.parse(await scopedTool.handler({ scope: 'library' })).assets).toHaveLength(1);
+      expect(JSON.parse(await scopedTool.handler({ scope: 'document' })).assets).toHaveLength(1);
+      expect(JSON.parse(await tool.handler({ scope: 'library' })).assets).toHaveLength(1);
+      await expect(scopedTool.handler({ scope: 'invalid' })).rejects.toMatchObject({ kind: 'invalid_arguments' });
+      await expect(tool.handler({ scope: 'document' })).rejects.toMatchObject({ kind: 'invalid_arguments' });
+    } finally {
+      await deleteAsset('ai-test-doc', documentAsset);
+      await deleteAsset('ai-other-doc', otherAsset);
+      await deleteAsset('ai-test-doc', libraryAsset);
+    }
   });
 
   it('reads Markdown by line range or complete heading section', async () => {

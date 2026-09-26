@@ -45,6 +45,7 @@ function buildSubProperties(specs: SubFieldSpecs): Record<string, unknown> {
 export type AiToolName =
   | 'get_document_config'
   | 'get_document_summary'
+  | 'get_image_library'
   | 'get_markdown_content'
   | 'edit_markdown_content'
   | 'replace_markdown_section'
@@ -89,6 +90,23 @@ export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
       parameters: {
         type: 'object',
         properties: {}
+      }
+    }
+  },
+  get_image_library: {
+    type: 'function',
+    function: {
+      name: 'get_image_library',
+      description: '获取当前文档图片及永久图片库的图片信息和可用于 Markdown 的引用，不返回图片二进制内容。',
+      parameters: {
+        type: 'object',
+        properties: {
+          scope: {
+            type: 'string',
+            enum: ['all', 'document', 'library'],
+            description: '图片作用域，默认 all；document 为当前文档图片，library 为永久图片库。'
+          }
+        }
       }
     }
   },

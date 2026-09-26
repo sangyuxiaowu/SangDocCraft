@@ -40,6 +40,7 @@ import {
 import { createDiffHunks } from './diffUtils';
 import { appendUniqueHistory, createHistoryEntry } from './documentHistory';
 import { getTocLevelStyles, getTocTitleFont } from './documentStructure';
+import { listDocumentAssets, listLibraryAssets } from './imageRepository';
 import { getMermaidConfig } from './mermaidRenderer';
 
 export const DEFAULT_SYSTEM_PROMPT = `你是 SangDocCraft 智能交付文档排版工具的 AI 助手。
@@ -76,6 +77,7 @@ export const SYSTEM_PROMPT = DEFAULT_SYSTEM_PROMPT;
 
 export interface AiToolContext {
   markdown: string;
+  documentId?: string;
   getMeta: () => DocumentMeta;
   /** 读取当前真实主题（App 侧的 ref 实时值）：工具必须以它为基线，避免闭包里的旧快照覆盖用户改动 */
   getTheme: () => DocumentTheme;
@@ -326,6 +328,27 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
         outline: getMarkdownOutline(currentMarkdown),
         meta: context.getMeta()
       }, null, 2)
+    },
+    {
+      definition: AI_TOOL_DEFINITIONS.get_image_library,
+      handler: async (args) => {
+        const scope = args.scope ?? 'all';
+        if (scope !== 'all' && scope !== 'document' && scope !== 'library') {
+          throw new AiToolExecutionError('invalid_arguments', 'scope 必须是 all、document 或 library。');
+        }
+        if (scope === 'document' && !context.documentId) {
+          throw new AiToolExecutionError('invalid_arguments', '当前没有打开的文档，无法读取文档图片。');
+        }
+        const [documentAssets, libraryAssets] = await Promise.all([
+          scope !== 'library' && context.documentId ? listDocumentAssets(context.documentId) : [],
+          scope !== 'document' ? listLibraryAssets() : []
+        ]);
+        const assets = [...documentAssets, ...libraryAssets].map(({ id, fileName, description, mediaType, byteLength, scope: assetScope }) => ({
+          id, fileName, description, mediaType, byteLength, scope: assetScope,
+          reference: assetScope === 'library' ? `@library/${id}` : `@images/${id}`
+        }));
+        return JSON.stringify({ total: assets.length, assets }, null, 2);
+      }
     },
     {
       definition: AI_TOOL_DEFINITIONS.get_markdown_content,

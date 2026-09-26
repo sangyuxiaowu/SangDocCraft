@@ -606,6 +606,7 @@ export default function App() {
 
   const aiToolContext: AiToolContext = {
     markdown,
+    documentId,
     getMeta: () => metaRef.current,
     getTheme: () => themeRef.current,
     settings: documentSettings,
