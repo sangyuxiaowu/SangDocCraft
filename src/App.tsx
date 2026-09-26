@@ -605,7 +605,7 @@ export default function App() {
     if (nextTheme.cover.logoUrl) nextTheme.cover.logoUrl = resolveImageSrc(nextTheme.cover.logoUrl);
     if (nextTheme.header.logoUrl) nextTheme.header.logoUrl = resolveImageSrc(nextTheme.header.logoUrl);
     return nextTheme;
-  }, [hasActiveDocument, theme]);
+  }, [assets, hasActiveDocument, theme]);
 
   const aiToolContext: AiToolContext = {
     markdown,

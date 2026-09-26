@@ -5,13 +5,15 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DOCUMENT_TEMPLATES } from './data/documentTemplates';
 import { createDiffHunks } from './utils/diffUtils';
+import type { DocumentAsset, DocumentTheme } from './types';
 import type { AiToolContext } from './utils/aiAssistantService';
 import App from './App';
 
-const { saveDraft, saveSangDocument, listChatSessions, isTauriEnvironment } = vi.hoisted(() => ({
+const { saveDraft, saveSangDocument, listChatSessions, listLibraryAssets, isTauriEnvironment } = vi.hoisted(() => ({
   saveDraft: vi.fn(),
   saveSangDocument: vi.fn(),
   listChatSessions: vi.fn(),
+  listLibraryAssets: vi.fn(),
   isTauriEnvironment: vi.fn(() => false),
 }));
 
@@ -37,7 +39,7 @@ vi.mock('./lib/aiConfig', () => ({
 }));
 vi.mock('./utils/imageRepository', () => ({
   listDocumentAssets: async () => [],
-  listLibraryAssets: async () => [],
+  listLibraryAssets,
   listChatSessions,
 }));
 vi.mock('./components/HeaderBar', () => ({
@@ -61,8 +63,10 @@ vi.mock('./components/Editor', () => ({
     </>
   ),
 }));
-vi.mock('./components/A4Preview', () => ({ A4Preview: () => null }));
-vi.mock('./components/styleConfig/Panel', () => ({ StyleConfigPanel: () => null }));
+vi.mock('./components/A4Preview', () => ({ A4Preview: ({ theme }: { theme: DocumentTheme }) => <output data-testid="cover-logo">{theme.cover.logoUrl}</output> }));
+vi.mock('./components/styleConfig/Panel', () => ({ StyleConfigPanel: ({ theme, onChange }: { theme: DocumentTheme; onChange: (theme: DocumentTheme) => void }) => (
+  <button onClick={() => onChange({ ...theme, cover: { ...theme.cover, logoUrl: '@library/img-12eecd3f64fb38a4998a013b' } })}>设置封面图片</button>
+) }));
 vi.mock('./components/WelcomeDashboard', () => ({
   WelcomeDashboard: ({ onSelectTemplate }: { onSelectTemplate: (template: typeof DOCUMENT_TEMPLATES[number]) => void }) => (
     <button onClick={() => onSelectTemplate(DOCUMENT_TEMPLATES[0])}>新建</button>
@@ -95,6 +99,7 @@ describe('document saving', () => {
     vi.useFakeTimers();
     isTauriEnvironment.mockReturnValue(false);
     listChatSessions.mockResolvedValue([]);
+    listLibraryAssets.mockResolvedValue([]);
     saveSangDocument.mockResolvedValue('document.sdc');
     saveDraft.mockImplementation(() => new Promise<void>((resolve) => pendingSaves.push(resolve)));
     container = document.createElement('div');
@@ -125,6 +130,26 @@ describe('document saving', () => {
     expect(pendingSaves).toHaveLength(2);
     await act(async () => { pendingSaves[1](); });
     expect(container.querySelector('output')?.textContent).toBe('saved');
+  });
+
+  it('resolves a cover logo when library assets arrive after the document', async () => {
+    let finishAssets!: (assets: DocumentAsset[]) => void;
+    listLibraryAssets.mockImplementation(() => new Promise<DocumentAsset[]>((resolve) => { finishAssets = resolve; }));
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:http://localhost/cover-logo');
+    try {
+      await act(async () => { root.render(<App />); });
+      await act(async () => { click('新建'); });
+      await act(async () => { click('设置封面图片'); });
+      expect(container.querySelector('[data-testid="cover-logo"]')?.textContent).toBe('@library/img-12eecd3f64fb38a4998a013b');
+
+      await act(async () => { finishAssets([{
+        id: 'img-12eecd3f64fb38a4998a013b', scope: 'library', fileName: 'logo.png', description: '',
+        mediaType: 'image/png', byteLength: 1, sha256: '', data: new Uint8Array([0]),
+      }]); });
+      expect(container.querySelector('[data-testid="cover-logo"]')?.textContent).toBe('blob:http://localhost/cover-logo');
+    } finally {
+      createObjectURL.mockRestore();
+    }
   });
 
   it('writes newer revisions after the older write finishes', async () => {
