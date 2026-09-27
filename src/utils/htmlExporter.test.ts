@@ -14,6 +14,18 @@ const generateStandaloneHtml = (
 ) => generateHtml(markdown, documentMeta, theme, mermaidHeights);
 
 describe('generateStandaloneHtml', () => {
+  it('keeps an explicitly empty right header blank on every page', () => {
+    const base = PRESET_THEMES[0];
+    const html = generateStandaloneHtml('# Body', {
+      ...base,
+      header: { ...base.header, show: true, hideOnCover: false, rightText: '' },
+    });
+    document.documentElement.innerHTML = html;
+    expect(Array.from(document.querySelectorAll('.doc-header')).map((header) => header.lastElementChild?.textContent))
+      .toEqual(['', '', '']);
+    document.documentElement.innerHTML = '';
+  });
+
   it('resolves exact references per page including TOC and empty chapter fallbacks', () => {
     const base = PRESET_THEMES[0];
     const html = generateStandaloneHtml('# 第一章\n\n正文\n\n<!-- pagebreak -->\n\n续页\n\n<!-- pagebreak -->\n\n## 第二节', {

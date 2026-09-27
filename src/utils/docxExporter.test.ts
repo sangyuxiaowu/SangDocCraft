@@ -24,6 +24,58 @@ vi.mock('./tauriHelper', async (importOriginal) => ({
 
 afterEach(() => vi.restoreAllMocks());
 
+it('preserves empty left footer and image caption prefix in Word', async () => {
+  let exportedBlob: Blob | undefined;
+  vi.stubGlobal('URL', {
+    createObjectURL: (blob: Blob) => { exportedBlob = blob; return 'blob:document'; },
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const base = PRESET_THEMES[0];
+  try {
+    await exportToDocx('![图像说明](a.png)', { ...DEFAULT_DOCUMENT_META, organization: 'Only in organization' }, {
+      ...base,
+      cover: { ...base.cover, showCover: false },
+      toc: { ...base.toc, show: false },
+      footer: { ...base.footer, show: true, leftText: '', centerText: '', rightText: '', pageNumberFormat: 'none' },
+      style: { ...base.style, imageConfig: { ...base.style.imageConfig!, numberPrefix: '' } },
+    });
+    const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
+    const footers = Object.entries(files).filter(([name]) => /^word\/footer\d+\.xml$/.test(name))
+      .map(([, bytes]) => strFromU8(bytes)).join('');
+    const documentXml = strFromU8(files['word/document.xml']);
+    expect(footers).not.toContain('Only in organization');
+    expect(documentXml).toContain('1: 图像说明');
+    expect(documentXml).not.toContain('图 1: 图像说明');
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it('keeps an explicitly empty right header blank in Word', async () => {
+  let exportedBlob: Blob | undefined;
+  vi.stubGlobal('URL', {
+    createObjectURL: (blob: Blob) => { exportedBlob = blob; return 'blob:document'; },
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const base = PRESET_THEMES[0];
+  try {
+    await exportToDocx('# Body', { ...DEFAULT_DOCUMENT_META, title: 'Only in document title' }, {
+      ...base,
+      cover: { ...base.cover, showCover: false },
+      toc: { ...base.toc, show: false },
+      header: { ...base.header, show: true, leftText: '', centerText: '', rightText: '' },
+    });
+    const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
+    const headers = Object.entries(files).filter(([name]) => /^word\/header\d+\.xml$/.test(name))
+      .map(([, bytes]) => strFromU8(bytes)).join('');
+    expect(headers).not.toContain('Only in document title');
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 it.each(['light', 'dark'] as const)('exports editable %s highlighted SQL with blank lines', async (codeTheme) => {
   let exportedBlob: Blob | undefined;
   vi.stubGlobal('URL', {

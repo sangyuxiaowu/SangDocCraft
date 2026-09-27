@@ -1016,7 +1016,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
                     <span>{resolveDynamicText(header.leftText || '', meta, page.section)}</span>
                   </div>
                   <span className="text-slate-400 truncate px-4 text-center flex-1">{resolveDynamicText(header.centerText || '', meta, page.section)}</span>
-                  <span className="text-slate-400 truncate">{resolveDynamicText(header.rightText || meta.title || '', meta, page.section)}</span>
+                  <span className="text-slate-400 truncate">{resolveDynamicText(header.rightText ?? meta.title ?? '', meta, page.section)}</span>
                 </div>
               )}
 

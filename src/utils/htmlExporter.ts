@@ -769,7 +769,7 @@ export function generateStandaloneHtml(
     <div class="doc-header">
       <span>${resolveDynamicText(header.leftText || '', meta, { h1: '', h2: '' })}</span>
       <span class="doc-header-center">${resolveDynamicText(header.centerText || '', meta, { h1: '', h2: '' })}</span>
-      <span>${resolveDynamicText(header.rightText || meta.title || '', meta, { h1: '', h2: '' })}</span>
+      <span>${resolveDynamicText(header.rightText ?? meta.title ?? '', meta, { h1: '', h2: '' })}</span>
     </div>
     ` : ''}
 
@@ -793,7 +793,7 @@ export function generateStandaloneHtml(
         <span>${resolveDynamicText(header.leftText || '', meta, tocSection)}</span>
       </div>
       <span class="doc-header-center">${resolveDynamicText(header.centerText || '', meta, tocSection)}</span>
-      <span>${resolveDynamicText(header.rightText || meta.title || '', meta, tocSection)}</span>
+      <span>${resolveDynamicText(header.rightText ?? meta.title ?? '', meta, tocSection)}</span>
     </div>
     ` : ''}
 
@@ -838,7 +838,7 @@ export function generateStandaloneHtml(
         <span>${resolveDynamicText(header.leftText || '', meta, section)}</span>
       </div>
       <span class="doc-header-center">${resolveDynamicText(header.centerText || '', meta, section)}</span>
-      <span>${resolveDynamicText(header.rightText || meta.title || '', meta, section)}</span>
+      <span>${resolveDynamicText(header.rightText ?? meta.title ?? '', meta, section)}</span>
     </div>
     ` : ''}
 

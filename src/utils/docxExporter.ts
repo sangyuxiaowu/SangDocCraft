@@ -219,7 +219,7 @@ export async function exportToDocx(markdownText: string, meta: DocumentMeta, the
     imageCaptionCount += 1;
     const captionText = imageConfig?.autoNumber === false
       ? caption
-      : `${imageConfig?.numberPrefix || '图 '}${imageCaptionCount}: ${caption}`;
+      : `${imageConfig?.numberPrefix ?? '图 '}${imageCaptionCount}: ${caption}`;
     const alignment = imageConfig?.captionAlign === 'left'
       ? AlignmentType.LEFT
       : imageConfig?.captionAlign === 'right'
@@ -706,7 +706,7 @@ export async function exportToDocx(markdownText: string, meta: DocumentMeta, the
   if (header.show) {
     const headerTextLeft = header.leftText || '';
     const headerTextCenter = header.centerText || '';
-    const headerTextRight = header.rightText || meta.title || '';
+    const headerTextRight = header.rightText ?? meta.title ?? '';
 
     const headerLogoRun = header.logoUrl
       ? await createImageRun(header.logoUrl, '页眉标志', 100, header.logoHeight || 20)
@@ -740,7 +740,7 @@ export async function exportToDocx(markdownText: string, meta: DocumentMeta, the
 
   const footerChildren: (Paragraph | Table)[] = [];
   if (footer.show) {
-    const leftFooter = footer.leftText || meta.organization || '';
+    const leftFooter = footer.leftText ?? meta.organization ?? '';
     const pageNumberRuns = (): TextRun[] => {
       const run = (text?: string, children?: (typeof PageNumber)[keyof typeof PageNumber][]) => new TextRun({ text, children, size: 18, color: '64748B', font: docxFont });
       if (footer.pageNumberFormat === 'none') return [];

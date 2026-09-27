@@ -153,7 +153,7 @@ export function getFooterSlots(
   const pageText = formatPageNumber(pageNum, totalPages, footer.pageNumberFormat);
   const position = footer.pageNumberPosition || 'right';
 
-  let left = resolveDynamicText(footer.leftText || meta.organization || '', meta, section);
+  let left = resolveDynamicText(footer.leftText ?? meta.organization ?? '', meta, section);
   let center = resolveDynamicText(footer.centerText || '', meta, section);
   let right = resolveDynamicText(footer.rightText || '', meta, section);
 

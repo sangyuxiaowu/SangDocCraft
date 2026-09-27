@@ -487,9 +487,29 @@ describe('Markdown pagination and numbering', () => {
     expect(slots.center).toBe('第 2 页 / 共 5 页');
     expect(slots.left).toBe(theme.footer.leftText || DEFAULT_DOCUMENT_META.organization);
   });
+
+  it('leaves the left footer blank when explicitly cleared', () => {
+    const slots = getFooterSlots(2, 5, { ...theme.footer, leftText: '', pageNumberFormat: 'none' }, DEFAULT_DOCUMENT_META);
+    expect(slots.left).toBe('');
+  });
 });
 
 describe('Rendered Markdown post-processing', () => {
+  it('preserves empty image and table caption prefixes', () => {
+    const html = postProcessRenderedHtml(
+      '<img src="sample.png" alt="样例"><!-- table-caption: 数据表 --><table><tr><td>内容</td></tr></table>',
+      {
+        ...theme.style,
+        imageConfig: { ...theme.style.imageConfig!, numberPrefix: '' },
+        tableCaptionConfig: { ...theme.style.tableCaptionConfig!, numberPrefix: '' },
+      },
+    );
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    expect(container.querySelector('.doc-image-caption')?.textContent).toBe('1: 样例');
+    expect(container.querySelector('.doc-table-caption')?.textContent).toBe('1: 数据表');
+  });
+
   it('colors fenced SQL without changing its text or Mermaid diagrams', () => {
     const markdown = '```sql\nSELECT name FROM users WHERE id = 1; -- <safe>\n```\n\n```mermaid\nflowchart LR\nA --> B\n```';
     const html = postProcessRenderedHtml(marked.parse(markdown) as string, theme.style);

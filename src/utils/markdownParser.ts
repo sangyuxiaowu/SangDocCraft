@@ -1346,14 +1346,14 @@ export function postProcessRenderedHtml(
     borderColor: style?.imageConfig?.borderColor || '#cbd5e1',
     showCaption: style?.imageConfig?.showCaption !== false,
     autoNumber: style?.imageConfig?.autoNumber !== false,
-    numberPrefix: style?.imageConfig?.numberPrefix || '图 ',
+    numberPrefix: style?.imageConfig?.numberPrefix ?? '图 ',
     captionAlign: style?.imageConfig?.captionAlign || 'center',
   };
 
   const tblConfig: TableCaptionConfig = {
     showCaption: style?.tableCaptionConfig?.showCaption !== false,
     autoNumber: style?.tableCaptionConfig?.autoNumber !== false,
-    numberPrefix: style?.tableCaptionConfig?.numberPrefix || '表 ',
+    numberPrefix: style?.tableCaptionConfig?.numberPrefix ?? '表 ',
     captionPosition: style?.tableCaptionConfig?.captionPosition || 'top',
     captionAlign: style?.tableCaptionConfig?.captionAlign || 'center',
   };
