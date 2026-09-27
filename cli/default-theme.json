@@ -7,25 +7,14 @@
     "coverStyle": "minimal"
   },
   "header": {
-    "show": true,
-    "leftText": "设计规范",
-    "centerText": "",
-    "rightText": "@organization",
-    "lineStyle": "solid",
-    "hideOnCover": true
+    "show": false
   },
   "footer": {
-    "show": true,
-    "leftText": "保留所有权利",
-    "centerText": "",
-    "rightText": "",
-    "pageNumberFormat": "simple",
-    "pageNumberPosition": "right",
-    "hideOnCover": true
+    "show": false
   },
   "toc": {
     "show": true,
-    "title": "Index 索引",
+    "title": "目 录",
     "maxDepth": 3,
     "leaderStyle": "dashes",
     "showPageNumbers": true,

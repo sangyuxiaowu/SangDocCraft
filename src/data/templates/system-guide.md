@@ -152,13 +152,13 @@ Web 端的自动保存与 `Ctrl+S` 只写入浏览器草稿，不会自动下载
 
 # 其他相关
 
-# 使用 SKILL
+## 使用 SKILL
 
 SangDocCraft 提供了 SKILL 工具（CLI）用于将文件夹、Markdown 或现有 `.sdc` 导出为 HTML，或将文件夹或 Markdown 打包成 `.sdc`。
 
 要求 Node.js 20+。HTML 导出需要本机 Chrome 或 Edge（或设置 `SDC_CHROME_PATH`）；生成 `.sdc` 不需要浏览器。
 
-# 打赏
+## 打赏
 
 如果你觉得 SangDocCraft 对你有帮助，可以通过扫描以下二维码进行打赏：
 
