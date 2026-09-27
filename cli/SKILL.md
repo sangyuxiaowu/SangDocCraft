@@ -34,6 +34,24 @@ metadata:
 6. 输出后缀决定格式：`.sdc` 无需浏览器，`.html` 需要 Chrome/Edge 或 `SDC_CHROME_PATH`。输入现有 `.sdc` 时可导出 HTML；单独输入 `.md` 时按需添加 `--meta`、`--theme`、`--images`，没有 meta 标题就传 `--title`。
 7. 确认输出文件存在并检查内容、封面、目录、分页与图片；报错先修正文档或路径，不忽略缺失的本地图片。需要 PDF 时，检查 HTML 后通过浏览器打印并保存为 PDF。HTML/PDF 交付保留可编辑的源文件；仅在需要 APP 继续编辑或交换文档时额外生成 `.sdc`。
 
+## 特有语法与特殊排版注意事项
+
+1. 强制分页机制：
+   - 使用 `<!-- pagebreak -->`（独占一行）触发强制 A4 页面换页。
+
+2. 规范表格题注：
+   - 在 Markdown 表格前紧邻的上一行添加 `<!-- caption: 题注说明文本 -->`，系统会自动按照工程交付规范渲染表格标题序号与居中标注。
+
+3. 图片引用与尺寸后缀：
+  - 支持标准图片语法，并支持自定义宽高与图片对齐属性后缀，例如：`![系统架构图](@images/xxx){w=520 align=right}` 或 `![界面流程](url){w=640 h=360}`；align 可选 left、center、right，题注对齐仍由主题设置决定。
+   - 文档内图片引用格式为 `@images/<id>`，永久库图片格式为 `@library/<id>`。
+
+4. 流程图与架构图（Mermaid）：
+  - 使用 ```mermaid 围栏创建图表；普通围栏继承当前文档默认 Mermaid 主题（默认 neutral）。
+  - 在围栏语言之后，同时支持4个可选参数，例如 ```mermaid {theme=dark w=80% h=320 align=center}；theme 可选 neutral、default、dark、forest、base、custom，单图主题可覆盖文档默认主题；w/width 支持像素或百分比，h/height 支持像素或 auto；align 可选 left、center、right。
+  - 数值高度会预留 A4 分页空间；图表在 HTML 中以 SVG 渲染，Word 导出为等比缩放的 PNG。
+  - 支持图题注，方法是在围栏前添加 `<!-- caption: 题注文本 -->` 注释。
+
 ## 命令示例
 
 以下命令从本 `SKILL.md` 所在目录运行；从其他目录运行时，请为脚本和输入文件使用相应路径。
