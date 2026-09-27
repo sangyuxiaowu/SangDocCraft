@@ -1,0 +1,150 @@
+{
+  "id": "enterprise-standard",
+  "name": "🏢 企业标准交付文档",
+  "description": "适用于大型企业、金融与互联网项目的标准系统交付与设计文档",
+  "header": {
+    "show": true,
+    "leftText": "SangDocCraft 开源项目",
+    "centerText": "",
+    "rightText": "全特性排版范本与使用指南",
+    "lineStyle": "solid",
+    "hideOnCover": true
+  },
+  "footer": {
+    "show": true,
+    "leftText": "开源项目 · 欢迎 Star 与贡献",
+    "centerText": "github.com/sangyuxiaowu/SangDocCraft",
+    "rightText": "",
+    "pageNumberFormat": "pageOfTotal",
+    "pageNumberPosition": "right",
+    "hideOnCover": true
+  },
+  "toc": {
+    "show": true,
+    "title": "目 录",
+    "maxDepth": 3,
+    "leaderStyle": "dots",
+    "showPageNumbers": true,
+    "pageBreakAfter": true,
+    "headingNumbering": "decimal-skip-h1",
+    "titleCenter": true
+  },
+  "style": {
+    "primaryColor": "#0f172a",
+    "accentColor": "#2563eb",
+    "textColor": "#334155",
+    "backgroundColor": "#ffffff",
+    "coverBgColor": "#0f172a",
+    "fontFamily": "sans",
+    "bodyFontFamily": "inherit",
+    "fontSize": 14,
+    "lineHeight": 1.6,
+    "h1Style": "underline",
+    "h2Style": "border-left",
+    "h3Style": "bold",
+    "headingFonts": {
+      "h1": {
+        "fontFamily": "inherit",
+        "fontSize": 24,
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "marginBefore": 38,
+        "marginAfter": 14
+      },
+      "h2": {
+        "fontFamily": "inherit",
+        "fontSize": 20,
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "marginBefore": 28,
+        "marginAfter": 10
+      },
+      "h3": {
+        "fontFamily": "inherit",
+        "fontSize": 17,
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "marginBefore": 20,
+        "marginAfter": 7
+      },
+      "h4": {
+        "fontFamily": "inherit",
+        "fontSize": 15,
+        "bold": true,
+        "italic": false,
+        "underline": false,
+        "marginBefore": 15,
+        "marginAfter": 5
+      }
+    },
+    "h1PageBreak": false,
+    "indentParagraph": true,
+    "bulletStyle": "square",
+    "numberStyle": "decimal",
+    "codeTheme": "dark",
+    "tableStyle": "striped",
+    "imageConfig": {
+      "borderStyle": "subtle",
+      "showCaption": true,
+      "autoNumber": true,
+      "numberPrefix": "图 ",
+      "captionAlign": "center"
+    },
+    "tableCaptionConfig": {
+      "showCaption": true,
+      "autoNumber": true,
+      "numberPrefix": "表 ",
+      "captionPosition": "top",
+      "captionAlign": "center"
+    },
+    "h1Center": true,
+    "paragraphMarginAfter": 6,
+    "paragraphMarginBefore": 0
+  },
+  "cover": {
+    "showCover": true,
+    "coverStyle": "academic",
+    "coverlist": [
+      {
+        "label": "项目名称",
+        "value": "SangDocCraft"
+      },
+      {
+        "label": "文档版本",
+        "value": "v1.0.0"
+      },
+      {
+        "label": "维护者",
+        "value": "sangyuxiaowu"
+      },
+      {
+        "label": "开源地址",
+        "value": "https://github.com/sangyuxiaowu/SangDocCraft"
+      },
+      {
+        "label": "在线使用",
+        "value": "https://sangyuxiaowu.github.io/SangDocCraft/"
+      },
+      {
+        "label": "更新日期",
+        "value": "2026-09-19"
+      }
+    ],
+    "coverListColumns": 1
+  },
+  "mermaid": {
+    "theme": "neutral",
+    "customColors": {
+      "primaryColor": "#2563eb",
+      "primaryTextColor": "#ffffff",
+      "primaryBorderColor": "#1d4ed8",
+      "lineColor": "#64748b",
+      "secondaryColor": "#f1f5f9",
+      "tertiaryColor": "#e2e8f0",
+      "background": "#ffffff"
+    }
+  }
+}

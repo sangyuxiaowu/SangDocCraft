@@ -1,0 +1,29 @@
+{
+  "name": "sangdoccraft-html-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "sdc-html": "./dist/scripts/sdc-html.cjs"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node build.mjs && node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "chromium-bidi": "^0.7.1",
+    "fflate": "^0.8.3",
+    "highlight.js": "^11.12.0",
+    "marked": "^18.0.9",
+    "mathjax-full": "^3.2.2",
+    "mermaid": "^11.16.1",
+    "playwright-core": "1.63.0",
+    "react": "^19.0.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}
