@@ -70,6 +70,7 @@ await build({
   platform: 'node',
   target: 'node20',
   format: 'cjs',
+  minify: true,
   banner: { js: '#!/usr/bin/env node' },
   define: { __BROWSER_BUNDLE__: JSON.stringify(browser.outputFiles[0].text) },
 });

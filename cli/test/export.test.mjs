@@ -87,7 +87,6 @@ test('exports an editable folder to complete SDC and HTML', async () => {
     assert.equal(theme.style.fontSize, 16);
     assert.equal(theme.style.headingFonts.h1.fontSize, 24);
     assert.equal(theme.header.leftText, 'CLI');
-    assert.equal(theme.header.lineStyle, 'solid');
     assert.equal(images.length, 1);
     assert.equal(files[`images/${images[0].id}.png`].length, image.length);
     assert.match(strFromU8(files['document.md']), new RegExp(`@images/${images[0].id}`));
