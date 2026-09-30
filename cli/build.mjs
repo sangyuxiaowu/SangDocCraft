@@ -1,31 +1,19 @@
 import { build } from 'esbuild';
 import { cp, mkdir, readFile, rm } from 'node:fs/promises';
+import { brotliCompressSync, constants } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
 const appPackage = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 const nodePaths = [fileURLToPath(new URL('./node_modules/', import.meta.url))];
 await rm(new URL('./dist/', import.meta.url), { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-const htmlOnly = {
-  name: 'html-only',
+const tauriOnly = {
+  name: 'tauri-only',
   setup(build) {
-    build.onResolve({ filter: /^(?:docx|@tauri-apps\/api\/(?:core|window))$/ }, ({ path }) => ({ path, namespace: 'html-only' }));
-    build.onLoad({ filter: /.*/, namespace: 'html-only' }, ({ path }) => {
-      if (path === 'docx') {
-        return { contents: `
-          const unavailable = () => { throw new Error('DOCX is not supported by the HTML CLI'); };
-          export const AlignmentType = new Proxy({}, { get: unavailable });
-          export const BorderStyle = new Proxy({}, { get: unavailable });
-          export const WidthType = new Proxy({}, { get: unavailable });
-          export const TextDirection = new Proxy({}, { get: unavailable });
-          export const Paragraph = unavailable, Table = unavailable, TableCell = unavailable;
-          export const TableRow = unavailable, TextRun = unavailable;
-        ` };
-      }
-      return { contents: `
-        export const invoke = () => { throw new Error('Tauri is not supported by the HTML CLI'); };
-        export const convertFileSrc = invoke, getCurrentWindow = invoke;
-      ` };
-    });
+    build.onResolve({ filter: /^@tauri-apps\/api\/(?:core|window)$/ }, ({ path }) => ({ path, namespace: 'tauri-only' }));
+    build.onLoad({ filter: /.*/, namespace: 'tauri-only' }, () => ({ contents: `
+      export const invoke = () => { throw new Error('Tauri is not supported by the CLI'); };
+      export const convertFileSrc = invoke, getCurrentWindow = invoke;
+    ` }));
   },
 };
 const inlinePlaywrightMetadata = {
@@ -52,7 +40,7 @@ const browser = await build({
   entryPoints: ['src/browser.ts'],
   bundle: true,
   nodePaths,
-  plugins: [htmlOnly],
+  plugins: [tauriOnly],
   write: false,
   format: 'iife',
   platform: 'browser',
@@ -60,6 +48,9 @@ const browser = await build({
   minify: true,
   define: { __APP_VERSION__: JSON.stringify(appPackage.version) },
 });
+const compressedBrowserBundle = brotliCompressSync(Buffer.from(browser.outputFiles[0].text), {
+  params: { [constants.BROTLI_PARAM_QUALITY]: 11 },
+}).toString('base64');
 
 await build({
   entryPoints: ['src/cli.mjs'],
@@ -72,7 +63,7 @@ await build({
   format: 'cjs',
   minify: true,
   banner: { js: '#!/usr/bin/env node' },
-  define: { __BROWSER_BUNDLE__: JSON.stringify(browser.outputFiles[0].text) },
+  define: { __BROWSER_BUNDLE__: JSON.stringify(compressedBrowserBundle) },
 });
 
 await mkdir(new URL('./dist/references/', import.meta.url), { recursive: true });

@@ -1,5 +1,6 @@
 import { generatePreparedHtml } from '../../src/utils/htmlExporter';
 import { registerAssetUrls, clearDocumentAssetUrls, unregisterAssetUrl } from '../../src/utils/assetUrlRegistry';
+import './docx-browser';
 import type { SangDocument } from '../../src/types';
 
 declare global {

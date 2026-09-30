@@ -61,6 +61,28 @@ test('exports a self-contained, paginated HTML document', async () => {
   }
 });
 
+test('exports an editable Word document from Markdown', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'sdc-docx-'));
+  const source = join(directory, 'paper');
+  const output = join(directory, 'paper.docx');
+  const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/wQAAAABJRU5ErkJggg==', 'base64');
+  try {
+    await mkdir(join(source, 'images'), { recursive: true });
+    await writeFile(join(source, 'document.md'), '# DOCX 正文\n\n由 CLI 生成的 Word 文档。\n\n![图示](images/sample.png)');
+    await writeFile(join(source, 'images', 'sample.png'), image);
+    await writeFile(join(source, 'meta.json'), JSON.stringify({ title: 'DOCX 测试' }));
+    await execute(process.execPath, [command, source, '-o', output]);
+    const files = unzipSync(new Uint8Array(await readFile(output)));
+    assert.ok(files['word/document.xml']);
+    assert.match(strFromU8(files['word/document.xml']), /DOCX 正文/);
+    assert.match(strFromU8(files['word/document.xml']), /由 CLI 生成的 Word 文档/);
+    const embeddedImages = Object.entries(files).filter(([name]) => name.startsWith('word/media/'));
+    assert.ok(embeddedImages.some(([, bytes]) => Buffer.from(bytes).equals(image)));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('exports an editable folder to complete SDC and HTML', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'sdc-folder-'));
   const source = join(directory, 'paper');
@@ -243,6 +265,9 @@ test('dist runs without the source project or its node_modules', async () => {
     const html = join(directory, 'note.html');
     await execute(process.execPath, [executable, markdown, '--title', '独立文档', '-o', html], { cwd: skill });
     assert.match(await readFile(html, 'utf8'), /独立文档/);
+    const docx = join(directory, 'note.docx');
+    await execute(process.execPath, [executable, markdown, '--title', '独立文档', '-o', docx], { cwd: skill });
+    assert.ok(unzipSync(new Uint8Array(await readFile(docx)))['word/document.xml']);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

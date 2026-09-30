@@ -62,10 +62,7 @@ function parseDimensionToNumber(val?: string | number, containerMax = 560): numb
   return Number.isFinite(num) && num > 0 ? Math.round(num) : undefined;
 }
 
-/**
- * Main export function to generate and download a standard Microsoft Word .docx file
- */
-export async function exportToDocx(markdownText: string, meta: DocumentMeta, theme: DocumentTheme, filename?: string): Promise<void> {
+export async function createDocxBlob(markdownText: string, meta: DocumentMeta, theme: DocumentTheme): Promise<Blob> {
   const { header, footer, toc, style } = theme;
   const cover = theme.cover;
   const coverTemplate = getCoverTemplate(cover.coverStyle);
@@ -822,8 +819,12 @@ export async function exportToDocx(markdownText: string, meta: DocumentMeta, the
     ],
   });
 
-  // Pack to blob and download
-  const blob = await Packer.toBlob(doc);
+  return Packer.toBlob(doc);
+}
+
+/** Generates and downloads a standard Microsoft Word .docx file. */
+export async function exportToDocx(markdownText: string, meta: DocumentMeta, theme: DocumentTheme, filename?: string): Promise<void> {
+  const blob = await createDocxBlob(markdownText, meta, theme);
   const outName = filename || `${meta.title || '交付文档'}.docx`;
 
   const link = document.createElement('a');

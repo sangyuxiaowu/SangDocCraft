@@ -1,8 +1,11 @@
 import { writeFile } from 'node:fs/promises';
 import { resolve, dirname, basename, extname, join } from 'node:path';
+import { brotliDecompressSync } from 'node:zlib';
 import { chromium } from 'playwright-core';
 import { packSangDocument } from '../../src/utils/documentPackage';
 import { loadDocument } from './source.mjs';
+
+const browserBundle = __BROWSER_BUNDLE__;
 
 const layoutScript = `<style>@media screen {.a4-page {zoom: var(--sdc-page-scale, 1);}}</style>
 <script>(() => {
@@ -37,7 +40,7 @@ function parseArgs(args) {
   const source = resolve(input);
   const destination = resolve(output || join(dirname(source), `${basename(source, extname(source))}.html`));
   const format = extname(destination).toLowerCase();
-  if (format !== '.html' && format !== '.sdc') throw new Error('输出文件必须以 .html 或 .sdc 结尾');
+  if (format !== '.html' && format !== '.sdc' && format !== '.docx') throw new Error('输出文件必须以 .html、.sdc 或 .docx 结尾');
   if (source === destination) throw new Error('输出文件不能覆盖输入');
   return { source, destination, format, options };
 }
@@ -51,13 +54,13 @@ async function launchBrowser() {
       return await chromium.launch({ channel, headless: true });
     } catch {}
   }
-  throw new Error('找不到 Chrome 或 Edge。请安装浏览器，或设置 SDC_CHROME_PATH 指向 Chromium 可执行文件');
+  throw new Error('找不到 Chrome 或 Edge。HTML 和 DOCX 导出需要浏览器，请安装浏览器，或设置 SDC_CHROME_PATH 指向 Chromium 可执行文件');
 }
 
 export async function run(args) {
   const paths = parseArgs(args);
   if (!paths) {
-    console.log('用法: sdc-html <文件夹|input.md|input.sdc> [-o output.html|output.sdc] [--title 标题] [--meta meta.json] [--theme theme.json] [--images images/]\n新建文档必须提供 --title 或在 meta.json 中设置 title；HTML 导出需要 Chrome 或 Edge。');
+    console.log('用法: sdc-html <文件夹|input.md|input.sdc> [-o output.html|output.sdc|output.docx] [--title 标题] [--meta meta.json] [--theme theme.json] [--images images/]\n新建文档必须提供 --title 或在 meta.json 中设置 title；HTML 和 DOCX 导出需要 Chrome 或 Edge。');
     return;
   }
   const document = await loadDocument(paths.source, paths.options);
@@ -70,7 +73,18 @@ export async function run(args) {
   try {
     const page = await browser.newPage();
     await page.setContent('<!doctype html><html><head></head><body></body></html>');
-    await page.addScriptTag({ content: __BROWSER_BUNDLE__ });
+    const browserBundle = brotliDecompressSync(Buffer.from(__BROWSER_BUNDLE__, 'base64')).toString('utf8');
+    if (paths.format === '.docx') {
+      await page.addScriptTag({ content: browserBundle });
+      const bytes = await page.evaluate((input) => window.exportSdcDocx(input), {
+        ...document,
+        assets: document.assets.map((asset) => ({ ...asset, data: Array.from(asset.data) })),
+      });
+      await writeFile(paths.destination, new Uint8Array(bytes));
+      console.log(paths.destination);
+      return;
+    }
+    await page.addScriptTag({ content: browserBundle });
     const html = await page.evaluate(async (input) => window.renderSdcHtml(input), {
       ...document,
       assets: document.assets.map((asset) => ({ ...asset, data: Array.from(asset.data) })),
