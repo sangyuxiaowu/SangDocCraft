@@ -666,10 +666,22 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
     if (!sheets) return;
     const checkOverflow = () => setOverflowPageNumbers(getOverflowPageNumbers(sheets));
     const observer = new ResizeObserver(checkOverflow);
-    sheets.forEach((sheet: HTMLElement) => observer.observe(sheet));
+    const images: HTMLImageElement[] = [];
+    sheets.forEach((sheet: HTMLElement) => {
+      observer.observe(sheet);
+      sheet.querySelectorAll<HTMLElement>('.markdown-rendered-body').forEach((body) => observer.observe(body));
+      sheet.querySelectorAll<HTMLImageElement>('.markdown-rendered-body img').forEach((image) => {
+        observer.observe(image);
+        images.push(image);
+      });
+    });
+    images.forEach((image) => image.addEventListener('load', checkOverflow));
     checkOverflow();
-    return () => observer.disconnect();
-  }, [markdown, theme, totalPages]);
+    return () => {
+      observer.disconnect();
+      images.forEach((image) => image.removeEventListener('load', checkOverflow));
+    };
+  }, [markdown, theme, totalPages, zoom]);
 
   useEffect(() => {
     onOverflowPageNumbersChange?.(overflowPageNumbers);
