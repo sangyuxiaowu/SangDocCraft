@@ -74,6 +74,7 @@ function inferImageContentType(source: string): string {
   if (extension === 'gif') return 'image/gif';
   if (extension === 'bmp') return 'image/bmp';
   if (extension === 'webp') return 'image/webp';
+  if (extension === 'svg') return 'image/svg+xml';
   return 'image/jpeg';
 }
 
@@ -92,9 +93,12 @@ export async function fetchImageBinary(source: string): Promise<{ data: ArrayBuf
   try {
     const response = await fetch(resolveImageSrc(source));
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const responseContentType = response.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
     return {
       data: await response.arrayBuffer(),
-      contentType: response.headers.get('content-type') || inferImageContentType(source),
+      contentType: !responseContentType || responseContentType === 'application/octet-stream'
+        ? inferImageContentType(source)
+        : responseContentType,
     };
   } catch (fetchError) {
     if (!isTauriEnvironment()) throw fetchError;

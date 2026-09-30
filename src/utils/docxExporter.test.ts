@@ -4,6 +4,7 @@ import { unzipSync, strFromU8 } from 'fflate';
 import { PRESET_THEMES } from '../data/presetThemes';
 import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
 import { exportToDocx } from './docxExporter';
+import { fetchImageBinary } from './tauriHelper';
 
 vi.mock('./mermaidRenderer', async (importOriginal) => ({
   ...await importOriginal<typeof import('./mermaidRenderer')>(),
@@ -23,6 +24,97 @@ vi.mock('./tauriHelper', async (importOriginal) => ({
 }));
 
 afterEach(() => vi.restoreAllMocks());
+
+it('rasterizes SVG images to PNG in Word documents', async () => {
+  let exportedBlob: Blob | undefined;
+  vi.stubGlobal('URL', {
+    createObjectURL: (blob: Blob) => { exportedBlob = blob; return 'blob:document'; },
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  vi.stubGlobal('createImageBitmap', vi.fn(async () => ({
+    width: 64,
+    height: 32,
+    close: vi.fn(),
+  })));
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => ({
+    drawImage: vi.fn(),
+  }) as unknown as CanvasRenderingContext2D);
+  vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => {
+    callback(new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], { type: 'image/png' }));
+  });
+  const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  vi.mocked(fetchImageBinary).mockResolvedValueOnce({
+    data: await new Blob(['<svg xmlns="http://www.w3.org/2000/svg"/>']).arrayBuffer(),
+    contentType: 'image/svg+xml',
+  });
+  const base = PRESET_THEMES[0];
+  try {
+    await exportToDocx('![矢量图](https://example.com/diagram.svg)', DEFAULT_DOCUMENT_META, {
+      ...base,
+      cover: { ...base.cover, showCover: false },
+      toc: { ...base.toc, show: false },
+    });
+    expect(warning.mock.calls).toEqual([]);
+    const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
+    const mediaFiles = Object.entries(files).filter(([path]) => /^word\/media\/[^/]+$/.test(path));
+    const svg = mediaFiles.find(([path]) => path.endsWith('.svg'))?.[1];
+    const png = mediaFiles.find(([path]) => path.endsWith('.png'))?.[1];
+    const relationships = new DOMParser().parseFromString(strFromU8(files['word/_rels/document.xml.rels']), 'application/xml');
+    const relationshipElements = Array.from(relationships.getElementsByTagName('Relationship'));
+    const svgRelationship = relationshipElements.find((relationship) => relationship.getAttribute('Target')?.endsWith('.svg'));
+    const pngRelationship = relationshipElements.find((relationship) => relationship.getAttribute('Target')?.endsWith('.png'));
+    const documentXml = new DOMParser().parseFromString(strFromU8(files['word/document.xml']), 'application/xml');
+    const extent = documentXml.getElementsByTagName('wp:extent')[0];
+    const svgBlip = documentXml.getElementsByTagName('asvg:svgBlip')[0];
+    const blip = documentXml.getElementsByTagName('a:blip')[0];
+    expect(svg).toBeDefined();
+    expect(new TextDecoder().decode(svg)).toContain('<svg');
+    expect(Array.from(png!.slice(0, 8))).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+    expect(svgRelationship).toBeDefined();
+    expect(pngRelationship).toBeDefined();
+    expect(svgBlip.getAttribute('r:embed')).toBe(svgRelationship?.getAttribute('Id'));
+    expect(blip.getAttribute('r:embed')).toBe(pngRelationship?.getAttribute('Id'));
+    expect(Number(extent.getAttribute('cx')) / 9525).toBeCloseTo(64);
+    expect(Number(extent.getAttribute('cy')) / 9525).toBeCloseTo(32);
+    expect(Number(extent.getAttribute('cx')) / Number(extent.getAttribute('cy'))).toBeCloseTo(2);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it('embeds SVG when browser rasterization for the fallback fails', async () => {
+  let exportedBlob: Blob | undefined;
+  vi.stubGlobal('URL', {
+    createObjectURL: (blob: Blob) => { exportedBlob = blob; return 'blob:document'; },
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  vi.stubGlobal('createImageBitmap', vi.fn().mockRejectedValue(new Error('SVG decoding failed')));
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  vi.mocked(fetchImageBinary).mockResolvedValueOnce({
+    data: await new Blob(['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 32"><circle r="20"/></svg>']).arrayBuffer(),
+    contentType: 'image/svg+xml',
+  });
+  const base = PRESET_THEMES[0];
+  try {
+    await exportToDocx('![矢量图](diagram.svg)', DEFAULT_DOCUMENT_META, {
+      ...base,
+      cover: { ...base.cover, showCover: false },
+      toc: { ...base.toc, show: false },
+    });
+    const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
+    const svg = Object.entries(files).find(([path]) => path.endsWith('.svg'))?.[1];
+    const documentXml = new DOMParser().parseFromString(strFromU8(files['word/document.xml']), 'application/xml');
+    const extent = documentXml.getElementsByTagName('wp:extent')[0];
+    expect(svg).toBeDefined();
+    expect(new TextDecoder().decode(svg)).toContain('<circle');
+    expect(documentXml.getElementsByTagName('asvg:svgBlip').length).toBeGreaterThan(0);
+    expect(Number(extent.getAttribute('cx')) / Number(extent.getAttribute('cy'))).toBeCloseTo(2);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
 
 it('preserves empty left footer and image caption prefix in Word', async () => {
   let exportedBlob: Blob | undefined;

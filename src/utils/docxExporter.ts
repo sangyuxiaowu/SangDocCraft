@@ -62,6 +62,38 @@ function parseDimensionToNumber(val?: string | number, containerMax = 560): numb
   return Number.isFinite(num) && num > 0 ? Math.round(num) : undefined;
 }
 
+function getSvgIntrinsicSize(data: ArrayBuffer): { width: number; height: number } {
+  try {
+    const svg = new DOMParser().parseFromString(new TextDecoder().decode(data), 'image/svg+xml').documentElement;
+    if (svg.localName !== 'svg') return { width: 300, height: 150 };
+    const parseLength = (value: string | null): number | undefined => {
+      const match = value?.trim().match(/^(\d+(?:\.\d+)?)(px|pt|pc|in|cm|mm)?$/i);
+      if (!match) return undefined;
+      const unitScale: Record<string, number> = { px: 1, pt: 4 / 3, pc: 16, in: 96, cm: 96 / 2.54, mm: 96 / 25.4 };
+      return Number(match[1]) * (unitScale[match[2]?.toLowerCase() || 'px'] || 1);
+    };
+    const width = parseLength(svg.getAttribute('width'));
+    const height = parseLength(svg.getAttribute('height'));
+    if (width && height) return { width, height };
+
+    const viewBox = svg.getAttribute('viewBox')?.trim().split(/[\s,]+/).map(Number);
+    if (viewBox?.length === 4 && viewBox[2] > 0 && viewBox[3] > 0) {
+      const aspectRatio = viewBox[2] / viewBox[3];
+      if (width) return { width, height: width / aspectRatio };
+      if (height) return { width: height * aspectRatio, height };
+      return aspectRatio >= 2 ? { width: 300, height: 300 / aspectRatio } : { width: 150 * aspectRatio, height: 150 };
+    }
+    return { width: width || 300, height: height || 150 };
+  } catch {
+    return { width: 300, height: 150 };
+  }
+}
+
+const transparentPngFallback = Uint8Array.from(
+  atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII='),
+  (character) => character.charCodeAt(0),
+);
+
 export async function createDocxBlob(markdownText: string, meta: DocumentMeta, theme: DocumentTheme): Promise<Blob> {
   const { header, footer, toc, style } = theme;
   const cover = theme.cover;
@@ -95,21 +127,67 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
   const createImageRun = async (source: string, altText: string, width?: number, height?: number): Promise<ImageRun | null> => {
     try {
       const { data, contentType } = await fetchImageBinary(source);
-      const imageType = contentType.includes('png') ? 'png' : contentType.includes('gif') ? 'gif' : contentType.includes('bmp') ? 'bmp' : 'jpg';
+      const isSvg = contentType.toLowerCase().includes('svg');
+      let imageType: 'png' | 'gif' | 'bmp' | 'jpg' = contentType.includes('png') ? 'png' : contentType.includes('gif') ? 'gif' : contentType.includes('bmp') ? 'bmp' : 'jpg';
+      let imageData: ArrayBuffer | Uint8Array = data;
       let imageWidth = width ?? 480;
       let imageHeight = height ?? 270;
-      if ((width === undefined) !== (height === undefined)) {
-        const bitmap = await createImageBitmap(new Blob([data], { type: contentType }));
-        if (width === undefined) {
-          imageWidth = imageHeight * bitmap.width / bitmap.height;
-        } else {
-          imageHeight = imageWidth * bitmap.height / bitmap.width;
+      if (isSvg) {
+        const intrinsicSize = getSvgIntrinsicSize(data);
+        if (width === undefined && height === undefined) {
+          imageWidth = intrinsicSize.width;
+          imageHeight = intrinsicSize.height;
+        } else if (width === undefined) {
+          imageWidth = height! * intrinsicSize.width / intrinsicSize.height;
+        } else if (height === undefined) {
+          imageHeight = width * intrinsicSize.height / intrinsicSize.width;
         }
-        bitmap.close();
+        imageData = transparentPngFallback;
+        try {
+          const bitmap = await createImageBitmap(new Blob([data], { type: contentType }));
+          try {
+            if (width === undefined && height === undefined) {
+              imageWidth = bitmap.width;
+              imageHeight = bitmap.height;
+            } else if (width === undefined) {
+              imageWidth = imageHeight * bitmap.width / bitmap.height;
+            } else if (height === undefined) {
+              imageHeight = imageWidth * bitmap.height / bitmap.width;
+            }
+            const scale = 2;
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.ceil(bitmap.width * scale));
+            canvas.height = Math.max(1, Math.ceil(bitmap.height * scale));
+            const context = canvas.getContext('2d');
+            if (!context) throw new Error('Canvas is unavailable');
+            context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+            const png = await new Promise<Blob>((resolve, reject) => {
+              canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Unable to create SVG PNG')), 'image/png');
+            });
+            imageData = await png.arrayBuffer();
+          } finally {
+            bitmap.close();
+          }
+        } catch (error) {
+          console.warn('DOCX SVG fallback rasterization failed:', source, error);
+        }
+      } else if ((width === undefined) !== (height === undefined)) {
+        const bitmap = await createImageBitmap(new Blob([data], { type: contentType }));
+        try {
+          if (width === undefined) {
+            imageWidth = imageHeight * bitmap.width / bitmap.height;
+          } else {
+            imageHeight = imageWidth * bitmap.height / bitmap.width;
+          }
+        } finally {
+          bitmap.close();
+        }
       }
+      const imageOptions = isSvg
+        ? { type: 'svg' as const, data, fallback: { type: 'png' as const, data: imageData } }
+        : { type: imageType, data: imageData };
       return new ImageRun({
-        type: imageType,
-        data,
+        ...imageOptions,
         transformation: { width: imageWidth, height: imageHeight },
         altText: { title: altText, description: altText, name: altText },
       });

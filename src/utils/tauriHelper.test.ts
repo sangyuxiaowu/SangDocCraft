@@ -67,6 +67,17 @@ describe('tauriHelper', () => {
     expect(new Uint8Array(result.data)).toEqual(new Uint8Array([1, 2, 3]));
   });
 
+  it.each([null, 'application/octet-stream'])('infers SVG content type from the URL when the response type is %s', async (contentType) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+      headers: { get: () => contentType },
+    }));
+
+    await expect(fetchImageBinary('https://example.com/diagram.svg?download=1'))
+      .resolves.toMatchObject({ contentType: 'image/svg+xml' });
+  });
+
   it('falls back to native image reads after a browser fetch failure', async () => {
     tauriWindow.__TAURI_INTERNALS__ = {};
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('CORS')));
