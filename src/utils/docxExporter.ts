@@ -510,8 +510,10 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
         const imageSuffix = paragraphTokens[0]?.type === 'image' && paragraphTokens.length <= 2
           ? extractImageDimensionSuffix(suffixText)
           : undefined;
-        const imageAlign = imageSuffix && !suffixText.slice(imageSuffix.length).trim()
-          ? imageSuffix.dimensions.align
+        const isStandaloneImage = paragraphTokens[0]?.type === 'image'
+          && (paragraphTokens.length === 1 || Boolean(imageSuffix && !suffixText.slice(imageSuffix.length).trim()));
+        const imageAlign = isStandaloneImage
+          ? imageSuffix?.dimensions.align || style.imageConfig?.captionAlign || 'center'
           : undefined;
         sectionsChildren.push(
           new Paragraph({

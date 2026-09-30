@@ -332,6 +332,29 @@ it('exports a Mermaid caption with the shared figure number into DOCX', async ()
   }
 });
 
+it('uses the theme image alignment for standalone images without an align suffix', async () => {
+  let exportedBlob: Blob | undefined;
+  vi.stubGlobal('URL', {
+    createObjectURL: (blob: Blob) => { exportedBlob = blob; return 'blob:document'; },
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const base = PRESET_THEMES[0];
+  try {
+    await exportToDocx('![主题对齐](a.png)', DEFAULT_DOCUMENT_META, {
+      ...base,
+      cover: { ...base.cover, showCover: false },
+      toc: { ...base.toc, show: false },
+      style: { ...base.style, imageConfig: { ...base.style.imageConfig!, captionAlign: 'right' } },
+    });
+    const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
+    const xml = strFromU8(files['word/document.xml']);
+    expect(xml).toMatch(/<w:p>\s*<w:pPr>[\s\S]*?<w:jc w:val="right"\/>[\s\S]*?<\/w:pPr>[\s\S]*?<wp:docPr[^>]*descr="主题对齐"/);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 it('falls back to the first-level Word field when no second-level heading exists', async () => {
   let exportedBlob: Blob | undefined;
   vi.stubGlobal('URL', {
