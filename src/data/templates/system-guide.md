@@ -158,6 +158,18 @@ SangDocCraft 提供了 SKILL 工具（CLI）用于将文件夹、Markdown 或现
 
 要求 Node.js 20+。HTML 导出需要本机 Chrome 或 Edge（或设置 `SDC_CHROME_PATH`）；生成 `.sdc` 不需要浏览器。
 
+如果需要安装 SKILL，复制下面的 prompt 发送给你的 AI：
+
+```text
+下载这个SKILL压缩包并安装 https://api.skillhub.cn/api/v1/download?slug=%40indiv-sang%2Fsdc-authoring 
+```
+
+也可以通过 `skillhub` 来安装：
+
+```text
+请根据 https://skillhub.cn/install/skillhub.md，安装 @indiv-sang/sdc-authoring。
+```
+
 ## 打赏
 
 如果你觉得 SangDocCraft 对你有帮助，可以通过扫描以下二维码进行打赏：
