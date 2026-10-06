@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useDeferredValue, useMemo, useState, useRef, useEffect } from 'react';
 import { marked } from 'marked';
 import { 
   ZoomIn, 
@@ -169,7 +169,9 @@ export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
   );
 });
 
-export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiMode = 'dark', viewMode = 'split', navigationTarget, onNavigateToEditor, scrollSyncEnabled = false, onScrollPositionChange, onOverflowPageNumbersChange, onMarkdownChange, isConfigPanelOpen }) => {
+export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, meta, theme, uiMode = 'dark', viewMode = 'split', navigationTarget, onNavigateToEditor, scrollSyncEnabled = false, onScrollPositionChange, onOverflowPageNumbersChange, onMarkdownChange, isConfigPanelOpen }) => {
+  const markdown = useDeferredValue(sourceMarkdown);
+  const previewIsStale = markdown !== sourceMarkdown;
   const { header, footer, toc, style } = theme;
   const cover = theme.cover;
   const coverTemplate = getCoverTemplate(cover.coverStyle);
@@ -196,7 +198,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
   const [toolbarHeight, setToolbarHeight] = useState(48);
   const [toolbarWidth, setToolbarWidth] = useState(350);
   const figureElementRef = useRef<HTMLElement | null>(null);
-  const previewFigures = findPreviewFigures(markdown);
+  const previewFigures = useMemo(() => findPreviewFigures(markdown), [markdown]);
   const selectedFigure = selectedFigureIndex === null ? undefined : previewFigures[selectedFigureIndex];
   const selectedOptions = selectedFigure ? getPreviewFigureOptions(markdown, selectedFigure) : undefined;
   const previewRect = containerRef.current?.getBoundingClientRect();
@@ -214,6 +216,12 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
     setSelectedFigureIndex(null);
     setFigureRect(null);
   }, [isConfigPanelOpen]);
+
+  useEffect(() => {
+    if (!previewIsStale) return;
+    setSelectedFigureIndex(null);
+    setFigureRect(null);
+  }, [previewIsStale]);
 
   useEffect(() => {
     if (selectedFigureIndex === null) return;
@@ -252,7 +260,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
   };
 
   const handleFigureClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!onMarkdownChange) return;
+    if (!onMarkdownChange || previewIsStale) return;
     const target = event.target as Element;
     const element = target.closest<HTMLElement>('.doc-image, .mermaid, .infographic');
     const rendered = getRenderedFigures();
@@ -398,7 +406,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
                      style.bulletStyle === 'arrow' ? '▸' : '•';
 
   // Split markdown body with real-time DOM overflow measurement
-  const rawContentPages = paginateContentByDom(markdown, {
+  const rawContentPages = useMemo(() => paginateContentByDom(markdown, {
     fontSize: style.fontSize,
     lineHeight: style.lineHeight,
     fontFamily: fontStack,
@@ -411,14 +419,14 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
     style,
     mermaidHeights,
     infographicHeights,
-  });
+  }), [markdown, fontStack, header.show, footer.show, style, mermaidHeights, infographicHeights]);
 
   // Build TOC page numbers from the same pages rendered below.
   // 目录分页按真实渲染高度自适应测量，目录页数与正文页码保持同步。
-  const tocHeadings = toc.show
+  const tocHeadings = useMemo(() => toc.show
     ? extractTocHeadings(rawContentPages, toc.maxDepth, toc.headingNumbering)
-    : [];
-  const tocChunks = toc.show
+    : [], [rawContentPages, toc.show, toc.maxDepth, toc.headingNumbering]);
+  const tocChunks = useMemo(() => toc.show
     ? paginateTocItemsByDom(tocHeadings, {
         toc,
         style,
@@ -428,16 +436,19 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
         coverPageCount: cover.showCover ? 1 : 0,
         contentPageCount: rawContentPages.length,
       })
-    : [];
+    : [], [toc, tocHeadings, style, header.show, footer.show, fontStack, cover.showCover, rawContentPages.length]);
   const tocPageCount = tocChunks.length;
   const firstContentPageNum = (cover.showCover ? 1 : 0) + (toc.show ? tocPageCount : 0) + 1;
 
   // 测量得到的是标题项，渲染前需按正文起始页回填页码
-  const tocPages: TocItem[][] = tocChunks.map((chunk) => assignTocPageNumbers(chunk, firstContentPageNum));
+  const tocPages: TocItem[][] = useMemo(
+    () => tocChunks.map((chunk) => assignTocPageNumbers(chunk, firstContentPageNum)),
+    [tocChunks, firstContentPageNum],
+  );
 
   // Always compute outline headings regardless of whether printed TOC page is enabled.
   // 大纲页码必须复用真实目录页数，否则文档含 h4 标题时会整体偏移。
-  const outlineItems: TocItem[] = parseTableOfContents(
+  const outlineItems: TocItem[] = useMemo(() => parseTableOfContents(
     markdown,
     4,
     cover,
@@ -446,7 +457,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
     rawContentPages,
     toc.headingNumbering,
     toc.show ? tocPageCount : 0
-  );
+  ), [markdown, cover, toc.show, style.h1PageBreak, rawContentPages, toc.headingNumbering, tocPageCount]);
 
   useEffect(() => {
     const headings = containerRef.current?.querySelectorAll<HTMLElement>('.markdown-rendered-body h1, .markdown-rendered-body h2, .markdown-rendered-body h3, .markdown-rendered-body h4');
@@ -610,7 +621,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
 
   // Build Pages Array
   const pages: PageItem[] = [];
-  const contentSections = getPageSections(rawContentPages);
+  const contentSections = useMemo(() => getPageSections(rawContentPages), [rawContentPages]);
   let pageCounter = 1;
 
   // 1. Cover Page
@@ -637,27 +648,26 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
   }
 
   // 3. Markdown Content Pages
-  const docCounters = { imgCount: 0, tableCount: 0 };
-  const headingCounters = [0, 0, 0, 0];
-  rawContentPages.forEach((pageMd, contentPageIndex) => {
-    const trimmed = pageMd.trim();
-    if (trimmed.length > 0 || rawContentPages.length === 1) {
+  const contentPageItems = useMemo(() => {
+    const docCounters = { imgCount: 0, tableCount: 0 };
+    const headingCounters = [0, 0, 0, 0];
+    return rawContentPages.flatMap((pageMd, contentPageIndex) => {
+      const trimmed = pageMd.trim();
+      if (!trimmed && rawContentPages.length !== 1) return [];
       const preprocessedMd = preprocessMarkdownCaptions(trimmed || pageMd);
       const rawHtml = marked.parse(preprocessedMd) as string;
-      const numberedHtml = rawHtml.replace(/<h([1-4])([^>]*)>([\s\S]*?)<\/h\1>/gi, (match, level: string, attributes: string, content: string) => {
+      const numberedHtml = rawHtml.replace(/<h([1-4])([^>]*)>([\s\S]*?)<\/h\1>/gi, (_match, level: string, attributes: string, content: string) => {
         const prefix = getHeadingText('', Number(level), headingCounters, toc.headingNumbering).trim();
         return `<h${level}${attributes}>${prefix ? `${prefix} ` : ''}${content}</h${level}>`;
       });
-      const html = postProcessRenderedHtml(numberedHtml, style, docCounters, theme.mermaid);
-      pages.push({
-        type: 'content',
-        pageNum: pageCounter++,
+      return [{
         section: contentSections[contentPageIndex],
-        contentHtml: html,
+        contentHtml: postProcessRenderedHtml(numberedHtml, style, docCounters, theme.mermaid),
         contentPageIndex,
-      });
-    }
-  });
+      }];
+    });
+  }, [rawContentPages, contentSections, toc.headingNumbering, style, theme.mermaid]);
+  contentPageItems.forEach((item) => pages.push({ type: 'content', pageNum: pageCounter++, ...item }));
 
   const totalPages = pages.length;
 
