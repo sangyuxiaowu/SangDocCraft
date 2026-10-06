@@ -2,7 +2,7 @@
 name: sdc-authoring
 description: '制作带封面、目录、页眉页码、图表题注、A4 分页的印刷级正式文档，并导出为 Word DOCX、可打印的 HTML，或 SangDocCraft 的 .sdc。当用户需要把 Markdown 或素材整理成能打印、能交给甲方/客户/评审的正式版本时使用：标书与投标文件、可行性研究报告、立项/结项/验收报告、白皮书、产品手册、图书专著、论文、年报财报、合同协议、汇报材料、正式简历、会议纪要。典型说法：「做成 Word」「导出 DOCX」「排版成能打印的版本」「做成 PDF」「加封面和目录」「给甲方一版正式的」「导出 .sdc」「用 SangDocCraft 编辑」。若只需要一份 Markdown 草稿或做简单文本改写，不要用这个技能。Also use it to convert between Markdown, HTML, DOCX and SangDocCraft .sdc.'
 homepage: https://github.com/sangyuxiaowu/SangDocCraft/
-version: 1.1.0
+version: 1.2.0
 author: sangyuxiaowu
 metadata:
   openclaw:
@@ -33,6 +33,7 @@ metadata:
 | `references/document.md` | SangDocCraft APP 使用的系统指南正文样例，展示章节、题注、图片、分页等写法。它是产品功能示例，不是通用报告模板，编写新文档时不要照搬其事实或文案。 |
 | `references/meta.json` | 系统指南的元数据样例，含封面标题、副标题、作者、日期等。 |
 | `references/theme.json` | 系统指南的完整主题样例，展示封面、目录、页眉页脚、正文与图表配置。 |
+| `references/infographic.md` | 信息图创建方法，展示如何使用 AntV Infographic 语法创建信息图，将数据、信息与知识转化为可感知的视觉语言，支持各类统计图、对比、列表、顺序、层级、关系、地理等结构的可视化展示。 |
 
 ## 快速上手：用户原话 → 该执行的命令
 
@@ -71,6 +72,12 @@ metadata:
   - 在围栏语言之后，同时支持4个可选参数，例如 ```mermaid {theme=dark w=80% h=320 align=center}；theme 可选 neutral、default、dark、forest、base、custom，单图主题可覆盖文档默认主题；w/width 支持像素或百分比，h/height 支持像素或 auto；align 可选 left、center、right。
   - 数值高度会预留 A4 分页空间；图表在 HTML 中以 SVG 渲染，Word 导出为等比缩放的 PNG。
   - 支持图题注，方法是在围栏前添加 `<!-- caption: 题注文本 -->` 注释。
+
+5. 信息图（Infographic）：
+   - 使用 AntV Infographic 语法创建信息图，支持各类统计图、对比、列表、顺序、层级、关系、地理等结构的可视化展示。
+   - 详细说明参见 `references/infographic.md`。
+   - 支持题注，方法是在信息图围栏前添加 `<!-- caption: 题注文本 -->` 注释。
+   - 支持在围栏语言之后，同时支持3个可选参数，例如 `w`、`h` 和 `align`，分别表示宽度、高度和对齐方式。
 
 ## 命令示例
 

@@ -13,6 +13,16 @@ import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 const execute = promisify(execFile);
 const command = fileURLToPath(new URL('../dist/scripts/sdc.cjs', import.meta.url));
 
+test('declares the libraries used by the shared infographic and Word exporters', async () => {
+  const appPackage = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
+  const cliPackage = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  const builtPackage = JSON.parse(await readFile(new URL('../dist/package.json', import.meta.url), 'utf8'));
+  for (const name of ['@antv/infographic', '@iconify-json/mdi', 'docx', 'dompurify']) {
+    assert.equal(cliPackage.dependencies[name], appPackage.dependencies[name], `Missing or mismatched CLI dependency: ${name}`);
+  }
+  assert.deepEqual(builtPackage.dependencies, cliPackage.dependencies);
+});
+
 test('build creates only the skill, references, and executable scripts in dist', async () => {
   assert.deepEqual((await readdir(new URL('../dist/', import.meta.url))).sort(), ['README.md', 'SKILL.md', 'package.json', 'references', 'scripts'].sort());
   assert.deepEqual((await readdir(new URL('../dist/references/', import.meta.url))).sort(), ['document.md', 'meta.json', 'theme.json', 'theme.md']);
@@ -269,15 +279,27 @@ test('dist runs without the source project or its node_modules', async () => {
     assert.match(stdout, /用法/);
     const markdown = join(directory, 'note.md');
     const output = join(directory, 'note.sdc');
-    await writeFile(markdown, '# 内容\n\n独立文档');
+    await writeFile(markdown, '# 内容\n\n独立文档\n\n```infographic {w=240 h=120 align=right}\ninfographic list-row-horizontal-icon-arrow\ndata\n  title 独立信息图\n  items\n    - label 线索获取\n      icon rocket-launch\n```');
     await execute(process.execPath, [executable, markdown, '--title', '独立文档', '-o', output], { cwd: skill });
     assert.equal(JSON.parse(strFromU8(unzipSync(new Uint8Array(await readFile(output)))['meta.json'])).title, '独立文档');
     const html = join(directory, 'note.html');
     await execute(process.execPath, [executable, markdown, '--title', '独立文档', '-o', html], { cwd: skill });
-    assert.match(await readFile(html, 'utf8'), /独立文档/);
+    const htmlContent = await readFile(html, 'utf8');
+    assert.match(htmlContent, /独立文档/);
+    assert.match(htmlContent, /class="infographic"[^>]*><svg/);
+    assert.match(htmlContent, /线索获取/);
+    assert.match(htmlContent, /data-width="240"/);
+    assert.match(htmlContent, /data-height="120"/);
+    assert.match(htmlContent, /data-align="right"/);
     const docx = join(directory, 'note.docx');
     await execute(process.execPath, [executable, markdown, '--title', '独立文档', '-o', docx], { cwd: skill });
-    assert.ok(unzipSync(new Uint8Array(await readFile(docx)))['word/document.xml']);
+    const docxFiles = unzipSync(new Uint8Array(await readFile(docx)));
+    assert.ok(docxFiles['word/document.xml']);
+    const svg = Object.entries(docxFiles).find(([name, bytes]) => name.endsWith('.svg') && strFromU8(bytes).includes('独立信息图'));
+    assert.ok(svg, 'Standalone CLI must embed the infographic SVG');
+    assert.match(strFromU8(svg[1]), /线索获取/);
+    assert.doesNotMatch(strFromU8(svg[1]), /foreignObject/);
+    assert.ok(Object.entries(docxFiles).some(([name, bytes]) => name.startsWith('word/media/') && name.endsWith('.png') && bytes.length > 1000));
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

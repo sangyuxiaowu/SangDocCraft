@@ -41,4 +41,6 @@ node dist/scripts/sdc.cjs ./old.sdc -o ./old.html
 node dist/scripts/sdc.cjs ./old.sdc -o ./old.docx
 ```
 
-HTML 生成阶段复用现有浏览器渲染器完成公式、Mermaid 和 A4 分页；输出 HTML 中的 JS 只处理窄屏布局。未收集成功的 URL 在 HTML 渲染阶段仍可能由浏览器再次请求；需要完全离线时请使用本地图片。
+HTML 生成阶段复用现有浏览器渲染器完成公式、Mermaid、Infographic 和 A4 分页；输出 HTML 中的 JS 只处理窄屏布局。信息图支持 `w`、`h`、`align` 属性和内置 MDI 图标，DOCX 同时包含 SVG 与 PNG 兼容图。未收集成功的 URL 在 HTML 渲染阶段仍可能由浏览器再次请求；需要完全离线时请使用本地图片。
+
+信息图引擎、图标数据、SVG 安全过滤和 Word 导出库均由 CLI 自身的依赖声明提供。更新 CLI 依赖后，需要在本目录重新执行 `npm install` 和 `npm run build`；旧的 `dist/scripts/sdc.cjs` 不会自动获得新增能力。构建产物已内嵌导出所需的代码，可独立分发。
