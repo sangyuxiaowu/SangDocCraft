@@ -14,6 +14,17 @@ const generateStandaloneHtml = (
 ) => generateHtml(markdown, documentMeta, theme, mermaidHeights);
 
 describe('generateStandaloneHtml', () => {
+  it('exports infographic containers and shares figure numbering with images and Mermaid', () => {
+    const base = PRESET_THEMES[0];
+    const html = generateStandaloneHtml(
+      '![First](a.png)\n\n<!-- caption: Growth -->\n\n```infographic\ninfographic list-row-horizontal-icon-arrow\ndata\n  title Growth\n```\n\n<!-- caption: Flow -->\n\n```mermaid\nflowchart LR\nA --> B\n```',
+      { ...base, cover: { ...base.cover, showCover: false }, toc: { ...base.toc, show: false } },
+    );
+    expect(html).toMatch(/图 1: First[\s\S]*doc-infographic-figure[\s\S]*图 2: Growth[\s\S]*doc-mermaid-figure[\s\S]*图 3: Flow/);
+    expect(html).toContain('<div class="infographic">');
+    expect(html).not.toContain('<!-- caption:');
+  });
+
   it('keeps an explicitly empty right header blank on every page', () => {
     const base = PRESET_THEMES[0];
     const html = generateStandaloneHtml('# Body', {

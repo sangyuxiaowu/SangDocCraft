@@ -31,6 +31,7 @@ import { parseTableOfContents, extractTocHeadings, assignTocPageNumbers, paginat
 import { resolveImageSrc, resolvePreviewImageSrc } from '../utils/tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidElements } from '../utils/mermaidRenderer';
+import { renderInfographicElements } from '../utils/infographicRenderer';
 import { containsMath, ensureMathLoaded, onMathReady } from '../utils/mathRenderer';
 import { getTocTitleCss } from '../utils/markdownParser';
 import { WatermarkOverlay } from './WatermarkOverlay';
@@ -179,6 +180,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
   const [headerLogoSrc, setHeaderLogoSrc] = useState<string>('');
   const [overflowPageNumbers, setOverflowPageNumbers] = useState<number[]>([]);
   const [mermaidHeights, setMermaidHeights] = useState<Record<string, number>>({});
+  const [infographicHeights, setInfographicHeights] = useState<Record<string, number>>({});
   const [, setMathEpoch] = useState(0);
   const [, setImageEpoch] = useState(0);
   const [isOutlineOpen, setIsOutlineOpen] = useState(false);
@@ -396,6 +398,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
     footerShow: footer.show,
     style,
     mermaidHeights,
+    infographicHeights,
   });
 
   // Build TOC page numbers from the same pages rendered below.
@@ -525,13 +528,22 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
     let animationFrame = 0;
     const scheduleRender = () => {
       cancelAnimationFrame(animationFrame);
-      animationFrame = requestAnimationFrame(() => void renderMermaidElements(container, (source, height) => {
-        if (height <= 0) return;
-        const roundedHeight = Math.round(height);
-        setMermaidHeights((current) => current[source] === roundedHeight
-          ? current
-          : { ...current, [source]: roundedHeight });
-      }));
+      animationFrame = requestAnimationFrame(() => {
+        void renderMermaidElements(container, (source, height) => {
+          if (height <= 0) return;
+          const roundedHeight = Math.round(height);
+          setMermaidHeights((current) => current[source] === roundedHeight
+            ? current
+            : { ...current, [source]: roundedHeight });
+        });
+        void renderInfographicElements(container, (source, height) => {
+          if (height <= 0) return;
+          const roundedHeight = Math.round(height);
+          setInfographicHeights((current) => current[source] === roundedHeight
+            ? current
+            : { ...current, [source]: roundedHeight });
+        });
+      });
     };
     const observer = new MutationObserver((mutations) => {
       if (mutations.some((mutation) => mutation.addedNodes.length > 0)) scheduleRender();

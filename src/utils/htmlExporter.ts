@@ -5,6 +5,7 @@ import { extractTocHeadings, assignTocPageNumbers, paginateTocItemsByDom, buildT
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidInHtml } from './mermaidRenderer';
+import { renderInfographicInHtml } from './infographicRenderer';
 import { ensureMathLoaded } from './mathRenderer';
 import { getTocTitleCss } from './markdownParser';
 import { renderWatermarkHtml, renderWatermarkImageDefinition } from './watermark';
@@ -70,6 +71,7 @@ export function generateStandaloneHtml(
   meta: DocumentMeta,
   theme: DocumentTheme,
   mermaidHeights: Record<string, number> = {},
+  infographicHeights: Record<string, number> = {},
 ): string {
   const { header, footer, toc, style } = theme;
   const cover = theme.cover;
@@ -94,6 +96,7 @@ export function generateStandaloneHtml(
     footerShow: footer.show,
     style,
     mermaidHeights,
+    infographicHeights,
   });
   const contentSections = getPageSections(rawContentPages);
   const tocSection = { h1: toc.title || '目 录', h2: toc.title || '目 录' };
@@ -858,7 +861,7 @@ export function generateStandaloneHtml(
 </html>`;
 }
 
-async function measureMermaidHeights(html: string, sources: string[]): Promise<Record<string, number>> {
+async function measureMermaidHeights(html: string, sources: string[], selector = '.mermaid'): Promise<Record<string, number>> {
   if (sources.length === 0 || typeof document === 'undefined') return {};
 
   const iframe = document.createElement('iframe');
@@ -880,12 +883,7 @@ async function measureMermaidHeights(html: string, sources: string[]): Promise<R
     await loaded;
     await iframe.contentDocument?.fonts?.ready;
 
-    const frameWindow = iframe.contentWindow;
-    if (frameWindow) {
-      await new Promise<void>((resolve) => frameWindow.requestAnimationFrame(() => resolve()));
-    }
-
-    const elements = Array.from(iframe.contentDocument?.querySelectorAll<HTMLElement>('.mermaid') || []);
+    const elements = Array.from(iframe.contentDocument?.querySelectorAll<HTMLElement>(selector) || []);
     return Object.fromEntries(sources.map((source, index) => [source, elements[index]?.offsetHeight || 180]));
   } finally {
     iframe.remove();
@@ -917,10 +915,14 @@ export async function generatePreparedHtml(markdownText: string, meta: DocumentM
   const parsed = new DOMParser().parseFromString(initialHtml, 'text/html');
   const mermaidSources = Array.from(parsed.querySelectorAll<HTMLElement>('.mermaid'))
     .map((element) => element.textContent?.trim() || '');
-  const initiallyRenderedHtml = await renderMermaidInHtml(initialHtml);
+  const infographicSources = Array.from(parsed.querySelectorAll<HTMLElement>('.infographic'))
+    .map((element) => element.textContent?.trim() || '');
+  const renderDiagrams = async (html: string) => renderInfographicInHtml(await renderMermaidInHtml(html));
+  const initiallyRenderedHtml = await renderDiagrams(initialHtml);
   const mermaidHeights = await measureMermaidHeights(initiallyRenderedHtml, mermaidSources);
-  const renderedHtml = mermaidSources.length > 0
-    ? await renderMermaidInHtml(generateStandaloneHtml(markdownText, meta, theme, mermaidHeights))
+  const infographicHeights = await measureMermaidHeights(initiallyRenderedHtml, infographicSources, '.infographic');
+  const renderedHtml = mermaidSources.length > 0 || infographicSources.length > 0
+    ? await renderDiagrams(generateStandaloneHtml(markdownText, meta, theme, mermaidHeights, infographicHeights))
     : initiallyRenderedHtml;
   return inlineImagesAsDataUris(renderedHtml);
 }

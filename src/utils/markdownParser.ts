@@ -18,6 +18,7 @@ import { resolveImageSrc } from './tauriHelper';
 import { splitExplicitPages } from './pageBreaks';
 import { parseImageDimensions } from './imageDimensions';
 import { getMathRanges, registerMathExtensions } from './mathRenderer';
+import { isInfographicLang } from './infographicRenderer';
 import { isMermaidLang, parseMermaidFenceOptions, resolveMermaidTheme, getMermaidConfig, DEFAULT_MERMAID_CUSTOM_COLORS } from './mermaidRenderer';
 import type { MermaidConfig } from '../types';
 
@@ -32,6 +33,9 @@ export function registerMermaidExtensions(): void {
   marked.use({
     renderer: {
       code(token) {
+        if (isInfographicLang(token.lang)) {
+          return `<div class="infographic">${escapeHtmlText(token.text)}</div>`;
+        }
         if (isMermaidLang(token.lang)) {
           const options = parseMermaidFenceOptions(token.lang);
           const optionsAttr = options && Object.keys(options).length > 0
@@ -73,6 +77,7 @@ export interface DomPaginationOptions {
   footerShow?: boolean;
   style?: StyleConfig;
   mermaidHeights?: Record<string, number>;
+  infographicHeights?: Record<string, number>;
 }
 
 const imageDimensions = new Map<string, { width: number; height: number }>();
@@ -191,8 +196,12 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
     ${selector} pre .hljs-comment, ${selector} pre .hljs-quote, ${selector} pre .hljs-meta { color: var(--code-comment); }
     ${selector} pre .hljs-title, ${selector} pre .hljs-section, ${selector} pre .hljs-selector-class, ${selector} pre .hljs-selector-id { color: var(--code-title); }
     ${selector} .mermaid { display: flex; align-items: center; justify-content: center; min-height: 180px; max-height: 720px; margin: 1.2em 0; overflow: hidden; text-indent: 0; }
-    ${selector} .doc-mermaid-figure { margin: 1.2em 0; break-inside: avoid; }
+    ${selector} .doc-mermaid-figure, ${selector} .doc-infographic-figure { margin: 1.2em 0; break-inside: avoid; }
     ${selector} .doc-mermaid-figure .mermaid { margin: 0; }
+    ${selector} .infographic { display: flex; align-items: center; justify-content: center; min-height: 180px; max-height: 720px; margin: 1.2em 0; overflow: hidden; text-indent: 0; break-inside: avoid; }
+    ${selector} .infographic > svg { display: block; width: 100%; height: auto; max-height: 720px; }
+    ${selector} .doc-infographic-figure .infographic { margin: 0; }
+    ${selector} .infographic-error { display: block; white-space: pre-wrap; min-height: 0; overflow-wrap: anywhere; }
     ${selector} .doc-image-caption { margin-top: 6px; font-size: 0.85em; color: #64748b; font-weight: 600; line-height: 1.4; }
     ${selector} .mermaid-error { display: block; min-height: 0; }
     ${selector} .mermaid svg { width: auto; height: auto; max-width: 100%; max-height: 720px; }
@@ -581,10 +590,11 @@ export function paginateContentByDom(
         const tempContainer = document.createElement('template');
         const rawTokenHtml = marked.parse(token.raw || '') as string;
         tempContainer.innerHTML = postProcessRenderedHtml(rawTokenHtml, options.style);
-        if (token.type === 'code' && isMermaidLang(token.lang)) {
-          const mermaidElement = tempContainer.content.querySelector<HTMLElement>('.mermaid');
+        if (token.type === 'code' && (isMermaidLang(token.lang) || isInfographicLang(token.lang))) {
+          const isInfographic = isInfographicLang(token.lang);
+          const mermaidElement = tempContainer.content.querySelector<HTMLElement>(isInfographic ? '.infographic' : '.mermaid');
           const source = mermaidElement?.textContent?.trim();
-          const measuredHeight = source ? options.mermaidHeights?.[source] : undefined;
+          const measuredHeight = source ? (isInfographic ? options.infographicHeights : options.mermaidHeights)?.[source] : undefined;
           if (mermaidElement && measuredHeight !== undefined && !mermaidElement.style.height) {
             const maxHeightLimit = mermaidElement.style.maxHeight ? parseFloat(mermaidElement.style.maxHeight) : 720;
             mermaidElement.style.height = `${Math.min(maxHeightLimit, Math.max(180, measuredHeight))}px`;
@@ -676,7 +686,7 @@ export function paginateContentByDom(
           index = nextIndex;
           processToken({ ...table, raw: `${token.raw}${table.raw}`, tableRaw: table.raw, captionRaw: token.raw });
         } else if (token.type === 'html' && /^<!--\s*caption:[\s\S]*?-->$/i.test(token.raw.trim())
-          && tokens[nextIndex]?.type === 'code' && isMermaidLang(tokens[nextIndex].lang)) {
+          && tokens[nextIndex]?.type === 'code' && (isMermaidLang(tokens[nextIndex].lang) || isInfographicLang(tokens[nextIndex].lang))) {
           const diagram = tokens[nextIndex];
           index = nextIndex;
           processToken({ ...diagram, raw: `${token.raw}\n\n${diagram.raw}` });
@@ -1360,7 +1370,7 @@ export function postProcessRenderedHtml(
 
   // Number both kinds of figures in source order.
   let processed = mermaidProcessed.replace(
-    /<!--\s*caption:\s*([\s\S]*?)\s*-->\s*(<div\s+class="mermaid"[^>]*>[\s\S]*?<\/div>)|<img\s+([^>]*?)src=["']([^"']+)["']([^>]*?)\/?>\s*(?:\{([^{}]*)\})?/gi,
+    /<!--\s*caption:\s*([\s\S]*?)\s*-->\s*(<div\s+class="(?:mermaid|infographic)"[^>]*>[\s\S]*?<\/div>)|<img\s+([^>]*?)src=["']([^"']+)["']([^>]*?)\/?>\s*(?:\{([^{}]*)\})?/gi,
     (match, mermaidCaptionRaw, diagramHtml, p1, rawSrc, p2, dimensionAttributes) => {
     if (diagramHtml) {
       if (!imgConfig.showCaption) return diagramHtml;
@@ -1369,7 +1379,8 @@ export function postProcessRenderedHtml(
       const captionText = imgConfig.autoNumber
         ? `${imgConfig.numberPrefix}${++counters.imgCount}: ${caption}`
         : caption;
-      return `<figure class="doc-mermaid-figure">${diagramHtml}<figcaption class="doc-image-caption" style="text-align: ${imgConfig.captionAlign};">${escapeHtmlText(captionText)}</figcaption></figure>`;
+      const figureClass = diagramHtml.startsWith('<div class="infographic"') ? 'doc-infographic-figure' : 'doc-mermaid-figure';
+      return `<figure class="${figureClass}">${diagramHtml}<figcaption class="doc-image-caption" style="text-align: ${imgConfig.captionAlign};">${escapeHtmlText(captionText)}</figcaption></figure>`;
     }
     const combinedAttrs = `${p1} ${p2}`;
 

@@ -85,7 +85,20 @@ AI 可以读取当前文档状态、章节大纲和指定正文，协助润色�
 
 ## 图表、代码与分页
 
+### 分页与代码
+
 正文中的 `<!-- pagebreak -->` 会强制从新页开始，本节标题前就使用了一个。
+
+代码块会保留语言标识并按主题显示，下面是 `.sdc` 文档包中 `settings.json` 的片段：
+
+```json
+{
+  "historyEnabled": true,
+  "historyIdleMinutes": 10
+}
+```
+
+### Mermaid 图表
 
 Mermaid 图表使用标准围栏代码块，未写单图主题时沿用右侧「样式」面板中「Mermaid 图表配色」的设置（初始为 `neutral`）：
 
@@ -115,14 +128,36 @@ A4 预览中点击图表，也可通过悬浮工具条调整单图主题、像�
 
 Mermaid 图表支持图题注，方法是在围栏前添加 `<!-- caption: 题注文本 -->` 注释。
 
-代码块会保留语言标识并按主题显示，下面是 `.sdc` 文档包中 `settings.json` 的片段：
+### AntV Infographic
 
-```json
-{
-  "historyEnabled": true,
-  "historyIdleMinutes": 10
-}
+新一代信息图可视化引擎，让文字信息栩栩如生！
+
+<!-- caption: 题注说明文本 -->
+```infographic
+infographic list-row-horizontal-icon-arrow
+data
+  title 客户增长引擎
+  desc 多渠道触达与复购提升
+  items
+    - label 线索获取
+      value 18.6
+      desc 渠道投放与内容获客
+      icon rocket-launch
+    - label 转化提效
+      value 12.4
+      desc 线索评分与自动跟进
+      icon progress-check
+    - label 复购提升
+      value 9.8
+      desc 会员体系与权益运营
+      icon account-sync
+    - label 口碑传播
+      value 6.2
+      desc 社群激励与推荐裂变
+      icon account-group
 ```
+
+> 更多用法，参见：[AntV Infographic Gallery](https://infographic.antv.vision/gallery)。
 
 ## 数学公式
 

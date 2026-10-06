@@ -5,6 +5,17 @@ import { PRESET_THEMES } from '../data/presetThemes';
 import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
 import { exportToDocx } from './docxExporter';
 import { fetchImageBinary } from './tauriHelper';
+import { renderInfographicImage } from './infographicRenderer';
+
+vi.mock('./infographicRenderer', async (importOriginal) => ({
+  ...await importOriginal<typeof import('./infographicRenderer')>(),
+  renderInfographicImage: vi.fn(async () => ({
+    svg: Uint8Array.from(new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 320"><text>Growth</text></svg>')),
+    png: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+    width: 560,
+    height: 320,
+  })),
+}));
 
 vi.mock('./mermaidRenderer', async (importOriginal) => ({
   ...await importOriginal<typeof import('./mermaidRenderer')>(),
@@ -24,6 +35,54 @@ vi.mock('./tauriHelper', async (importOriginal) => ({
 }));
 
 afterEach(() => vi.restoreAllMocks());
+
+it('exports infographic SVG and a real PNG fallback with a numbered caption', async () => {
+  let exportedBlob: Blob | undefined;
+  vi.stubGlobal('URL', {
+    createObjectURL: (blob: Blob) => { exportedBlob = blob; return 'blob:document'; },
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const base = PRESET_THEMES[0];
+  try {
+    await exportToDocx('<!-- caption: Growth -->\n\n```infographic\ninfographic list-row-horizontal-icon-arrow\ndata\n  title Growth\n```', DEFAULT_DOCUMENT_META, {
+      ...base,
+      cover: { ...base.cover, showCover: false },
+      toc: { ...base.toc, show: false },
+    });
+    const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
+    const media = Object.entries(files).filter(([path]) => path.startsWith('word/media/'));
+    expect(media.some(([path, data]) => path.endsWith('.svg') && strFromU8(data).includes('<text>Growth</text>'))).toBe(true);
+    expect(media.some(([path, data]) => path.endsWith('.png') && data[0] === 137)).toBe(true);
+    const xml = strFromU8(files['word/document.xml']);
+    expect(xml).toContain('asvg:svgBlip');
+    expect(xml).toContain('图 1: Growth');
+    expect(xml).not.toContain('infographic list-row-horizontal-icon-arrow');
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it('keeps infographic source in Word when rendering fails', async () => {
+  vi.mocked(renderInfographicImage).mockRejectedValueOnce(new Error('Invalid syntax'));
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  let exportedBlob: Blob | undefined;
+  vi.stubGlobal('URL', {
+    createObjectURL: (blob: Blob) => { exportedBlob = blob; return 'blob:document'; },
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const base = PRESET_THEMES[0];
+  try {
+    await exportToDocx('```infographic\ninfographic invalid-template\n```', DEFAULT_DOCUMENT_META, {
+      ...base, cover: { ...base.cover, showCover: false }, toc: { ...base.toc, show: false },
+    });
+    const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
+    expect(strFromU8(files['word/document.xml'])).toContain('infographic invalid-template');
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
 
 it('rasterizes SVG images to PNG in Word documents', async () => {
   let exportedBlob: Blob | undefined;

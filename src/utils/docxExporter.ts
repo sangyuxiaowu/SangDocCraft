@@ -26,6 +26,7 @@ import { getHeadingText, getTocLevelStyles, getTocTitleFont } from './documentSt
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { isMermaidLang, parseMermaidFenceOptions, resolveMermaidTheme, renderMermaidPng, getMermaidConfig } from './mermaidRenderer';
+import { isInfographicLang, renderInfographicImage } from './infographicRenderer';
 import { registerMathExtensions, renderMathPng } from './mathRenderer';
 import { splitExplicitPages } from './pageBreaks';
 import { extractImageDimensionSuffix } from './imageDimensions';
@@ -430,7 +431,7 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
     const captionMatch = token.type === 'html' ? token.raw.trim().match(/^<!--\s*caption:\s*([\s\S]*?)\s*-->$/i) : null;
     if (captionMatch) {
       const nextIndex = tokens[tokenIndex + 1]?.type === 'space' ? tokenIndex + 2 : tokenIndex + 1;
-      if (tokens[nextIndex]?.type === 'code' && isMermaidLang(tokens[nextIndex].lang)) {
+      if (tokens[nextIndex]?.type === 'code' && (isMermaidLang(tokens[nextIndex].lang) || isInfographicLang(tokens[nextIndex].lang))) {
         mermaidCaptions.set(nextIndex, captionMatch[1].trim());
         continue;
       }
@@ -549,6 +550,28 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
       }
 
       case 'code': {
+        if (isInfographicLang(token.lang)) {
+          try {
+            const diagram = await renderInfographicImage(token.text);
+            sectionsChildren.push(new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 160, after: 160 },
+              children: [new ImageRun({
+                type: 'svg',
+                data: diagram.svg,
+                fallback: { type: 'png', data: diagram.png },
+                transformation: { width: diagram.width, height: diagram.height },
+                altText: { title: 'Infographic 信息图', description: 'Infographic 信息图', name: 'Infographic 信息图' },
+              })],
+            }));
+            const caption = (mermaidCaptions.get(tokenIndex) || '').replace(/^(?:图|表|Figure|Table)\s*\d*[:：]?\s*/i, '').trim();
+            const captionParagraph = createFigureCaption(caption);
+            if (captionParagraph) sectionsChildren.push(captionParagraph);
+            break;
+          } catch (error) {
+            console.warn('DOCX Infographic rendering failed:', error);
+          }
+        }
         if (isMermaidLang(token.lang)) {
           try {
             const options = parseMermaidFenceOptions(token.lang);

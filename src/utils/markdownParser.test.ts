@@ -21,6 +21,33 @@ import {
 const theme = PRESET_THEMES[0];
 
 describe('Markdown pagination and numbering', () => {
+  it('escapes infographic source instead of interpreting it as HTML', () => {
+    const html = marked.parse('```infographic\ninfographic list-row-horizontal-icon-arrow\ndata\n  title <img src=x onerror=alert(1)>\n```') as string;
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    expect(parsed.querySelector('.infographic')?.textContent).toContain('<img src=x onerror=alert(1)>');
+    expect(parsed.querySelector('img')).toBeNull();
+  });
+
+  it('keeps infographic captions attached and uses measured heights for pagination', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      const diagram = this.querySelector<HTMLElement>('.infographic');
+      return this.querySelectorAll('h2').length * 300
+        + (diagram ? Number.parseFloat(diagram.style.height) || 180 : 0)
+        + this.querySelectorAll('.doc-image-caption').length * 30;
+    });
+    const diagram = 'infographic list-row-horizontal-icon-arrow\ndata\n  title Growth';
+    const source = `## Before\n\n<!-- caption: Growth engine -->\n\n\`\`\`infographic\n${diagram}\n\`\`\`\n\n## After`;
+    try {
+      expect(paginateContentByDom(source, { style: theme.style })).toHaveLength(1);
+      const pages = paginateContentByDom(source, { style: theme.style, infographicHeights: { [diagram]: 700 } });
+      expect(pages.length).toBeGreaterThan(1);
+      expect(pages.find((page) => page.includes('```infographic'))).toContain('<!-- caption: Growth engine -->');
+      expect(pages.join('\n').match(/```infographic/g)).toHaveLength(1);
+    } finally {
+      height.mockRestore();
+    }
+  });
+
   it('uses measured Mermaid heights instead of reserving the maximum height', () => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       const mermaid = this.querySelector<HTMLElement>('.mermaid');

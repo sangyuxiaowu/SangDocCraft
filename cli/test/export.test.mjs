@@ -41,7 +41,7 @@ test('exports a self-contained, paginated HTML document', async () => {
   try {
     await writeFile(source, zipSync({
       'manifest.json': json({ format: 'SangDocCraft', formatVersion: 2, documentId: 'cli-test', title: 'CLI 测试', createdAt: '', modifiedAt: '' }),
-      'document.md': strToU8(`# CLI 测试\n\n![test](@images/${id})\n\n$x^2$\n\n\`\`\`mermaid\nflowchart LR\nA --> B\n\`\`\``),
+      'document.md': strToU8(`# CLI 测试\n\n![test](@images/${id})\n\n$x^2$\n\n\`\`\`mermaid\nflowchart LR\nA --> B\n\`\`\`\n\n\`\`\`infographic\ninfographic list-row-horizontal-icon-arrow\ndata\n  title 客户增长引擎\n  items\n    - label 线索获取\n      icon rocket-launch\n    - label 转化提效\n      icon progress-check\n\`\`\``),
       'meta.json': json({ title: 'CLI 测试' }),
       'theme.json': json({}),
       'settings.json': json({ historyEnabled: false, historyIdleMinutes: 10 }),
@@ -55,6 +55,9 @@ test('exports a self-contained, paginated HTML document', async () => {
     assert.match(html, /data:image\/png;base64,/);
     assert.ok(/class="math-inline"[^>]*><mjx-container[^>]*><svg/.test(html), html.match(/.{0,60}math-inline.{0,150}/)?.[0] || '公式标记不存在');
     assert.ok(/class="mermaid"[^>]*><svg/.test(html), html.match(/.{0,60}mermaid.{0,150}/)?.[0] || 'Mermaid 标记不存在');
+    assert.match(html, /class="infographic"[^>]*><svg/);
+    assert.match(html, /线索获取/);
+    assert.doesNotMatch(html, /foreignObject/);
     assert.match(html, /--sdc-page-scale/);
     assert.doesNotMatch(html, /@images\//);
   } finally {
@@ -69,7 +72,7 @@ test('exports an editable Word document from Markdown', async () => {
   const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/wQAAAABJRU5ErkJggg==', 'base64');
   try {
     await mkdir(join(source, 'images'), { recursive: true });
-    await writeFile(join(source, 'document.md'), '# DOCX 正文\n\n由 CLI 生成的 Word 文档。\n\n![图示](images/sample.png)');
+    await writeFile(join(source, 'document.md'), '# DOCX 正文\n\n由 CLI 生成的 Word 文档。\n\n![图示](images/sample.png)\n\n```infographic\ninfographic list-row-horizontal-icon-arrow\ndata\n  title 客户增长引擎\n  items\n    - label 线索获取\n      icon rocket-launch\n```');
     await writeFile(join(source, 'images', 'sample.png'), image);
     await writeFile(join(source, 'meta.json'), JSON.stringify({ title: 'DOCX 测试' }));
     await execute(process.execPath, [command, source, '-o', output]);
@@ -79,6 +82,12 @@ test('exports an editable Word document from Markdown', async () => {
     assert.match(strFromU8(files['word/document.xml']), /由 CLI 生成的 Word 文档/);
     const embeddedImages = Object.entries(files).filter(([name]) => name.startsWith('word/media/'));
     assert.ok(embeddedImages.some(([, bytes]) => Buffer.from(bytes).equals(image)));
+    const infographicSvg = embeddedImages.find(([name]) => name.endsWith('.svg'));
+    assert.ok(infographicSvg);
+    assert.match(strFromU8(infographicSvg[1]), /客户增长引擎/);
+    assert.match(strFromU8(infographicSvg[1]), /线索获取/);
+    assert.doesNotMatch(strFromU8(infographicSvg[1]), /foreignObject/);
+    assert.ok(embeddedImages.some(([name, bytes]) => name.endsWith('.png') && bytes.length > image.length));
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

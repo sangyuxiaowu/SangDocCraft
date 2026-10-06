@@ -21,6 +21,7 @@ export default defineConfig(({ mode }) => {
         includeAssets: ['reward-code.svg'],
         workbox: {
           globIgnores: ['assets/mathjax-*.js'],
+          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         },
         manifest: {
           name: 'SangDocCraft - 智能 Markdown 排版工具',

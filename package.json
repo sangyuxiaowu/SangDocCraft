@@ -17,6 +17,8 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@antv/infographic": "0.2.20",
+    "@iconify-json/mdi": "1.2.3",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-opener": "^2.5.5",
     "docx": "^9.7.1",
