@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Printer, ExternalLink, Download, X, Loader2, Sparkles } from 'lucide-react';
 import { DocumentMeta, DocumentTheme } from '../types';
-import { generatePreparedHtml, exportToHtmlFile } from '../utils/htmlExporter';
 
 interface PrintPdfModalProps {
   isOpen: boolean;
@@ -38,7 +37,8 @@ export const PrintPdfModal: React.FC<PrintPdfModalProps> = ({
     setLoading(true);
     setError(null);
 
-    generatePreparedHtml(markdown, meta, theme)
+    import('../utils/htmlExporter')
+      .then(({ generatePreparedHtml }) => generatePreparedHtml(markdown, meta, theme))
       .then((htmlContent) => {
         if (!isCurrent) return;
         const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
@@ -79,7 +79,11 @@ export const PrintPdfModal: React.FC<PrintPdfModalProps> = ({
   };
 
   const handleDownloadHtml = () => {
-    void exportToHtmlFile(markdown, meta, theme);
+    void import('../utils/htmlExporter')
+      .then(({ exportToHtmlFile }) => exportToHtmlFile(markdown, meta, theme))
+      .catch((err) => {
+        console.error('HTML export error:', err);
+      });
   };
 
   if (!isOpen) return null;
