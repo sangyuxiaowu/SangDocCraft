@@ -1382,7 +1382,7 @@ export function postProcessRenderedHtml(
 
   // Number both kinds of figures in source order.
   let processed = mermaidProcessed.replace(
-    /<!--\s*caption:\s*([\s\S]*?)\s*-->\s*(<div\s+class="(?:mermaid|infographic)"[^>]*>[\s\S]*?<\/div>)|<img\s+([^>]*?)src=["']([^"']+)["']([^>]*?)\/?>\s*(?:\{([^{}]*)\})?/gi,
+    /<!--\s*caption:\s*((?:(?!-->)[\s\S])*)\s*-->\s*(<div\s+class="(?:mermaid|infographic)"[^>]*>[\s\S]*?<\/div>)|<img\s+([^>]*?)src=["']([^"']+)["']([^>]*?)\/?>\s*(?:\{([^{}]*)\})?/gi,
     (match, mermaidCaptionRaw, diagramHtml, p1, rawSrc, p2, dimensionAttributes) => {
     if (diagramHtml) {
       if (!imgConfig.showCaption) return diagramHtml;

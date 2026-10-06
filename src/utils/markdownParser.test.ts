@@ -730,6 +730,34 @@ describe('Rendered Markdown post-processing', () => {
     expect(next).toContain('图 2: 后续图片');
   });
 
+  it('does not attach an earlier table caption and following headings to an infographic', () => {
+    const source = [
+      '<!-- caption: 敏感性分析 -->',
+      '| 指标 | 数值 |',
+      '| --- | --- |',
+      '| 用户 | 38.4 万 |',
+      '',
+      '# 风险评估与应对',
+      '## SWOT 分析',
+      '<!-- caption: SWOT 分析 -->',
+      '',
+      '```infographic',
+      'infographic compare-swot',
+      'data',
+      '  title SWOT 分析',
+      '```',
+    ].join('\n');
+    const html = postProcessRenderedHtml(marked.parse(source) as string, theme.style);
+    const container = document.createElement('div');
+    container.innerHTML = html;
+
+    expect(container.querySelector('.doc-table-caption')?.textContent).toContain('敏感性分析');
+    const figure = container.querySelector('.doc-infographic-figure');
+    expect(figure?.querySelector('.doc-image-caption')?.textContent).toContain('SWOT 分析');
+    expect(figure?.textContent).not.toContain('敏感性分析');
+    expect(figure?.textContent).not.toContain('风险评估与应对');
+  });
+
   it('numbers images and Mermaid diagrams in document order', () => {
     const source = '![第一张](a.png)\n\n<!-- caption: 数据处理结构 -->\n\n```mermaid\nflowchart LR\nA --> B\n```\n\n![第三张](b.png)';
     const html = postProcessRenderedHtml(marked.parse(source) as string, theme.style);
