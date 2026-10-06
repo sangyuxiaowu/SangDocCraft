@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { convertInfographicText, isInfographicLang, renderInfographicElements, renderInfographicSvg } from './infographicRenderer';
+import { convertInfographicText, isInfographicLang, parseInfographicFenceOptions, renderInfographicElements, renderInfographicSvg } from './infographicRenderer';
 
 const engine = vi.hoisted(() => ({ export: vi.fn(), destroy: vi.fn(), loaded: undefined as (() => void) | undefined }));
 
@@ -38,6 +38,14 @@ describe('Infographic rendering', () => {
     expect(isInfographicLang(' INFOGRAPHIC ')).toBe(true);
     expect(isInfographicLang('infographic-other')).toBe(false);
     expect(isInfographicLang()).toBe(false);
+  });
+
+  it('parses numeric width, height and alignment using the image rules', () => {
+    expect(isInfographicLang('infographic {w=320 h=120 align=right}')).toBe(true);
+    expect(parseInfographicFenceOptions('infographic {w=320 h=120 align=right}')).toEqual({ width: 320, height: 120, align: 'right' });
+    expect(parseInfographicFenceOptions('infographic {w=-1 align=right}')).toEqual({});
+    expect(parseInfographicFenceOptions('infographic {w=50%}')).toEqual({});
+    expect(parseInfographicFenceOptions('infographic')).toEqual({});
   });
 
   it('waits for resource completion and cleans up the offscreen instance', async () => {

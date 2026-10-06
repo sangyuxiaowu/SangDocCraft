@@ -21,8 +21,25 @@ describe('generateStandaloneHtml', () => {
       { ...base, cover: { ...base.cover, showCover: false }, toc: { ...base.toc, show: false } },
     );
     expect(html).toMatch(/图 1: First[\s\S]*doc-infographic-figure[\s\S]*图 2: Growth[\s\S]*doc-mermaid-figure[\s\S]*图 3: Flow/);
-    expect(html).toContain('<div class="infographic">');
+    expect(html).toMatch(/<div class="infographic"[^>]*>/);
     expect(html).not.toContain('<!-- caption:');
+  });
+
+  it('exports infographic dimensions and alignment without changing the caption alignment', () => {
+    const base = PRESET_THEMES[0];
+    const html = generateStandaloneHtml(
+      '<!-- caption: Growth -->\n\n```infographic {w=320 h=120 align=right}\ninfographic list-row-horizontal-icon-arrow\ndata\n  title Growth\n```',
+      { ...base, cover: { ...base.cover, showCover: false }, toc: { ...base.toc, show: false } },
+    );
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    const diagram = parsed.querySelector<HTMLElement>('.infographic')!;
+    expect(diagram.dataset).toMatchObject({ width: '320', height: '120', align: 'right' });
+    expect(diagram.style.width).toBe('320px');
+    expect(diagram.style.height).toBe('120px');
+    expect(diagram.style.marginLeft).toBe('auto');
+    expect(diagram.style.marginRight).toBe('0px');
+    expect(parsed.querySelector<HTMLElement>('figcaption')?.style.textAlign).toBe('center');
+    expect(diagram.textContent).not.toContain('{w=');
   });
 
   it('keeps an explicitly empty right header blank on every page', () => {

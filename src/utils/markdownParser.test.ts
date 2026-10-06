@@ -21,6 +21,30 @@ import {
 const theme = PRESET_THEMES[0];
 
 describe('Markdown pagination and numbering', () => {
+  it('keeps explicit infographic height and measures compact diagrams below 180 pixels', () => {
+    const observedHeights: string[] = [];
+    const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      const height = this.querySelector<HTMLElement>('.infographic')?.style.height || '';
+      if (height) observedHeights.push(height);
+      return Number.parseFloat(height) || 180;
+    });
+    const source = 'infographic list-row-horizontal-icon-arrow\ndata\n  title Growth';
+    try {
+      paginateContentByDom(`\`\`\`infographic {w=320 h=100 align=left}\n${source}\n\`\`\``, {
+        style: theme.style, infographicHeights: { [source]: 400 },
+      });
+      expect(observedHeights).toContain('100px');
+      observedHeights.length = 0;
+      paginateContentByDom(`\`\`\`infographic {w=160}\n${source}\n\`\`\``, {
+        style: theme.style, infographicHeights: { [source]: 80 },
+      });
+      expect(observedHeights).toContain('80px');
+      expect(observedHeights).not.toContain('180px');
+    } finally {
+      scrollHeight.mockRestore();
+    }
+  });
+
   it('escapes infographic source instead of interpreting it as HTML', () => {
     const html = marked.parse('```infographic\ninfographic list-row-horizontal-icon-arrow\ndata\n  title <img src=x onerror=alert(1)>\n```') as string;
     const parsed = new DOMParser().parseFromString(html, 'text/html');

@@ -26,7 +26,7 @@ import { getHeadingText, getTocLevelStyles, getTocTitleFont } from './documentSt
 import { fetchImageBinary } from './tauriHelper';
 import { getCoverTemplate } from '../themes/themeRegistry';
 import { isMermaidLang, parseMermaidFenceOptions, resolveMermaidTheme, renderMermaidPng, getMermaidConfig } from './mermaidRenderer';
-import { isInfographicLang, renderInfographicImage } from './infographicRenderer';
+import { isInfographicLang, parseInfographicFenceOptions, renderInfographicImage } from './infographicRenderer';
 import { registerMathExtensions, renderMathPng } from './mathRenderer';
 import { splitExplicitPages } from './pageBreaks';
 import { extractImageDimensionSuffix } from './imageDimensions';
@@ -552,9 +552,10 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
       case 'code': {
         if (isInfographicLang(token.lang)) {
           try {
-            const diagram = await renderInfographicImage(token.text);
+            const options = parseInfographicFenceOptions(token.lang);
+            const diagram = await renderInfographicImage(token.text, options);
             sectionsChildren.push(new Paragraph({
-              alignment: AlignmentType.CENTER,
+              alignment: options.align === 'left' ? AlignmentType.LEFT : options.align === 'right' ? AlignmentType.RIGHT : AlignmentType.CENTER,
               spacing: { before: 160, after: 160 },
               children: [new ImageRun({
                 type: 'svg',

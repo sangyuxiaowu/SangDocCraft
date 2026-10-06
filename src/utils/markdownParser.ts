@@ -18,7 +18,7 @@ import { resolveImageSrc } from './tauriHelper';
 import { splitExplicitPages } from './pageBreaks';
 import { parseImageDimensions } from './imageDimensions';
 import { getMathRanges, registerMathExtensions } from './mathRenderer';
-import { isInfographicLang } from './infographicRenderer';
+import { isInfographicLang, parseInfographicFenceOptions } from './infographicRenderer';
 import { isMermaidLang, parseMermaidFenceOptions, resolveMermaidTheme, getMermaidConfig, DEFAULT_MERMAID_CUSTOM_COLORS } from './mermaidRenderer';
 import type { MermaidConfig } from '../types';
 
@@ -34,7 +34,19 @@ export function registerMermaidExtensions(): void {
     renderer: {
       code(token) {
         if (isInfographicLang(token.lang)) {
-          return `<div class="infographic">${escapeHtmlText(token.text)}</div>`;
+          const options = parseInfographicFenceOptions(token.lang);
+          const align = options.align || 'center';
+          const attributes = [
+            options.width ? `data-width="${options.width}"` : '',
+            options.height ? `data-height="${options.height}"` : '',
+            `data-align="${align}"`,
+          ].filter(Boolean).join(' ');
+          const dimensions = options.width || options.height
+            ? `width: ${options.width ? `${options.width}px` : 'fit-content'}; max-width: 100%; min-height: 0;`
+            : '';
+          const height = options.height ? `height: ${options.height}px; max-height: ${options.height}px;` : '';
+          const margins = align === 'left' ? 'margin-left: 0; margin-right: auto;' : align === 'right' ? 'margin-left: auto; margin-right: 0;' : 'margin-left: auto; margin-right: auto;';
+          return `<div class="infographic" ${attributes} style="${dimensions} ${height} ${margins}">${escapeHtmlText(token.text)}</div>`;
         }
         if (isMermaidLang(token.lang)) {
           const options = parseMermaidFenceOptions(token.lang);
@@ -597,7 +609,7 @@ export function paginateContentByDom(
           const measuredHeight = source ? (isInfographic ? options.infographicHeights : options.mermaidHeights)?.[source] : undefined;
           if (mermaidElement && measuredHeight !== undefined && !mermaidElement.style.height) {
             const maxHeightLimit = mermaidElement.style.maxHeight ? parseFloat(mermaidElement.style.maxHeight) : 720;
-            mermaidElement.style.height = `${Math.min(maxHeightLimit, Math.max(180, measuredHeight))}px`;
+            mermaidElement.style.height = `${Math.min(maxHeightLimit, Math.max(isInfographic ? 0 : 180, measuredHeight))}px`;
           }
         }
         const tokenNodes = Array.from(tempContainer.content.childNodes);

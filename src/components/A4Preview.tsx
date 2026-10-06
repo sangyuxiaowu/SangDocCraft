@@ -202,7 +202,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
   const previewRect = containerRef.current?.getBoundingClientRect();
 
   const getRenderedFigures = () => Array.from(containerRef.current?.querySelectorAll<HTMLElement>(
-    '.a4-sheet-page .markdown-rendered-body .doc-image, .a4-sheet-page .markdown-rendered-body .mermaid'
+    '.a4-sheet-page .markdown-rendered-body .doc-image, .a4-sheet-page .markdown-rendered-body .mermaid, .a4-sheet-page .markdown-rendered-body .infographic'
   ) ?? []);
 
   const positionFigureControls = () => {
@@ -219,7 +219,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
     if (selectedFigureIndex === null) return;
     const elements = getRenderedFigures();
     const element = elements.length === previewFigures.length ? elements[selectedFigureIndex] : undefined;
-    if (!element || !selectedFigure || (element.matches('.mermaid') ? 'mermaid' : 'image') !== selectedFigure.kind) {
+    if (!element || !selectedFigure || !element.matches(selectedFigure.kind === 'image' ? '.doc-image' : `.${selectedFigure.kind}`)) {
       figureElementRef.current = null;
       setFigureRect(null);
       return;
@@ -243,7 +243,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
       container?.removeEventListener('scroll', clearOnScroll);
       window.removeEventListener('resize', positionFigureControls);
     };
-  }, [selectedFigureIndex, markdown, zoom, mermaidHeights]);
+  }, [selectedFigureIndex, markdown, zoom, mermaidHeights, infographicHeights]);
 
   const applyFigureChange = (change: Parameters<typeof updatePreviewFigure>[2]) => {
     if (!selectedFigure || !onMarkdownChange) return;
@@ -254,10 +254,10 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
   const handleFigureClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!onMarkdownChange) return;
     const target = event.target as Element;
-    const element = target.closest<HTMLElement>('.doc-image, .mermaid');
+    const element = target.closest<HTMLElement>('.doc-image, .mermaid, .infographic');
     const rendered = getRenderedFigures();
     const index = element && rendered.length === previewFigures.length ? rendered.indexOf(element) : -1;
-    if (index < 0 || previewFigures[index].kind !== (element?.matches('.mermaid') ? 'mermaid' : 'image')) {
+    if (index < 0 || !element?.matches(previewFigures[index].kind === 'image' ? '.doc-image' : `.${previewFigures[index].kind}`)) {
       setSelectedFigureIndex(null);
       setFigureRect(null);
       return;
@@ -284,12 +284,18 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
       maxHeight: element.style.maxHeight,
       minHeight: element.style.minHeight,
     };
+    const svg = selectedFigure.kind === 'infographic' ? element.querySelector('svg') : null;
+    const initialSvgStyle = svg?.getAttribute('style');
     const getSize = (pointer: PointerEvent) => Math.min(2000, Math.max(40, Math.round(
       (axis === 'width' ? initialWidth : initialHeight)
       + ((axis === 'width' ? pointer.clientX : pointer.clientY) - start) / scale
     )));
     const restoreStyles = () => {
       Object.assign(element.style, initialStyles);
+      if (svg) {
+        if (initialSvgStyle === null || initialSvgStyle === undefined) svg.removeAttribute('style');
+        else svg.setAttribute('style', initialSvgStyle);
+      }
     };
     const restoreInputs = () => {
       setWidthInput(String('width' in (selectedOptions ?? {}) && selectedOptions?.width
@@ -301,16 +307,22 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
       const size = getSize(pointer);
       if (axis === 'width') {
         element.style.width = `${size}px`;
-        if (selectedFigure.kind === 'mermaid') element.style.maxWidth = `${size}px`;
+        if (selectedFigure.kind !== 'image') element.style.maxWidth = `${size}px`;
+        if (svg) svg.style.width = '100%';
         setWidthInput(String(size));
       } else {
-        if (selectedFigure.kind === 'image' && !('width' in (selectedOptions ?? {}))) {
+        if (selectedFigure.kind !== 'mermaid' && !('width' in (selectedOptions ?? {}))) {
           element.style.width = `${initialWidth}px`;
         }
         element.style.height = `${size}px`;
-        if (selectedFigure.kind === 'mermaid') {
+        if (selectedFigure.kind !== 'image') {
           element.style.maxHeight = `${size}px`;
           element.style.minHeight = '0';
+        }
+        if (svg) {
+          svg.style.width = '100%';
+          svg.style.height = `${size}px`;
+          svg.style.maxHeight = `${size}px`;
         }
         setHeightInput(String(size));
       }
@@ -325,7 +337,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown, meta, theme, uiM
       if (size !== (axis === 'width' ? initialWidth : initialHeight)) {
         applyFigureChange(axis === 'width'
           ? { width: size }
-          : { height: size, ...(selectedFigure.kind === 'image' && !('width' in (selectedOptions ?? {}))
+          : { height: size, ...(selectedFigure.kind !== 'mermaid' && !('width' in (selectedOptions ?? {}))
             ? { width: initialWidth } : {}) });
       } else restoreInputs();
       positionFigureControls();

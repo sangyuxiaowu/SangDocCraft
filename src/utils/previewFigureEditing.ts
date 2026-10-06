@@ -1,8 +1,9 @@
 import { marked } from 'marked';
 import { extractImageDimensionSuffix, formatImageDimensionSuffix, type ImageDimensions } from './imageDimensions';
 import { isMermaidLang, parseMermaidFenceOptions, type MermaidFenceOptions } from './mermaidRenderer';
+import { isInfographicLang, parseInfographicFenceOptions } from './infographicRenderer';
 
-export type PreviewFigure = { kind: 'image' | 'mermaid'; start: number; end: number };
+export type PreviewFigure = { kind: 'image' | 'mermaid' | 'infographic'; start: number; end: number };
 
 export function findPreviewFigures(markdown: string): PreviewFigure[] {
   const figures: PreviewFigure[] = [];
@@ -25,11 +26,11 @@ export function findPreviewFigures(markdown: string): PreviewFigure[] {
         if (offset >= 0) localCursor = offset + token.raw.length;
         return;
       }
-      if (token.type !== 'image' && !(token.type === 'code' && isMermaidLang(token.lang))) return;
+      if (token.type !== 'image' && !(token.type === 'code' && (isMermaidLang(token.lang) || isInfographicLang(token.lang)))) return;
       const offset = block.raw.indexOf(token.raw, localCursor);
       if (offset < 0) return;
       const start = blockStart + offset;
-      figures.push({ kind: token.type === 'image' ? 'image' : 'mermaid', start: offsets[start], end: offsets[start + token.raw.length] });
+      figures.push({ kind: token.type === 'image' ? 'image' : token.type === 'code' && isInfographicLang(token.lang) ? 'infographic' : 'mermaid', start: offsets[start], end: offsets[start + token.raw.length] });
       localCursor = offset + token.raw.length;
     });
   }
@@ -41,7 +42,8 @@ export function getPreviewFigureOptions(markdown: string, figure: PreviewFigure)
     return extractImageDimensionSuffix(markdown.slice(figure.end))?.dimensions ?? {};
   }
   const opener = markdown.slice(figure.start, figure.end).split(/\r?\n/, 1)[0];
-  return parseMermaidFenceOptions(opener.replace(/^\s*(?:`{3,}|~{3,})\s*/, '')) ?? {};
+  const lang = opener.replace(/^\s*(?:`{3,}|~{3,})\s*/, '');
+  return figure.kind === 'infographic' ? parseInfographicFenceOptions(lang) : parseMermaidFenceOptions(lang) ?? {};
 }
 
 export function updatePreviewFigure(
@@ -63,6 +65,7 @@ export function updatePreviewFigure(
   const braces = opener.match(/\{([^{}]*)\}/);
   let attributes = braces?.[1].trim() ?? '';
   for (const [key, value] of Object.entries(change)) {
+    if (figure.kind === 'infographic' && key === 'theme') continue;
     if (value === undefined) continue;
     const name = key === 'width' ? 'w' : key === 'height' ? 'h' : key;
     const pattern = new RegExp(`(^|[\\s,;])(?:${name}${name === 'w' ? '|width' : name === 'h' ? '|height' : ''})\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s,;{}]+)`, 'i');

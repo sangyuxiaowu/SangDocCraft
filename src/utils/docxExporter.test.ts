@@ -439,3 +439,34 @@ it('falls back to the first-level Word field when no second-level heading exists
     vi.unstubAllGlobals();
   }
 });
+
+it('uses infographic fence dimensions and alignment in Word', async () => {
+  vi.mocked(renderInfographicImage).mockResolvedValueOnce({
+    svg: Uint8Array.from(new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120"/>')),
+    png: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+    width: 320,
+    height: 120,
+  });
+  let exportedBlob: Blob | undefined;
+  vi.stubGlobal('URL', {
+    createObjectURL: (blob: Blob) => { exportedBlob = blob; return 'blob:document'; },
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const base = PRESET_THEMES[0];
+  const source = 'infographic list-row-horizontal-icon-arrow\ndata\n  title Growth';
+  try {
+    await exportToDocx(`\`\`\`infographic {w=320 h=120 align=right}\n${source}\n\`\`\``, DEFAULT_DOCUMENT_META, {
+      ...base, cover: { ...base.cover, showCover: false }, toc: { ...base.toc, show: false },
+    });
+    expect(renderInfographicImage).toHaveBeenLastCalledWith(source, { width: 320, height: 120, align: 'right' });
+    const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
+    const xml = new DOMParser().parseFromString(strFromU8(files['word/document.xml']), 'application/xml');
+    const extent = xml.getElementsByTagName('wp:extent')[0];
+    expect(Number(extent.getAttribute('cx')) / 9525).toBe(320);
+    expect(Number(extent.getAttribute('cy')) / 9525).toBe(120);
+    expect(strFromU8(files['word/document.xml'])).toContain('<w:jc w:val="right"');
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

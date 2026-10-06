@@ -2,6 +2,29 @@ import { describe, expect, it } from 'vitest';
 import { findPreviewFigures, getPreviewFigureOptions, updatePreviewFigure } from './previewFigureEditing';
 
 describe('preview figure editing', () => {
+  it('selects mixed images, infographic and Mermaid in document order', () => {
+    const source = '![a](a.png)\n\n```infographic {w=400 h=240 align=right}\ninfographic list-row-horizontal-icon-arrow\n```\n\n```mermaid\ngraph TD\nA-->B\n```';
+    const figures = findPreviewFigures(source);
+    expect(figures.map((figure) => figure.kind)).toEqual(['image', 'infographic', 'mermaid']);
+    expect(getPreviewFigureOptions(source, figures[1])).toEqual({ width: 400, height: 240, align: 'right' });
+  });
+
+  it('updates only the selected infographic fence and preserves its body and caption', () => {
+    const diagram = '~~~infographic {w=400 h=240 align=left}\r\ninfographic list-row-horizontal-icon-arrow\r\ndata\r\n  title Growth\r\n~~~';
+    const source = `<!-- caption: Growth -->\r\n\r\n${diagram}\r\n\r\n${diagram}`;
+    const figure = findPreviewFigures(source)[1];
+    expect(updatePreviewFigure(source, figure, { width: 300, height: null, align: 'right', theme: 'dark' })).toBe(
+      `<!-- caption: Growth -->\r\n\r\n${diagram}\r\n\r\n~~~infographic {w=300 align=right}\r\ninfographic list-row-horizontal-icon-arrow\r\ndata\r\n  title Growth\r\n~~~`
+    );
+  });
+
+  it('adds width, height and alignment to a plain infographic fence', () => {
+    const source = '```infographic\ninfographic list-row-horizontal-icon-arrow\n```';
+    expect(updatePreviewFigure(source, findPreviewFigures(source)[0], { width: 320, height: 200, align: 'center' })).toBe(
+      '```infographic {w=320 h=200 align=center}\ninfographic list-row-horizontal-icon-arrow\n```'
+    );
+  });
+
   it('only updates the selected occurrence of a repeated image', () => {
     const markdown = '![图](same.png){w=200 align=left}\n\n![图](same.png){w=300 align=right}';
     const figures = findPreviewFigures(markdown);

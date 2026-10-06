@@ -1,7 +1,13 @@
 import DOMPurify from 'dompurify';
+import { parseImageDimensions, type ImageDimensions } from './imageDimensions';
 
 export function isInfographicLang(lang?: string): boolean {
-  return /^infographic\s*$/i.test(lang?.trim() || '');
+  return /^infographic\s*(?:\{[^{}]*\})?\s*$/i.test(lang?.trim() || '');
+}
+
+export function parseInfographicFenceOptions(lang?: string): ImageDimensions {
+  if (!isInfographicLang(lang)) return {};
+  return parseImageDimensions(lang?.match(/\{([^{}]*)\}/)?.[1]) ?? {};
 }
 
 let enginePromise: Promise<typeof import('@antv/infographic')> | undefined;
@@ -133,6 +139,13 @@ export async function renderInfographicElements(
       const svg = await renderInfographicSvg(source);
       if (root instanceof Element && !root.contains(element)) continue;
       element.innerHTML = svg;
+      const node = element.querySelector('svg');
+      if (node) {
+        node.style.maxWidth = '100%';
+        node.style.width = element.dataset.width || !element.dataset.height ? '100%' : 'auto';
+        node.style.height = element.dataset.height ? `${element.dataset.height}px` : 'auto';
+        if (element.dataset.height) node.style.maxHeight = `${element.dataset.height}px`;
+      }
       element.dataset.infographicRendered = 'true';
       onRendered?.(source, element.offsetHeight);
     } catch (error) {
@@ -150,7 +163,7 @@ export async function renderInfographicInHtml(html: string): Promise<string> {
   return `<!DOCTYPE html>\n${parsed.documentElement.outerHTML}`;
 }
 
-export async function renderInfographicImage(source: string): Promise<{
+export async function renderInfographicImage(source: string, options: ImageDimensions = {}): Promise<{
   svg: Uint8Array; png: Uint8Array; width: number; height: number;
 }> {
   const svg = await renderInfographicSvg(source);
@@ -159,14 +172,17 @@ export async function renderInfographicImage(source: string): Promise<{
   const intrinsicWidth = viewBox?.[2] || Number.parseFloat(parsed.getAttribute('width') || '') || 900;
   const intrinsicHeight = viewBox?.[3] || Number.parseFloat(parsed.getAttribute('height') || '') || 540;
   const scale = Math.min(560 / intrinsicWidth, 640 / intrinsicHeight, 1);
-  const width = intrinsicWidth * scale;
-  const height = intrinsicHeight * scale;
+  const width = options.width ?? (options.height ? options.height * intrinsicWidth / intrinsicHeight : intrinsicWidth * scale);
+  const height = options.height ?? (options.width ? options.width * intrinsicHeight / intrinsicWidth : intrinsicHeight * scale);
+  parsed.setAttribute('width', String(width));
+  parsed.setAttribute('height', String(height));
+  const sizedSvg = new XMLSerializer().serializeToString(parsed);
   const canvas = document.createElement('canvas');
   canvas.width = Math.ceil(width * 3);
   canvas.height = Math.ceil(height * 3);
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Canvas is unavailable');
-  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+  const url = URL.createObjectURL(new Blob([sizedSvg], { type: 'image/svg+xml;charset=utf-8' }));
   try {
     const image = new Image();
     await new Promise<void>((resolve, reject) => {
@@ -181,5 +197,5 @@ export async function renderInfographicImage(source: string): Promise<{
   const png = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Unable to create infographic PNG')), 'image/png');
   });
-  return { svg: new TextEncoder().encode(svg), png: new Uint8Array(await png.arrayBuffer()), width, height };
+  return { svg: new TextEncoder().encode(sizedSvg), png: new Uint8Array(await png.arrayBuffer()), width, height };
 }
