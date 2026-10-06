@@ -25,7 +25,7 @@ test('declares the libraries used by the shared infographic and Word exporters',
 
 test('build creates only the skill, references, and executable scripts in dist', async () => {
   assert.deepEqual((await readdir(new URL('../dist/', import.meta.url))).sort(), ['README.md', 'SKILL.md', 'package.json', 'references', 'scripts'].sort());
-  assert.deepEqual((await readdir(new URL('../dist/references/', import.meta.url))).sort(), ['document.md', 'meta.json', 'theme.json', 'theme.md']);
+  assert.deepEqual((await readdir(new URL('../dist/references/', import.meta.url))).sort(), ['document.md', 'infographic.md', 'meta.json', 'theme.json', 'theme.md']);
   assert.deepEqual(await readdir(new URL('../dist/scripts/', import.meta.url)), ['sdc.cjs']);
   assert.deepEqual(JSON.parse(await readFile(new URL('../dist/package.json', import.meta.url), 'utf8')).bin, { sdc: './scripts/sdc.cjs' });
   const copies = [
@@ -34,6 +34,7 @@ test('build creates only the skill, references, and executable scripts in dist',
     ['../sample/theme.json', '../dist/references/theme.json'],
     ['../sample/theme.md', '../dist/references/theme.md'],
     ['../../src/data/templates/system-guide.md', '../dist/references/document.md'],
+    ['../../src/data/templates/infographic.md', '../dist/references/infographic.md'],
   ];
   for (const [source, destination] of copies) {
     assert.deepEqual(await readFile(new URL(destination, import.meta.url)), await readFile(new URL(source, import.meta.url)));
