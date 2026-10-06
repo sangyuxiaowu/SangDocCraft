@@ -46,6 +46,7 @@ export type AiToolName =
   | 'get_document_config'
   | 'get_document_summary'
   | 'get_image_library'
+  | 'get_infographic_guide'
   | 'get_markdown_content'
   | 'edit_markdown_content'
   | 'replace_markdown_section'
@@ -107,6 +108,17 @@ export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
             description: '图片作用域，默认 all；document 为当前文档图片，library 为永久图片库。'
           }
         }
+      }
+    }
+  },
+  get_infographic_guide: {
+    type: 'function',
+    function: {
+      name: 'get_infographic_guide',
+      description: '读取信息图生成规范，包含 AntV Infographic 的 DSL、数据结构、模板选择与主题规则；在你不了解信息图并有生成或修改需求时应先调用本接口。',
+      parameters: {
+        type: 'object',
+        properties: {}
       }
     }
   },

@@ -42,6 +42,7 @@ import { appendUniqueHistory, createHistoryEntry } from './documentHistory';
 import { getTocLevelStyles, getTocTitleFont } from './documentStructure';
 import { listDocumentAssets, listLibraryAssets } from './imageRepository';
 import { getMermaidConfig } from './mermaidRenderer';
+import infographicGuide from '../data/templates/infographic.md?raw';
 
 export const DEFAULT_SYSTEM_PROMPT = `你是 SangDocCraft 智能交付文档排版工具的 AI 助手。
 你的主要职责是协助用户撰写、润色与编辑专业级 A4 交付文档、技术方案书与规格说明，并根据需求调整文档样式和配置参数。
@@ -63,13 +64,19 @@ export const DEFAULT_SYSTEM_PROMPT = `你是 SangDocCraft 智能交付文档排�
   - 数值高度会预留 A4 分页空间；图表在 HTML 中以 SVG 渲染，Word 导出为等比缩放的 PNG。
   - 支持图题注，方法是在围栏前添加 \`<!-- caption: 题注文本 -->\` 注释。
 
-5. 数学公式（LaTeX）：
+5. 信息图生成规范（AntV Infographic）：
+   - 使用 \`\`\`infographic 围栏通过 AntV Infographic 语法创建信息图，支持各类统计图、对比、列表、顺序、层级、关系、地理等结构的可视化展示。
+   - 在围栏语言之后，同时支持3个可选参数，w、h、align
+   - 在你不了解信息图并有生成或修改需求时，应先调用 get_infographic_guide 获取规范与模板。
+   - 支持题注，方法是在围栏前添加 \`<!-- caption: 题注文本 -->\` 注释。
+
+6. 数学公式（LaTeX）：
    - 行内公式使用单个美元符号，例如 \`$E = mc^2$\`；独立居中的公式块使用双美元符号独占若干行：
      \`$$\` 换行写公式内容，再换行写 \`$$\`。
    - 也支持 \`\\(...\\)\`、\`\\[...\\]\`、\`\\begin{equation}...\\end{equation}\` 等写法；公式会被渲染为矢量图并参与分页，导出 DOCX 时自动栅格化为图片。
    - 避免在正文中用单个美元符号表示货币金额，否则会被识别为公式。
 
-6. 章节大纲与版式规范：
+7. 章节大纲与版式规范：
    - 顶级章节使用一级标题 \`#\`，二级使用 \`##\`，三级使用 \`###\`。
    - 正式技术交付文本应保持结构严谨、逻辑清晰、措辞专业。`;
 
@@ -349,6 +356,10 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
         }));
         return JSON.stringify({ total: assets.length, assets }, null, 2);
       }
+    },
+    {
+      definition: AI_TOOL_DEFINITIONS.get_infographic_guide,
+      handler: async () => infographicGuide
     },
     {
       definition: AI_TOOL_DEFINITIONS.get_markdown_content,

@@ -101,6 +101,15 @@ describe('AI assistant setting tools', () => {
     }
   });
 
+  it('reads the infographic generation guide', async () => {
+    const tool = createTools('').find(item => item.definition.function.name === 'get_infographic_guide');
+
+    const guide = await tool!.handler({});
+
+    expect(guide).toContain('# Infographic 代码指南');
+    expect(guide).toContain('AntV Infographic 语法');
+  });
+
   it('reads Markdown by line range or complete heading section', async () => {
     const markdown = '# 项目概述\n概述正文\n## 背景说明\n背景正文\n### 子项\n子项正文\n## 指标\n指标正文';
     const tools = createTools(markdown);

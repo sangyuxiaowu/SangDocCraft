@@ -73,6 +73,7 @@ await Promise.all([
   cp(new URL('./README.md', import.meta.url), new URL('./dist/README.md', import.meta.url)),
   cp(new URL('./sample/', import.meta.url), new URL('./dist/references/', import.meta.url), { recursive: true }),
   cp(new URL('../src/data/templates/system-guide.md', import.meta.url), new URL('./dist/references/document.md', import.meta.url)),
+  cp(new URL('../src/data/templates/infographic.md', import.meta.url), new URL('./dist/references/infographic.md', import.meta.url)),
   writeFile(new URL('./dist/package.json', import.meta.url), `${JSON.stringify({
     name: cliPackage.name,
     version: cliPackage.version,
