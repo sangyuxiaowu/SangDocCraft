@@ -99,6 +99,9 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
   const { header, footer, toc, style } = theme;
   const cover = theme.cover;
   const coverTemplate = getCoverTemplate(cover.coverStyle);
+  const hasStandaloneCover = cover.showCover && coverTemplate.standalone !== false;
+  const hasInlineCover = cover.showCover && coverTemplate.standalone === false;
+  const hasToc = toc.show && !hasInlineCover;
   const bodyText = markdownText;
   const headings = new Set<number>();
   for (const token of marked.lexer(bodyText)) {
@@ -350,7 +353,7 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
   };
 
   // 1. Cover Page
-  if (cover.showCover) {
+  if (hasStandaloneCover) {
     const coverListItems = resolveCoverList(cover.coverlist ?? [], meta);
 
     sectionsChildren.push(...await coverTemplate.renderDocx({
@@ -366,16 +369,11 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
       createImageRun,
     }));
 
-    // Cover Page Break
-    sectionsChildren.push(
-      new Paragraph({
-        children: [new PageBreak()],
-      })
-    );
+    sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
   }
 
   // 2. Table of Contents Page
-  if (toc.show) {
+  if (hasToc) {
     const titleStyle = toc.titleStyle ?? 'underline';
     const titleFont = getTocTitleFont(toc);
     sectionsChildren.push(
@@ -416,6 +414,21 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
         })
       );
     }
+  }
+
+  if (cover.showCover && !hasStandaloneCover) {
+    sectionsChildren.push(...await coverTemplate.renderDocx({
+      meta,
+      cover,
+      style,
+      coverListItems: resolveCoverList(cover.coverlist ?? [], meta),
+      primaryHex,
+      accentHex,
+      textHex,
+      fontName,
+      docxFont,
+      createImageRun,
+    }));
   }
 
   // 3. Parse Markdown Tokens

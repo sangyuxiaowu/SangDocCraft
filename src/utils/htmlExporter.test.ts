@@ -54,6 +54,39 @@ describe('generateStandaloneHtml', () => {
     document.documentElement.innerHTML = '';
   });
 
+  it.each(['minimal-header', 'minimal-logo'])('renders %s inside the first content page instead of a standalone page', (coverStyle) => {
+    const base = PRESET_THEMES[0];
+    const html = generateStandaloneHtml('# 正文标题\n\n正文内容', {
+      ...base,
+      cover: { ...base.cover, coverStyle, showCover: true, logoUrl: 'brand.png' },
+      toc: { ...base.toc, show: false },
+    });
+    document.documentElement.innerHTML = html;
+    expect(document.querySelector('.cover-page-wrapper')).toBeNull();
+    const firstContentPage = document.querySelector('.content-page-wrapper')!;
+    expect(firstContentPage.querySelector(`[data-cover-template="${coverStyle}"]`)).not.toBeNull();
+    expect(firstContentPage.textContent?.indexOf('季度经营报告')).toBeLessThan(firstContentPage.textContent?.indexOf('正文标题') ?? -1);
+    document.documentElement.innerHTML = '';
+  });
+
+  it.each(['minimal-header', 'minimal-logo'])('disables TOC and hides the first-page header for %s', (coverStyle) => {
+    const base = PRESET_THEMES[0];
+    const html = generateStandaloneHtml('# 第一页\n\n正文\n\n<!-- pagebreak -->\n\n# 第二页\n\n续文', {
+      ...base,
+      cover: { ...base.cover, coverStyle, showCover: true },
+      toc: { ...base.toc, show: true, title: '不应生成的目录' },
+      header: { ...base.header, show: true, hideOnCover: true, leftText: '页眉标记' },
+    });
+    document.documentElement.innerHTML = html;
+    const pages = Array.from(document.querySelectorAll('.content-page-wrapper'));
+    expect(document.querySelector('.toc-page-wrapper')).toBeNull();
+    expect(document.body.textContent).not.toContain('不应生成的目录');
+    expect(pages).toHaveLength(2);
+    expect(pages[0].querySelector('.doc-header')).toBeNull();
+    expect(pages[1].querySelector('.doc-header')?.textContent).toContain('页眉标记');
+    document.documentElement.innerHTML = '';
+  });
+
   it('resolves exact references per page including TOC and empty chapter fallbacks', () => {
     const base = PRESET_THEMES[0];
     const html = generateStandaloneHtml('# 第一章\n\n正文\n\n<!-- pagebreak -->\n\n续页\n\n<!-- pagebreak -->\n\n## 第二节', {

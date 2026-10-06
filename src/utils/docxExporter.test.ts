@@ -84,6 +84,31 @@ it('keeps infographic source in Word when rendering fails', async () => {
   }
 });
 
+it.each(['minimal-header', 'minimal-logo'])('exports %s before body content without a standalone cover page break', async (coverStyle) => {
+  let exportedBlob: Blob | undefined;
+  vi.stubGlobal('URL', {
+    createObjectURL: (blob: Blob) => { exportedBlob = blob; return 'blob:document'; },
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const base = PRESET_THEMES[0];
+  try {
+    await exportToDocx('# 正文标题\n\n正文内容', { ...DEFAULT_DOCUMENT_META, title: '季度经营报告', number: 'DOC-2026-0891' }, {
+      ...base,
+      cover: { ...base.cover, coverStyle, showCover: true, logoUrl: 'brand.png' },
+      toc: { ...base.toc, show: false },
+    });
+    const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
+    const xml = strFromU8(files['word/document.xml']);
+    expect(xml).toContain('季度经营报告');
+    expect(xml).toContain('正文标题');
+    expect(xml.indexOf('季度经营报告')).toBeLessThan(xml.indexOf('正文标题'));
+    expect(xml).not.toMatch(/w:type="page"/);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 it('rasterizes SVG images to PNG in Word documents', async () => {
   let exportedBlob: Blob | undefined;
   vi.stubGlobal('URL', {
@@ -466,6 +491,38 @@ it('uses infographic fence dimensions and alignment in Word', async () => {
     expect(Number(extent.getAttribute('cx')) / 9525).toBe(320);
     expect(Number(extent.getAttribute('cy')) / 9525).toBe(120);
     expect(strFromU8(files['word/document.xml'])).toContain('<w:jc w:val="right"');
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it.each(['minimal-header', 'minimal-logo'])('disables the TOC and hides the first-page header for %s in Word', async (coverStyle) => {
+  let exportedBlob: Blob | undefined;
+  vi.stubGlobal('URL', {
+    createObjectURL: (blob: Blob) => { exportedBlob = blob; return 'blob:document'; },
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const base = PRESET_THEMES[0];
+  try {
+    await exportToDocx('# 第一页\n\n正文\n\n<!-- pagebreak -->\n\n# 第二页', DEFAULT_DOCUMENT_META, {
+      ...base,
+      cover: { ...base.cover, coverStyle, showCover: true },
+      toc: { ...base.toc, show: true, title: '不应生成的目录' },
+      header: { ...base.header, show: true, hideOnCover: true, leftText: '页眉标记' },
+    });
+    const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
+    const bodyXml = new DOMParser().parseFromString(strFromU8(files['word/document.xml']), 'application/xml');
+    const relationships = new DOMParser().parseFromString(strFromU8(files['word/_rels/document.xml.rels']), 'application/xml');
+    const headerByType = new Map(Array.from(bodyXml.getElementsByTagName('w:headerReference')).map((reference) => {
+      const relationship = Array.from(relationships.getElementsByTagName('Relationship'))
+        .find((item) => item.getAttribute('Id') === reference.getAttribute('r:id'))!;
+      const target = relationship.getAttribute('Target')!;
+      return [reference.getAttribute('w:type')!, strFromU8(files[`word/${target}`])];
+    }));
+    expect(strFromU8(files['word/document.xml'])).not.toContain('不应生成的目录');
+    expect(headerByType.get('first')).not.toContain('页眉标记');
+    expect(headerByType.get('default')).toContain('页眉标记');
   } finally {
     vi.unstubAllGlobals();
   }

@@ -175,6 +175,9 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
   const { header, footer, toc, style } = theme;
   const cover = theme.cover;
   const coverTemplate = getCoverTemplate(cover.coverStyle);
+  const hasStandaloneCover = cover.showCover && coverTemplate.standalone !== false;
+  const hasInlineCover = cover.showCover && coverTemplate.standalone === false;
+  const hasToc = toc.show && !hasInlineCover;
   const isDark = uiMode === 'dark';
 
   const [zoom, setZoom] = useState<number>(85);
@@ -417,28 +420,29 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
     headerShow: header.show,
     footerShow: footer.show,
     style,
+    firstPageReservedHeight: cover.showCover && !hasStandaloneCover ? coverTemplate.inlinePageHeight : 0,
     mermaidHeights,
     infographicHeights,
   }), [markdown, fontStack, header.show, footer.show, style, mermaidHeights, infographicHeights]);
 
   // Build TOC page numbers from the same pages rendered below.
   // 目录分页按真实渲染高度自适应测量，目录页数与正文页码保持同步。
-  const tocHeadings = useMemo(() => toc.show
+  const tocHeadings = useMemo(() => hasToc
     ? extractTocHeadings(rawContentPages, toc.maxDepth, toc.headingNumbering)
-    : [], [rawContentPages, toc.show, toc.maxDepth, toc.headingNumbering]);
-  const tocChunks = useMemo(() => toc.show
+    : [], [rawContentPages, hasToc, toc.maxDepth, toc.headingNumbering]);
+  const tocChunks = useMemo(() => hasToc
     ? paginateTocItemsByDom(tocHeadings, {
         toc,
         style,
         headerShow: header.show,
         footerShow: footer.show,
         fontFamily: fontStack,
-        coverPageCount: cover.showCover ? 1 : 0,
+        coverPageCount: hasStandaloneCover ? 1 : 0,
         contentPageCount: rawContentPages.length,
       })
-    : [], [toc, tocHeadings, style, header.show, footer.show, fontStack, cover.showCover, rawContentPages.length]);
+    : [], [toc, hasToc, tocHeadings, style, header.show, footer.show, fontStack, hasStandaloneCover, rawContentPages.length]);
   const tocPageCount = tocChunks.length;
-  const firstContentPageNum = (cover.showCover ? 1 : 0) + (toc.show ? tocPageCount : 0) + 1;
+  const firstContentPageNum = (hasStandaloneCover ? 1 : 0) + (hasToc ? tocPageCount : 0) + 1;
 
   // 测量得到的是标题项，渲染前需按正文起始页回填页码
   const tocPages: TocItem[][] = useMemo(
@@ -451,13 +455,13 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
   const outlineItems: TocItem[] = useMemo(() => parseTableOfContents(
     markdown,
     4,
-    cover,
-    toc.show,
+    { ...cover, showCover: hasStandaloneCover },
+    hasToc,
     style.h1PageBreak,
     rawContentPages,
     toc.headingNumbering,
-    toc.show ? tocPageCount : 0
-  ), [markdown, cover, toc.show, style.h1PageBreak, rawContentPages, toc.headingNumbering, tocPageCount]);
+    hasToc ? tocPageCount : 0
+  ), [markdown, cover, hasStandaloneCover, hasToc, style.h1PageBreak, rawContentPages, toc.headingNumbering, tocPageCount]);
 
   useEffect(() => {
     const headings = containerRef.current?.querySelectorAll<HTMLElement>('.markdown-rendered-body h1, .markdown-rendered-body h2, .markdown-rendered-body h3, .markdown-rendered-body h4');
@@ -625,7 +629,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
   let pageCounter = 1;
 
   // 1. Cover Page
-  if (cover.showCover) {
+  if (hasStandaloneCover) {
     pages.push({
       type: 'cover',
       pageNum: pageCounter++,
@@ -634,7 +638,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
   }
 
   // 2. Table of Contents Pages (Auto-paginated across multiple pages if long)
-  if (toc.show) {
+  if (hasToc) {
     tocPages.forEach((chunk, chunkIdx) => {
       pages.push({
         type: 'toc',
@@ -996,7 +1000,10 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
           }}
         >
         {/* Pages Render Loop */}
-        {pages.map((page, index) => (
+        {pages.map((page, index) => {
+          const isInlineCoverPage = page.type === 'content' && page.contentPageIndex === 0 && hasInlineCover;
+          const isCoverPage = page.type === 'cover' || isInlineCoverPage;
+          return (
           <React.Fragment key={page.pageNum}>
             
             {/* Visual Page Break Separator */}
@@ -1036,7 +1043,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
                 pageNum={page.pageNum}
               />
 
-              {header.show && (page.type !== 'cover' || !header.hideOnCover) && headerLogoSrc && (
+              {header.show && (!isCoverPage || !header.hideOnCover) && headerLogoSrc && (
                 <img
                   src={headerLogoSrc}
                   alt="Header Logo"
@@ -1046,7 +1053,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
               )}
 
               {/* Page Header Bar */}
-              {header.show && (page.type !== 'cover' || !header.hideOnCover) && (
+              {header.show && (!isCoverPage || !header.hideOnCover) && (
                 <div 
                   className="w-full relative flex items-center justify-between text-[11px] text-slate-500 select-none shrink-0"
                   style={{
@@ -1138,6 +1145,12 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
                 )}
 
                 {/* 3. Markdown Content Page */}
+                {page.type === 'content' && page.contentPageIndex === 0 && hasInlineCover && (
+                  <div className="mb-6 shrink-0" data-inline-cover-style={coverTemplate.id}>
+                    {coverTemplate.renderPreview({ meta, cover, style, coverListItems })}
+                  </div>
+                )}
+
                 {page.type === 'content' && page.contentHtml && (
                   <RenderedMarkdownPage
                     html={page.contentHtml}
@@ -1151,7 +1164,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
               </div>
 
               {/* Page Footer Bar */}
-              {footer.show && (page.type !== 'cover' || !footer.hideOnCover) && (() => {
+              {footer.show && (!isCoverPage || !footer.hideOnCover) && (() => {
                 const slots = getFooterSlots(page.pageNum, totalPages, footer, meta, page.section);
                 return (
                   <div className="w-full flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-200 select-none shrink-0" style={{ paddingTop: '6px', marginTop: '16px' }}>
@@ -1165,7 +1178,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
             </div>
 
           </React.Fragment>
-        ))}
+        );})}
 
       </div>
 

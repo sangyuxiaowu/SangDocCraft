@@ -10,11 +10,12 @@ import { creativeCoverPlugin } from './covers/creative';
 import { signatureCoverPlugin } from './covers/signature';
 import { briefingCoverPlugin } from './covers/briefing';
 import { researchCoverPlugin } from './covers/research';
+import { minimalHeaderCoverPlugin, minimalLogoCoverPlugin } from './covers/minimalHeader';
 
 export type { CoverDocxRenderContext, CoverRenderContext, CoverTemplatePlugin, ThemePlugin } from './contracts';
 
 const coverTemplates = new Map<CoverStyle, CoverTemplatePlugin>([
-  ...[enterpriseCoverPlugin, modernCoverPlugin, specCoverPlugin, minimalCoverPlugin, creativeCoverPlugin].map((plugin) => [plugin.id, plugin] as const),
+  ...[enterpriseCoverPlugin, modernCoverPlugin, specCoverPlugin, minimalCoverPlugin, creativeCoverPlugin, minimalHeaderCoverPlugin, minimalLogoCoverPlugin].map((plugin) => [plugin.id, plugin] as const),
   ['academic', academicCoverPlugin],
   ...[signatureCoverPlugin, briefingCoverPlugin, researchCoverPlugin].map((plugin) => [plugin.id, plugin] as const),
 ]);

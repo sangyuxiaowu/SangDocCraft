@@ -90,6 +90,7 @@ export interface DomPaginationOptions {
   style?: StyleConfig;
   mermaidHeights?: Record<string, number>;
   infographicHeights?: Record<string, number>;
+  firstPageReservedHeight?: number;
 }
 
 const imageDimensions = new Map<string, { width: number; height: number }>();
@@ -548,6 +549,7 @@ export function paginateContentByDom(
   const paragraphSplitTolerance = Math.ceil((options.fontSize || 14) * (options.lineHeight || 1.6));
   const renderingTolerance = paragraphSplitTolerance + 8;
   const maxHeight = 1122.5 - 151.2 - headerHeight - footerHeight - renderingTolerance;
+  let firstPage = true;
 
   try {
     initialChunks.forEach((chunk) => {
@@ -569,6 +571,7 @@ export function paginateContentByDom(
       }
 
       let currentPageTokens: string[] = [];
+      let pageMaxHeight = firstPage ? maxHeight - Math.max(0, options.firstPageReservedHeight ?? 0) : maxHeight;
       measurer.innerHTML = '';
 
       const flushPage = () => {
@@ -579,6 +582,8 @@ export function paginateContentByDom(
           }
           currentPageTokens = [];
           measurer.innerHTML = '';
+          firstPage = false;
+          pageMaxHeight = maxHeight;
         }
       };
 
@@ -593,7 +598,7 @@ export function paginateContentByDom(
         }
 
         if (isHeading && currentPageTokens.length > 0) {
-          const remSpace = maxHeight - measurer.scrollHeight;
+          const remSpace = pageMaxHeight - measurer.scrollHeight;
           if (remSpace < 48) {
             flushPage();
           }
@@ -633,7 +638,7 @@ export function paginateContentByDom(
 
         const hasInlineCode = token.type === 'paragraph'
           && token.tokens?.some((inlineToken: { type: string }) => inlineToken.type === 'codespan');
-        if (measurer.scrollHeight <= maxHeight + (hasInlineCode && !isImageParagraph ? paragraphSplitTolerance : 0)) {
+        if (measurer.scrollHeight <= pageMaxHeight + (hasInlineCode && !isImageParagraph ? paragraphSplitTolerance : 0)) {
           currentPageTokens.push(token.raw);
           return;
         }
@@ -641,7 +646,7 @@ export function paginateContentByDom(
         tokenNodes.forEach(node => node.remove());
 
         if (token.type === 'paragraph' && !paragraphContainsImage(token)) {
-          const splitRes = findDomParagraphSplit(token.text || token.raw || '', measurer, maxHeight);
+          const splitRes = findDomParagraphSplit(token.text || token.raw || '', measurer, pageMaxHeight);
           if (splitRes) {
             currentPageTokens.push(splitRes.part1);
             flushPage();
@@ -649,7 +654,7 @@ export function paginateContentByDom(
             return;
           }
         } else if (token.type === 'list') {
-          const splitRes = findDomListSplit(token, measurer, maxHeight);
+          const splitRes = findDomListSplit(token, measurer, pageMaxHeight);
           if (splitRes) {
             currentPageTokens.push(splitRes.part1Md);
             flushPage();
@@ -658,7 +663,7 @@ export function paginateContentByDom(
             return;
           }
         } else if (token.type === 'table') {
-          const splitRes = findDomTableSplit({ ...token, raw: token.tableRaw ?? token.raw }, measurer, maxHeight, options.style);
+          const splitRes = findDomTableSplit({ ...token, raw: token.tableRaw ?? token.raw }, measurer, pageMaxHeight, options.style);
           if (splitRes) {
             const captionOnLastPage = token.captionRaw && options.style?.tableCaptionConfig?.captionPosition === 'bottom';
             currentPageTokens.push(`${captionOnLastPage ? '' : token.captionRaw ?? ''}${splitRes.part1Md}`);
@@ -670,7 +675,7 @@ export function paginateContentByDom(
             return;
           }
         } else if (token.type === 'code' && !isMermaidLang(token.lang) && !isInfographicLang(token.lang)) {
-          const splitRes = findDomCodeSplit(token, measurer, maxHeight);
+          const splitRes = findDomCodeSplit(token, measurer, pageMaxHeight);
           if (splitRes) {
             currentPageTokens.push(splitRes.part1Md);
             flushPage();
@@ -707,6 +712,7 @@ export function paginateContentByDom(
         }
       }
       flushPage();
+      firstPage = false;
     });
   } finally {
     if (document.body.contains(measurer)) {

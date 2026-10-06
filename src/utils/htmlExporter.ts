@@ -77,6 +77,9 @@ export function generateStandaloneHtml(
   const cover = theme.cover;
   const coverTemplate = getCoverTemplate(cover.coverStyle);
   const coverStyle = coverTemplate.id;
+  const hasStandaloneCover = cover.showCover && coverTemplate.standalone !== false;
+  const hasInlineCover = cover.showCover && coverTemplate.standalone === false;
+  const hasToc = toc.show && !hasInlineCover;
 
   const fontStack = getDocumentFontStack(style);
   const bulletChar = style.bulletStyle === 'square' ? '■' :
@@ -95,6 +98,7 @@ export function generateStandaloneHtml(
     headerShow: header.show,
     footerShow: footer.show,
     style,
+    firstPageReservedHeight: cover.showCover && !hasStandaloneCover ? coverTemplate.inlinePageHeight : 0,
     mermaidHeights,
     infographicHeights,
   });
@@ -103,32 +107,32 @@ export function generateStandaloneHtml(
 
   // Build TOC page numbers from the exact pages used by the export.
   // 目录分页与预览共用同一套「真实高度自适应」测量，保证页码一致。
-  const tocHeadings = toc.show
+  const tocHeadings = hasToc
     ? extractTocHeadings(rawContentPages, toc.maxDepth || 3, toc.headingNumbering)
     : [];
-  const tocChunks = toc.show
+  const tocChunks = hasToc
     ? paginateTocItemsByDom(tocHeadings, {
         toc,
         style,
         headerShow: header.show,
         footerShow: footer.show,
         fontFamily: fontStack,
-        coverPageCount: cover.showCover ? 1 : 0,
+        coverPageCount: hasStandaloneCover ? 1 : 0,
         contentPageCount: rawContentPages.length,
       })
     : [];
   const tocPageCount = tocChunks.length;
-  const firstContentPageNum = (cover.showCover ? 1 : 0) + (toc.show ? tocPageCount : 0) + 1;
+  const firstContentPageNum = (hasStandaloneCover ? 1 : 0) + (hasToc ? tocPageCount : 0) + 1;
   const tocPages = tocChunks.map((chunk) => assignTocPageNumbers(chunk, firstContentPageNum));
 
   // Calculate total pages
-  const coverCount = cover.showCover ? 1 : 0;
-  const tocCount = tocPages.length;
+  const coverCount = hasStandaloneCover ? 1 : 0;
+  const tocCount = hasToc ? tocPages.length : 0;
   const contentCount = rawContentPages.length;
   const totalPages = coverCount + tocCount + contentCount;
 
   let pageNumCounter = 1;
-  const coverPageNum = cover.showCover ? pageNumCounter++ : 0;
+  const coverPageNum = hasStandaloneCover ? pageNumCounter++ : 0;
 
   const coverListItems = resolveCoverList(cover.coverlist ?? [], meta);
 
@@ -204,6 +208,13 @@ export function generateStandaloneHtml(
       padding: 10px 0;
       box-sizing: border-box;
       overflow: hidden;
+    }
+    .inline-cover {
+      display: block;
+      height: auto;
+      flex: none;
+      overflow: visible;
+      margin-bottom: 22px;
     }
     .cover-title {
       font-size: 32px;
@@ -765,7 +776,7 @@ export function generateStandaloneHtml(
 </head>
 <body>
   ${renderWatermarkImageDefinition(style.watermark)}
-  ${cover.showCover ? `
+  ${hasStandaloneCover ? `
   <div class="a4-page cover-page-wrapper">
     ${renderWatermarkHtml(style.watermark, true, 'cover')}
     ${header.show && !header.hideOnCover ? `
@@ -784,8 +795,8 @@ export function generateStandaloneHtml(
   </div>
   ` : ''}
 
-  ${toc.show ? tocPages.map((chunk, chunkIdx) => {
-    const tocPageNum = (cover.showCover ? 1 : 0) + chunkIdx + 1;
+  ${hasToc ? tocPages.map((chunk, chunkIdx) => {
+    const tocPageNum = (hasStandaloneCover ? 1 : 0) + chunkIdx + 1;
     return `
   <div class="a4-page toc-page-wrapper">
     ${renderWatermarkHtml(style.watermark, false, `toc-${chunkIdx}`)}
@@ -823,18 +834,23 @@ export function generateStandaloneHtml(
     const headingCounters = [0, 0, 0, 0];
     const tocAnchorIndex = { value: 0 };
     return rawContentPages.map((pageMd, idx) => {
-      const pageNum = (cover.showCover ? 1 : 0) + (toc.show ? tocPages.length : 0) + idx + 1;
+      const pageNum = (hasStandaloneCover ? 1 : 0) + (hasToc ? tocPages.length : 0) + idx + 1;
       const section = contentSections[idx];
       const preprocessed = preprocessMarkdownCaptions(pageMd || '');
       const rawHtml = marked.parse(preprocessed) as string;
       const numberedHtml = addHeadingNumbers(rawHtml, toc.headingNumbering, headingCounters);
       const renderedHtml = postProcessRenderedHtml(numberedHtml, style, exportCounters, theme.mermaid);
-      const pageHtml = toc.show ? addTocAnchors(renderedHtml, toc.maxDepth || 3, tocAnchorIndex) : renderedHtml;
+      const pageHtml = hasToc ? addTocAnchors(renderedHtml, toc.maxDepth || 3, tocAnchorIndex) : renderedHtml;
+      const inlineCover = hasInlineCover && idx === 0
+        ? `<div class="inline-cover cover-style-${coverStyle}">${coverTemplate.renderHtml({ meta, cover, style, coverListItems })}</div>`
+        : '';
+      const showPageHeader = header.show && !(hasInlineCover && idx === 0 && header.hideOnCover);
+      const showPageFooter = footer.show && !(hasInlineCover && idx === 0 && footer.hideOnCover);
 
       return `
   <div class="a4-page content-page-wrapper">
     ${renderWatermarkHtml(style.watermark, false, `content-${idx}`)}
-    ${header.show ? `
+    ${showPageHeader ? `
     ${header.logoUrl ? `<img src="${header.logoUrl}" style="position: absolute; top: ${header.logoTopOffset ?? 15}px; z-index: 10; height: ${header.logoHeight || 20}px; width: auto; object-fit: contain; opacity: ${header.logoOpacity ?? 1}; pointer-events: none;" alt="Header Logo" />` : ''}
     <div class="doc-header">
       <div class="doc-header-left" style="margin-left: ${header.leftTextOffset ?? 0}px;">
@@ -846,10 +862,11 @@ export function generateStandaloneHtml(
     ` : ''}
 
     <div class="markdown-content">
+      ${inlineCover}
       ${pageHtml}
     </div>
 
-    ${footer.show ? renderFooterHtml(pageNum, totalPages, footer, meta, section) : ''}
+    ${showPageFooter ? renderFooterHtml(pageNum, totalPages, footer, meta, section) : ''}
   </div>
   `;
     }).join('');

@@ -2,10 +2,13 @@ import React from 'react';
 import { Type, BookOpen } from 'lucide-react';
 import { TocConfig } from '../../types';
 import { getTocLevelStyles, getTocTitleFont } from '../../utils/documentStructure';
+import { getCoverTemplate } from '../../themes/themeRegistry';
 import { PanelTabModel } from './shared';
 
 export function TocTab({ model }: { model: Pick<PanelTabModel, 'theme' | 'isDark' | 'sectionBorderClass' | 'labelClass' | 'textSubClass' | 'inputClass' | 'updateToc' | 'updateTocTitleFont' | 'updateTocLevelStyle' | 'renderTocFontDetails'> }) {
   const { theme, isDark, sectionBorderClass, labelClass, textSubClass, inputClass, updateToc, updateTocTitleFont, updateTocLevelStyle, renderTocFontDetails } = model;
+  const tocDisabled = theme.cover.showCover && getCoverTemplate(theme.cover.coverStyle).standalone === false;
+  const showTocSettings = theme.toc.show && !tocDisabled;
   return <>
 <div className="space-y-4">
             <div className={`flex items-center justify-between pb-2 border-b ${sectionBorderClass}`}>
@@ -13,18 +16,19 @@ export function TocTab({ model }: { model: Pick<PanelTabModel, 'theme' | 'isDark
                 <BookOpen className="w-4 h-4 text-blue-500" />
                 自动生成目录页
               </span>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className={`flex items-center gap-2 ${tocDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
                 <input
                   type="checkbox"
-                  checked={theme.toc.show}
+                  checked={!tocDisabled && theme.toc.show}
+                  disabled={tocDisabled}
                   onChange={(e) => updateToc('show', e.target.checked)}
                   className={`rounded text-blue-600 ${isDark ? 'bg-[#0A0A0A] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
                 />
-                <span className={`font-bold text-[11px] ${textSubClass}`}>生成目录页</span>
+                <span className={`font-bold text-[11px] ${textSubClass}`}>{tocDisabled ? '极简封面不生成目录' : '生成目录页'}</span>
               </label>
             </div>
 
-            {theme.toc.show && (
+            {showTocSettings && (
               <div className="space-y-3">
                 <div>
                   <div className="flex items-center justify-between mb-1">

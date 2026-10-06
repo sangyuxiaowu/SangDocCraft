@@ -60,9 +60,51 @@ describe('themeRegistry', () => {
     expect(registry.getCoverTemplate('missing').id).toBe('enterprise');
   });
 
+  it.each(['minimal-header', 'minimal-logo'])('registers %s as a recommended inline minimal cover', async (id) => {
+    const registry = await loadRegistry();
+    const plugin = registry.getCoverTemplate(id);
+    const context = {
+      meta: { ...DEFAULT_DOCUMENT_META, title: '季度经营报告', subtitle: '内部资料', number: 'DOC-2026-0891', organization: '华盛创科集团', date: '2026-04-15', version: 'v2.4', department: '战略运营中心' },
+      cover: { ...PRESET_THEMES[0].cover, coverStyle: id, logoUrl: 'brand.png' },
+      style: PRESET_THEMES[0].style,
+      coverListItems: [{ label: '预算归属', value: '数字化转型办' }, { label: '自定义代码', value: 'X-17' }],
+    };
+    expect(plugin.standalone).toBe(false);
+    expect(plugin.description).toContain('自动禁用目录生成');
+    const preview = renderToStaticMarkup(plugin.renderPreview(context));
+    const html = plugin.renderHtml(context);
+    for (const output of [preview, html]) {
+      expect(output).toContain('季度经营报告');
+      expect(output).toContain('预算归属');
+      expect(output).toContain('数字化转型办');
+      expect(output).toContain('自定义代码');
+      expect(output).toContain(id === 'minimal-logo' ? '<img' : 'DOC-2026-0891');
+    }
+    const children = await plugin.renderDocx({
+      ...context,
+      primaryHex: '1E3A8A',
+      accentHex: '2563EB',
+      textHex: '243447',
+      fontName: 'Arial',
+      docxFont: { ascii: 'Arial', hAnsi: 'Arial', eastAsia: 'SimSun' },
+      createImageRun: vi.fn().mockResolvedValue(null),
+    });
+    const document = new Document({ sections: [{ children }] });
+    const xml = JSON.stringify(document.Document.View.prepForXml({ file: document, viewWrapper: document.Document, stack: [] }));
+    expect(xml).toContain('预算归属');
+    expect(xml).toContain('数字化转型办');
+    expect(xml).toContain('自定义代码');
+    if (id === 'minimal-logo') {
+      for (const output of [preview, html, xml]) {
+        expect(output).not.toContain('内部资料');
+        expect(output).not.toContain('DOC-2026-0891');
+      }
+    }
+  });
+
   it.each(['enterprise', 'academic', 'signature', 'briefing'])('supports metadata layout defaults and overrides in %s', async (id) => {
     const registry = await loadRegistry();
-    expect(registry.getCoverTemplates()).toHaveLength(9);
+    expect(registry.getCoverTemplates()).toHaveLength(11);
     const plugin = registry.getCoverTemplate(id);
     const defaultColumns = ['signature', 'briefing'].includes(id) ? 2 : 1;
     expect(plugin.defaultCoverListColumns).toBe(defaultColumns);
@@ -131,7 +173,7 @@ describe('themeRegistry', () => {
 
   it.each([20, 80, 120])('applies a %i px logo height to every cover preview and export', async (logoHeight) => {
     const registry = await loadRegistry();
-    for (const plugin of registry.getCoverTemplates()) {
+    for (const plugin of registry.getCoverTemplates().filter((template) => template.id !== 'minimal-header')) {
       const context = {
         meta: DEFAULT_DOCUMENT_META,
         cover: { ...PRESET_THEMES[0].cover, logoUrl: 'logo.png', logoHeight },

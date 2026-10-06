@@ -377,6 +377,21 @@ describe('Markdown pagination and numbering', () => {
     }
   });
 
+  it('reserves inline cover height on the first content page only', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.querySelectorAll('p').length * 250;
+    });
+    try {
+      const source = Array.from({ length: 8 }, (_, index) => `P${index}`).join('\n\n');
+      const pages = paginateContentByDom(source, { firstPageReservedHeight: 300 });
+      expect(pages.length).toBeGreaterThan(1);
+      expect(marked.lexer(pages[0]).filter((token) => token.type === 'paragraph')).toHaveLength(2);
+      expect(marked.lexer(pages[1]).filter((token) => token.type === 'paragraph')).toHaveLength(3);
+    } finally {
+      height.mockRestore();
+    }
+  });
+
   it('reserves caption height when splitting a long table', () => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       return this.querySelectorAll('tr').length * 200 + this.querySelectorAll('.doc-table-caption').length * 150;
