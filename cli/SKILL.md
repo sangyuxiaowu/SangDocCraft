@@ -29,7 +29,7 @@ metadata:
 
 | 文件 | 用途 |
 | --- | --- |
-| `scripts/sdc-html.cjs` | 随附的 Node 文档转换脚本。 |
+| `scripts/sdc.cjs` | 随附的 Node 文档转换脚本。 |
 | `references/document.md` | SangDocCraft APP 使用的系统指南正文样例，展示章节、题注、图片、分页等写法。它是产品功能示例，不是通用报告模板，编写新文档时不要照搬其事实或文案。 |
 | `references/meta.json` | 系统指南的元数据样例，含封面标题、副标题、作者、日期等。 |
 | `references/theme.json` | 系统指南的完整主题样例，展示封面、目录、页眉页脚、正文与图表配置。 |
@@ -38,11 +38,11 @@ metadata:
 
 | 用户说 | 做法 |
 | --- | --- |
-| 「做成 Word」「导出 DOCX」 | `node scripts/sdc-html.cjs ./paper -o ./paper.docx` |
+| 「做成 Word」「导出 DOCX」 | `node scripts/sdc.cjs ./paper -o ./paper.docx` |
 | 「排版成能打印的版本」「做成 PDF」 | 先 `-o ./paper.html`，再用浏览器打开打印并保存为 PDF |
 | 「给甲方一版正式的」「加封面和目录」 | 建 `meta.json`（封面信息）与 `theme.json`（排版），再 `-o ./paper.docx` |
-| 「导出 .sdc」「用 APP 继续编辑」 | `node scripts/sdc-html.cjs ./paper -o ./paper.sdc` |
-| 「把这个 .sdc 转成 Word/HTML」 | `node scripts/sdc-html.cjs ./old.sdc -o ./old.docx` |
+| 「导出 .sdc」「用 APP 继续编辑」 | `node scripts/sdc.cjs ./paper -o ./paper.sdc` |
+| 「把这个 .sdc 转成 Word/HTML」 | `node scripts/sdc.cjs ./old.sdc -o ./old.docx` |
 
 ## 工作流程
 
@@ -78,19 +78,19 @@ metadata:
 
 ```sh
 # 用随附的 APP 系统指南样例检查 HTML 导出
-node scripts/sdc-html.cjs ./references -o ./guide.html
+node scripts/sdc.cjs ./references -o ./guide.html
 
 # 使用自己的文件夹（含 document.md；可选 meta.json、theme.json、images/）
-node scripts/sdc-html.cjs ./paper --title "文档标题" -o ./paper.sdc
-node scripts/sdc-html.cjs ./paper --title "文档标题" -o ./paper.html
-node scripts/sdc-html.cjs ./paper --title "文档标题" -o ./paper.docx
+node scripts/sdc.cjs ./paper --title "文档标题" -o ./paper.sdc
+node scripts/sdc.cjs ./paper --title "文档标题" -o ./paper.html
+node scripts/sdc.cjs ./paper --title "文档标题" -o ./paper.docx
 
 # 使用独立 Markdown 与按需指定的配置
-node scripts/sdc-html.cjs ./draft.md --meta ./meta.json --theme ./theme.json --images ./assets -o ./draft.docx
+node scripts/sdc.cjs ./draft.md --meta ./meta.json --theme ./theme.json --images ./assets -o ./draft.docx
 
 # 将已有 .sdc 导出为 HTML 或 Word
-node scripts/sdc-html.cjs ./old.sdc -o ./old.html
-node scripts/sdc-html.cjs ./old.sdc -o ./old.docx
+node scripts/sdc.cjs ./old.sdc -o ./old.html
+node scripts/sdc.cjs ./old.sdc -o ./old.docx
 ```
 
 ## 注意事项

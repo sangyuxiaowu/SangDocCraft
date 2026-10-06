@@ -11,12 +11,13 @@ import { promisify } from 'node:util';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 
 const execute = promisify(execFile);
-const command = fileURLToPath(new URL('../dist/scripts/sdc-html.cjs', import.meta.url));
+const command = fileURLToPath(new URL('../dist/scripts/sdc.cjs', import.meta.url));
 
 test('build creates only the skill, references, and executable scripts in dist', async () => {
-  assert.deepEqual((await readdir(new URL('../dist/', import.meta.url))).sort(), ['SKILL.md', 'references', 'scripts'].sort());
+  assert.deepEqual((await readdir(new URL('../dist/', import.meta.url))).sort(), ['README.md', 'SKILL.md', 'package.json', 'references', 'scripts'].sort());
   assert.deepEqual((await readdir(new URL('../dist/references/', import.meta.url))).sort(), ['document.md', 'meta.json', 'theme.json', 'theme.md']);
-  assert.deepEqual(await readdir(new URL('../dist/scripts/', import.meta.url)), ['sdc-html.cjs']);
+  assert.deepEqual(await readdir(new URL('../dist/scripts/', import.meta.url)), ['sdc.cjs']);
+  assert.deepEqual(JSON.parse(await readFile(new URL('../dist/package.json', import.meta.url), 'utf8')).bin, { sdc: './scripts/sdc.cjs' });
   const copies = [
     ['../SKILL.md', '../dist/SKILL.md'],
     ['../sample/meta.json', '../dist/references/meta.json'],
@@ -254,7 +255,7 @@ test('dist runs without the source project or its node_modules', async () => {
   const skill = join(directory, 'sdc-authoring');
   try {
     await cp(new URL('../dist/', import.meta.url), skill, { recursive: true });
-    const executable = join(skill, 'scripts', 'sdc-html.cjs');
+    const executable = join(skill, 'scripts', 'sdc.cjs');
     const { stdout } = await execute(process.execPath, [executable, '--help'], { cwd: skill });
     assert.match(stdout, /用法/);
     const markdown = join(directory, 'note.md');

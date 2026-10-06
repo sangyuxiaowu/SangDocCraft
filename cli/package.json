@@ -1,14 +1,18 @@
 {
-  "name": "sangdoccraft-html-cli",
+  "name": "sangdoccraft-cli",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "files": [
+    "dist/"
+  ],
   "bin": {
-    "sdc-html": "./dist/scripts/sdc-html.cjs"
+    "sdc": "./dist/scripts/sdc.cjs"
   },
   "scripts": {
     "build": "node build.mjs",
-    "test": "node build.mjs && node --test test/*.test.mjs"
+    "test": "node build.mjs && node --test test/*.test.mjs",
+    "publish:npm": "npm run build && npm publish ./dist"
   },
   "engines": {
     "node": ">=20"

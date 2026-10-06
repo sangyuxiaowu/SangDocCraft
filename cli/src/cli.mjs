@@ -60,7 +60,7 @@ async function launchBrowser() {
 export async function run(args) {
   const paths = parseArgs(args);
   if (!paths) {
-    console.log('用法: sdc-html <文件夹|input.md|input.sdc> [-o output.html|output.sdc|output.docx] [--title 标题] [--meta meta.json] [--theme theme.json] [--images images/]\n新建文档必须提供 --title 或在 meta.json 中设置 title；HTML 和 DOCX 导出需要 Chrome 或 Edge。');
+    console.log('用法: sdc <文件夹|input.md|input.sdc> [-o output.html|output.sdc|output.docx] [--title 标题] [--meta meta.json] [--theme theme.json] [--images images/]\n新建文档必须提供 --title 或在 meta.json 中设置 title；HTML 和 DOCX 导出需要 Chrome 或 Edge。');
     return;
   }
   const document = await loadDocument(paths.source, paths.options);

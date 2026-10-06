@@ -1,9 +1,10 @@
 import { build } from 'esbuild';
-import { cp, mkdir, readFile, rm } from 'node:fs/promises';
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { brotliCompressSync, constants } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
 const appPackage = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+const cliPackage = JSON.parse(await readFile(new URL('./package.json', import.meta.url), 'utf8'));
 const nodePaths = [fileURLToPath(new URL('./node_modules/', import.meta.url))];
 await rm(new URL('./dist/', import.meta.url), { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 const tauriOnly = {
@@ -54,7 +55,7 @@ const compressedBrowserBundle = brotliCompressSync(Buffer.from(browser.outputFil
 
 await build({
   entryPoints: ['src/cli.mjs'],
-  outfile: 'dist/scripts/sdc-html.cjs',
+  outfile: 'dist/scripts/sdc.cjs',
   bundle: true,
   nodePaths,
   plugins: [inlinePlaywrightMetadata],
@@ -69,6 +70,16 @@ await build({
 await mkdir(new URL('./dist/references/', import.meta.url), { recursive: true });
 await Promise.all([
   cp(new URL('./SKILL.md', import.meta.url), new URL('./dist/SKILL.md', import.meta.url)),
+  cp(new URL('./README.md', import.meta.url), new URL('./dist/README.md', import.meta.url)),
   cp(new URL('./sample/', import.meta.url), new URL('./dist/references/', import.meta.url), { recursive: true }),
   cp(new URL('../src/data/templates/system-guide.md', import.meta.url), new URL('./dist/references/document.md', import.meta.url)),
+  writeFile(new URL('./dist/package.json', import.meta.url), `${JSON.stringify({
+    name: cliPackage.name,
+    version: cliPackage.version,
+    type: cliPackage.type,
+    bin: { sdc: './scripts/sdc.cjs' },
+    engines: cliPackage.engines,
+    dependencies: cliPackage.dependencies,
+    files: ['scripts/', 'references/', 'SKILL.md'],
+  }, null, 2)}\n`),
 ]);

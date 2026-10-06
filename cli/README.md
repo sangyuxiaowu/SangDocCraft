@@ -7,7 +7,7 @@
 ```sh
 npm install
 npm run build
-node dist/scripts/sdc-html.cjs --help
+node dist/scripts/sdc.cjs --help
 npm test
 ```
 
@@ -32,13 +32,13 @@ paper/
 输出格式由 `-o` 后缀决定；省略 `-o` 时，在输入旁生成同名 `.html`。
 
 ```sh
-node dist/scripts/sdc-html.cjs ./paper --title "白皮书" -o ./paper.html
-node dist/scripts/sdc-html.cjs ./paper --title "白皮书" -o ./paper.docx
-node dist/scripts/sdc-html.cjs ./paper --title "白皮书" -o ./paper.sdc
-node dist/scripts/sdc-html.cjs ./draft.md --meta ./meta.json --theme ./theme.json --images ./assets -o ./draft.sdc
-node dist/scripts/sdc-html.cjs ./draft.md --title "文档标题" --images ./assets -o ./draft.html
-node dist/scripts/sdc-html.cjs ./old.sdc -o ./old.html
-node dist/scripts/sdc-html.cjs ./old.sdc -o ./old.docx
+node dist/scripts/sdc.cjs ./paper --title "白皮书" -o ./paper.html
+node dist/scripts/sdc.cjs ./paper --title "白皮书" -o ./paper.docx
+node dist/scripts/sdc.cjs ./paper --title "白皮书" -o ./paper.sdc
+node dist/scripts/sdc.cjs ./draft.md --meta ./meta.json --theme ./theme.json --images ./assets -o ./draft.sdc
+node dist/scripts/sdc.cjs ./draft.md --title "文档标题" --images ./assets -o ./draft.html
+node dist/scripts/sdc.cjs ./old.sdc -o ./old.html
+node dist/scripts/sdc.cjs ./old.sdc -o ./old.docx
 ```
 
 HTML 生成阶段复用现有浏览器渲染器完成公式、Mermaid 和 A4 分页；输出 HTML 中的 JS 只处理窄屏布局。未收集成功的 URL 在 HTML 渲染阶段仍可能由浏览器再次请求；需要完全离线时请使用本地图片。
