@@ -669,7 +669,7 @@ export function paginateContentByDom(
               : newToken);
             return;
           }
-        } else if (token.type === 'code' && !isMermaidLang(token.lang)) {
+        } else if (token.type === 'code' && !isMermaidLang(token.lang) && !isInfographicLang(token.lang)) {
           const splitRes = findDomCodeSplit(token, measurer, maxHeight);
           if (splitRes) {
             currentPageTokens.push(splitRes.part1Md);
@@ -1236,7 +1236,7 @@ export function splitContentByPages(markdown: string, h1PageBreak: boolean = fal
           marked.lexer(splitRes.secondRaw).forEach(processToken);
           return;
         }
-      } else if (token.type === 'code' && !isMermaidLang(token.lang)) {
+      } else if (token.type === 'code' && !isMermaidLang(token.lang) && !isInfographicLang(token.lang)) {
         const splitRes = splitCode(token, availUnits);
         if (splitRes) {
           currentPageTokens.push(splitRes.firstRaw);

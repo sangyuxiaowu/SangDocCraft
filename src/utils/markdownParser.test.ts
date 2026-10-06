@@ -72,6 +72,35 @@ describe('Markdown pagination and numbering', () => {
     }
   });
 
+  it('keeps long infographic fences intact in DOM pagination', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.querySelectorAll('h2').length * 800 + this.querySelectorAll('.infographic').length * 180;
+    });
+    const diagram = ['infographic chart-line-plain-text', 'data', '  values', ...Array.from({ length: 50 }, (_, index) => `    - label ${index}\n      value ${index}`)].join('\n');
+    const fence = String.fromCharCode(96).repeat(3);
+    const source = `## Before\n\n${fence}infographic\n${diagram}\n${fence}`;
+    try {
+      const pages = paginateContentByDom(source, { style: theme.style });
+      expect(pages).toHaveLength(2);
+      expect(pages.join('\n').match(new RegExp(`${fence}infographic`, 'g'))).toHaveLength(1);
+      expect(pages[1]).toContain('value 49');
+      expect(pages[1]).toContain(fence);
+    } finally {
+      height.mockRestore();
+    }
+  });
+
+  it('keeps long infographic fences intact in the non-DOM pagination fallback', () => {
+    const diagram = ['infographic chart-line-plain-text', 'data', '  values', ...Array.from({ length: 50 }, (_, index) => `    - label ${index}\n      value ${index}`)].join('\n');
+    const fence = String.fromCharCode(96).repeat(3);
+    const source = `${fence}infographic\n${diagram}\n${fence}`;
+    const pages = splitContentByPages(source);
+
+    expect(pages).toHaveLength(1);
+    expect(pages[0]).toContain('value 49');
+    expect(pages[0].match(new RegExp(`${fence}infographic`, 'g'))).toHaveLength(1);
+  });
+
   it('uses measured Mermaid heights instead of reserving the maximum height', () => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       const mermaid = this.querySelector<HTMLElement>('.mermaid');
