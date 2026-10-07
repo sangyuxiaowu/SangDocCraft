@@ -87,6 +87,8 @@ export interface DomPaginationOptions {
   h1PageBreak?: boolean;
   headerShow?: boolean;
   footerShow?: boolean;
+  firstPageHeaderShow?: boolean;
+  firstPageFooterShow?: boolean;
   style?: StyleConfig;
   mermaidHeights?: Record<string, number>;
   infographicHeights?: Record<string, number>;
@@ -115,6 +117,24 @@ export function getDocumentFontStack(style: Pick<StyleConfig, 'fontFamily' | 'la
     '"PingFang SC", "Microsoft YaHei", sans-serif';
 
   return `${style.latinFontFamily || 'Times New Roman'}, ${chineseFontStack}`;
+}
+
+export function measureInlineCoverHeight(html: string, style: StyleConfig, fallbackHeight = 150): number {
+  if (typeof document === 'undefined') return fallbackHeight;
+  const measurer = document.createElement('div');
+  Object.assign(measurer.style, {
+    position: 'absolute', left: '-9999px', top: '0', visibility: 'hidden',
+    display: 'flow-root', width: '180mm', boxSizing: 'border-box',
+    fontFamily: getDocumentFontStack(style), fontSize: `${style.fontSize}px`,
+    lineHeight: String(style.lineHeight),
+  });
+  measurer.innerHTML = html;
+  document.body.appendChild(measurer);
+  try {
+    return measurer.offsetHeight > 0 ? measurer.offsetHeight + 24 : fallbackHeight;
+  } finally {
+    measurer.remove();
+  }
 }
 
 export function getTocTitleCss(selector: string, toc: TocConfig, style: StyleConfig): string {
@@ -549,6 +569,10 @@ export function paginateContentByDom(
   const paragraphSplitTolerance = Math.ceil((options.fontSize || 14) * (options.lineHeight || 1.6));
   const renderingTolerance = paragraphSplitTolerance + 8;
   const maxHeight = 1122.5 - 151.2 - headerHeight - footerHeight - renderingTolerance;
+  const firstPageMaxHeight = maxHeight
+    + headerHeight - ((options.firstPageHeaderShow ?? options.headerShow) ? 42 : 0)
+    + footerHeight - ((options.firstPageFooterShow ?? options.footerShow) ? 42 : 0)
+    - Math.max(0, options.firstPageReservedHeight ?? 0);
   let firstPage = true;
 
   try {
@@ -571,7 +595,7 @@ export function paginateContentByDom(
       }
 
       let currentPageTokens: string[] = [];
-      let pageMaxHeight = firstPage ? maxHeight - Math.max(0, options.firstPageReservedHeight ?? 0) : maxHeight;
+      let pageMaxHeight = firstPage ? firstPageMaxHeight : maxHeight;
       measurer.innerHTML = '';
 
       const flushPage = () => {

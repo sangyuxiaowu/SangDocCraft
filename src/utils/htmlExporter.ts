@@ -7,7 +7,7 @@ import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidInHtml } from './mermaidRenderer';
 import { renderInfographicInHtml } from './infographicRenderer';
 import { ensureMathLoaded } from './mathRenderer';
-import { getTocTitleCss } from './markdownParser';
+import { getTocTitleCss, measureInlineCoverHeight } from './markdownParser';
 import { renderWatermarkHtml, renderWatermarkImageDefinition } from './watermark';
 import { getPageSections, resolveCoverList, resolveDynamicText, type SectionNames } from './dynamicFields';
 
@@ -87,6 +87,7 @@ export function generateStandaloneHtml(
     style.bulletStyle === 'arrow' ? '▸' : '•';
 
   // Split markdown body using dynamic DOM measurement algorithm
+  const coverListItems = resolveCoverList(cover.coverlist ?? [], meta);
   const rawContentPages = paginateContentByDom(markdownText, {
     fontSize: style.fontSize,
     lineHeight: style.lineHeight,
@@ -97,8 +98,12 @@ export function generateStandaloneHtml(
     h1PageBreak: style.h1PageBreak,
     headerShow: header.show,
     footerShow: footer.show,
+    firstPageHeaderShow: header.show && (!hasInlineCover || !header.hideOnCover),
+    firstPageFooterShow: footer.show && (!hasInlineCover || !footer.hideOnCover),
     style,
-    firstPageReservedHeight: cover.showCover && !hasStandaloneCover ? coverTemplate.inlinePageHeight : 0,
+    firstPageReservedHeight: hasInlineCover
+      ? measureInlineCoverHeight(coverTemplate.renderHtml({ meta, cover, style, coverListItems }), style, coverTemplate.inlinePageHeight)
+      : 0,
     mermaidHeights,
     infographicHeights,
   });
@@ -134,7 +139,6 @@ export function generateStandaloneHtml(
   let pageNumCounter = 1;
   const coverPageNum = hasStandaloneCover ? pageNumCounter++ : 0;
 
-  const coverListItems = resolveCoverList(cover.coverlist ?? [], meta);
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">

@@ -33,7 +33,7 @@ import { getCoverTemplate } from '../themes/themeRegistry';
 import { renderMermaidElements } from '../utils/mermaidRenderer';
 import { renderInfographicElements } from '../utils/infographicRenderer';
 import { containsMath, ensureMathLoaded, onMathReady } from '../utils/mathRenderer';
-import { getTocTitleCss } from '../utils/markdownParser';
+import { getTocTitleCss, measureInlineCoverHeight } from '../utils/markdownParser';
 import { WatermarkOverlay } from './WatermarkOverlay';
 import { getPageSections, resolveCoverList, resolveDynamicText, type SectionNames } from '../utils/dynamicFields';
 import { findPreviewFigures, getPreviewFigureOptions, updatePreviewFigure } from '../utils/previewFigureEditing';
@@ -409,6 +409,10 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
                      style.bulletStyle === 'arrow' ? '▸' : '•';
 
   // Split markdown body with real-time DOM overflow measurement
+  const coverListItems = resolveCoverList(cover.coverlist ?? [], meta);
+  const inlineCoverHeight = useMemo(() => hasInlineCover
+    ? measureInlineCoverHeight(coverTemplate.renderHtml({ meta, cover, style, coverListItems: resolveCoverList(cover.coverlist ?? [], meta) }), style, coverTemplate.inlinePageHeight)
+    : 0, [hasInlineCover, coverTemplate, meta, cover, style]);
   const rawContentPages = useMemo(() => paginateContentByDom(markdown, {
     fontSize: style.fontSize,
     lineHeight: style.lineHeight,
@@ -419,11 +423,13 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
     h1PageBreak: style.h1PageBreak,
     headerShow: header.show,
     footerShow: footer.show,
+    firstPageHeaderShow: header.show && (!hasInlineCover || !header.hideOnCover),
+    firstPageFooterShow: footer.show && (!hasInlineCover || !footer.hideOnCover),
     style,
-    firstPageReservedHeight: cover.showCover && !hasStandaloneCover ? coverTemplate.inlinePageHeight : 0,
+    firstPageReservedHeight: inlineCoverHeight,
     mermaidHeights,
     infographicHeights,
-  }), [markdown, fontStack, header.show, footer.show, style, mermaidHeights, infographicHeights]);
+  }), [markdown, fontStack, header.show, header.hideOnCover, footer.show, footer.hideOnCover, hasInlineCover, inlineCoverHeight, style, mermaidHeights, infographicHeights]);
 
   // Build TOC page numbers from the same pages rendered below.
   // 目录分页按真实渲染高度自适应测量，目录页数与正文页码保持同步。
@@ -725,7 +731,6 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
     onOverflowPageNumbersChange?.(overflowPageNumbers);
   }, [onOverflowPageNumbersChange, overflowPageNumbers]);
 
-  const coverListItems = resolveCoverList(cover.coverlist ?? [], meta);
 
   return (
     <div className="a4-preview-shell w-full h-full flex flex-col overflow-hidden relative">

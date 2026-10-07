@@ -10,6 +10,7 @@ import {
   getHeadingText,
   getMarkdownBodyCss,
   getTocChunks,
+  measureInlineCoverHeight,
   paginateContentByDom,
   paginateTocItemsByDom,
   parseTableOfContents,
@@ -21,6 +22,21 @@ import {
 const theme = PRESET_THEMES[0];
 
 describe('Markdown pagination and numbering', () => {
+  it('measures inline covers at content width including the gap before the body', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      expect(this.style.width).toBe('180mm');
+      expect(this.style.display).toBe('flow-root');
+      return 111;
+    });
+    try {
+      expect(measureInlineCoverHeight('<h1>Report</h1>', theme.style)).toBe(135);
+    } finally {
+      height.mockRestore();
+    }
+    expect(document.body.children).toHaveLength(0);
+    expect(measureInlineCoverHeight('<h1>Report</h1>', theme.style, 150)).toBe(150);
+  });
+
   it('keeps explicit infographic height and measures compact diagrams below 180 pixels', () => {
     const observedHeights: string[] = [];
     const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
@@ -188,6 +204,31 @@ describe('Markdown pagination and numbering', () => {
       });
 
       expect(pages).toEqual(['First paragraph', 'Second paragraph']);
+    } finally {
+      height.mockRestore();
+    }
+  });
+
+  it('only reserves visible header and footer boxes on the first content page', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.querySelectorAll('p').length * 310;
+    });
+    const options = {
+      style: theme.style,
+      headerShow: true,
+      footerShow: true,
+      firstPageReservedHeight: 150,
+    };
+    try {
+      const source = 'First\n\nSecond\n\nThird\n\nFourth\n\nFifth\n\nSixth';
+      expect(paginateContentByDom(source, options)).toEqual(['First\n\nSecond', 'Third\n\nFourth', 'Fifth\n\nSixth']);
+      expect(paginateContentByDom(source, {
+        ...options, firstPageReservedHeight: 0, firstPageHeaderShow: false, firstPageFooterShow: false,
+      })).toEqual(['First\n\nSecond\n\nThird', 'Fourth\n\nFifth', 'Sixth']);
+      expect(paginateContentByDom('First\n\nSecond', { ...options, firstPageReservedHeight: 250 }))
+        .toEqual(['First', 'Second']);
+      expect(paginateContentByDom('First\n\nSecond', { ...options, firstPageReservedHeight: 250, firstPageHeaderShow: false }))
+        .toEqual(['First\n\nSecond']);
     } finally {
       height.mockRestore();
     }
