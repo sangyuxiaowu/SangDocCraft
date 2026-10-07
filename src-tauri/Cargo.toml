@@ -1,6 +1,6 @@
 [package]
 name = "sangdoccraft"
-version = "6.1.0"
+version = "6.1.1"
 description = "SangDocCraft - Markdown to Printed A4 Document Generator"
 authors = ["sangyuxiaowu"]
 edition = "2021"
