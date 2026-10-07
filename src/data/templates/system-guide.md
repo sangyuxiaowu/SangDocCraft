@@ -132,7 +132,7 @@ A4 预览中点击图表，也可通过悬浮工具条调整单图主题、像�
 信息图通过视觉语言压缩文字信息，让读者用最短时间抓住重点。以下是一个示例：
 
 <!-- caption: 客户增长引擎信息图 -->
-```infographic
+```infographic {h=331 w=679}
 infographic list-row-horizontal-icon-arrow
 data
   title 客户增长引擎
@@ -208,4 +208,4 @@ SangDocCraft 提供了 SKILL 工具（CLI）用于将文件夹、Markdown 或现
 
 如果你觉得 SangDocCraft 对你有帮助，可以通过扫描以下二维码进行打赏：
 
-![打赏二维码](https://sangyuxiaowu.github.io/SangDocCraft/reward-code.svg)
+![打赏二维码](https://sangyuxiaowu.github.io/SangDocCraft/reward-code.svg){h=311}

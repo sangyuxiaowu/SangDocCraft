@@ -1,4 +1,5 @@
 import type { CoverConfig, DocumentMeta, DocumentTheme, FooterConfig, HeaderConfig, StyleConfig, TocConfig } from '../types';
+import { DEFAULT_WATERMARK_CONFIG } from '../utils/watermark';
 import { DEFAULT_DOCUMENT_META } from './defaultDocumentMeta';
 
 // 每个模板的 Markdown 正文独立存放在 ./templates/*.md，便于单独维护与编辑。
@@ -139,7 +140,14 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
       subtitle: '全特性排版范本与交付规范指引',
       author: 'SangDocCraft Team',
       organization: '开源文档工作组',
-      version: 'v1.0.0',
+      department: '文档工程组',
+      version: 'v6.0.0',
+    },
+    headerConfig: { leftText: '@title', rightText: '@h1' },
+    footerConfig: { leftText: 'SangDocCraft · 使用帮助' },
+    tocConfig: { headingNumbering: 'decimal' },
+    styleConfig: {
+      watermark: { ...DEFAULT_WATERMARK_CONFIG, show: true, text: 'SangDocCraft', color: '#2563eb', opacity: 0.06 },
     },
   },
   {
