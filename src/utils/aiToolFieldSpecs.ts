@@ -240,7 +240,7 @@ export const TOC_FIELDS: readonly ScalarFieldSpec[] = [
   { argument: 'titleCenter', section: 'toc', kind: 'boolean', description: '目录标题是否居中' },
   { argument: 'titleStyle', section: 'toc', kind: 'enum', values: ['underline', 'accent-block', 'badge', 'minimal'], description: '目录标题表达形式' },
   { argument: 'maxDepth', section: 'toc', kind: 'enum', values: [1, 2, 3, 4], description: '目录提取的最大标题深度' },
-  { argument: 'headingNumbering', section: 'toc', kind: 'enum', values: ['none', 'decimal', 'chinese', 'decimal-skip-h1'], description: '目录和标题的自动编号方式' },
+  { argument: 'headingNumbering', section: 'toc', kind: 'enum', values: ['none', 'decimal', 'chinese', 'decimal-skip-h1', 'mixed'], description: '目录和标题的自动编号方式' },
   { argument: 'leaderStyle', section: 'toc', kind: 'enum', values: ['dots', 'dashes', 'line', 'none'], description: '目录项与页码之间的连接引导线样式' },
   { argument: 'showPageNumbers', section: 'toc', kind: 'boolean', description: '是否显示目录项页码' },
   { argument: 'pageBreakAfter', section: 'toc', kind: 'boolean', description: '目录页结束后是否强制分页另起一页' },

@@ -403,10 +403,7 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     },
     tocConfig: {
       show: false,
-    },
-    styleConfig: {
-      h1Center: true,
-    },
+    }
   },
   {
     id: 'data-analysis-report',

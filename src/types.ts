@@ -95,7 +95,7 @@ export interface TocConfig {
   /** 各级目录项样式（索引 0..3 对应 1..4 级） */
   levelStyles?: TocLevelStyle[];
   maxDepth: 1 | 2 | 3 | 4;
-  headingNumbering?: 'none' | 'decimal' | 'chinese' | 'decimal-skip-h1';
+  headingNumbering?: 'none' | 'decimal' | 'chinese' | 'decimal-skip-h1' | 'mixed';
   leaderStyle: 'dots' | 'dashes' | 'line' | 'none';
   showPageNumbers: boolean;
   pageBreakAfter: boolean;

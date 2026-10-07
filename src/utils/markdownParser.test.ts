@@ -517,6 +517,15 @@ describe('Markdown pagination and numbering', () => {
     expect(getHeadingText('Child', 2, withH1, 'decimal-skip-h1')).toBe('1.1 Child');
   });
 
+  it('uses Chinese numbering for h1 and decimal numbering for lower heading levels', () => {
+    const counters = [0, 0, 0, 0];
+    expect(getHeadingText('Root', 1, counters, 'mixed')).toBe('一、 Root');
+    expect(getHeadingText('Child', 2, counters, 'mixed')).toBe('1.1. Child');
+    expect(getHeadingText('Detail', 3, counters, 'mixed')).toBe('1.1.1. Detail');
+    expect(getHeadingText('Next root', 1, counters, 'mixed')).toBe('二、 Next root');
+    expect(getHeadingText('Next child', 2, counters, 'mixed')).toBe('2.1. Next child');
+  });
+
   it('splits long TOC items by measured height instead of a fixed count', () => {
     const { toc, style } = theme;
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {

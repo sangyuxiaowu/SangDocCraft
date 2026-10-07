@@ -46,6 +46,7 @@ export function HeadingListTab({ model }: { model: Pick<PanelTabModel, 'theme' |
                         <option value="decimal">数字编号 (1. / 1.1.)</option>
                         <option value="decimal-skip-h1">数字编号 (一级不编号，二级 1.1)</option>
                         <option value="chinese">中文编号</option>
+                        <option value="mixed">混合编号 (一级中文，二级及以下数字)</option>
                       </select>
                     </div>
                   </div>

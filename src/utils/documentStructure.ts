@@ -124,6 +124,11 @@ export function getHeadingText(
 
   const chineseNumerals = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
   const chineseNumber = (value: number) => value <= 10 ? chineseNumerals[value] : String(value);
+  if (numbering === 'mixed') {
+    if (level === 1) return `${chineseNumber(counters[0])}、 ${text}`;
+    return `${counters.slice(0, level).join('.')}. ${text}`;
+  }
+
   const prefixes = [
     `${chineseNumber(counters[0])}、`,
     `（${chineseNumber(counters[1])}）`,

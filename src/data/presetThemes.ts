@@ -568,7 +568,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
       rightText: '',
       pageNumberFormat: 'simple',
       pageNumberPosition: 'right',
-      hideOnCover: true,
+      hideOnCover: false,
     },
     toc: {
       show: false,
@@ -577,6 +577,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
       leaderStyle: 'line',
       showPageNumbers: true,
       pageBreakAfter: true,
+      headingNumbering: "mixed",
     },
     style: {
       primaryColor: '#14532d',
@@ -586,7 +587,7 @@ export const PRESET_THEMES: DocumentTheme[] = [
       bodyFontFamily: 'inherit',
       fontSize: 14,
       lineHeight: 1.6,
-      h1Style: 'accent-block',
+      h1Style: 'underline',
       h2Style: 'underline-subtle',
       headingFonts: defaultHeadingFonts,
       h1PageBreak: false,
