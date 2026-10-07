@@ -1,4 +1,7 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import { EditorSelection } from '@codemirror/state';
+import type { EditorView } from '@codemirror/view';
+import { isolateHistory } from '@codemirror/commands';
 import { 
   Heading1, 
   Heading2, 
@@ -32,6 +35,8 @@ import { putDocumentAsset } from '../utils/imageRepository';
 import { registerAssetUrl } from '../utils/assetUrlRegistry';
 import { DiffReviewSession } from '../types/ai';
 import { AiDiffReviewPanel } from './ai/AiDiffReviewPanel';
+import { useMarkdownEditor } from './editor/useMarkdownEditor';
+import type { EditorTypography } from './editor/editorTheme';
 
 interface EditorProps {
   value: string;
@@ -60,12 +65,6 @@ export interface EditorHandle {
   insertAtSelection: (text: string) => void;
   navigateToPosition: (position: number) => void;
   scrollToPosition: (position: number) => void;
-}
-
-interface EditorTypography {
-  fontFamily: string;
-  fontSize: number;
-  lineHeight: number;
 }
 
 const DEFAULT_EDITOR_TYPOGRAPHY: EditorTypography = {
@@ -99,74 +98,6 @@ function loadEditorTypography(): EditorTypography {
   }
 }
 
-function createTextareaMirror(textarea: HTMLTextAreaElement, value: string) {
-  const computedStyle = window.getComputedStyle(textarea);
-  const mirror = document.createElement('div');
-  const marker = document.createElement('span');
-  const copiedProperties = [
-    'fontFamily',
-    'fontSize',
-    'fontStyle',
-    'fontWeight',
-    'letterSpacing',
-    'lineHeight',
-    'paddingTop',
-    'paddingRight',
-    'paddingBottom',
-    'paddingLeft',
-    'textIndent',
-    'textTransform',
-    'wordSpacing',
-  ] as const;
-
-  copiedProperties.forEach((property) => {
-    mirror.style[property] = computedStyle[property];
-  });
-  Object.assign(mirror.style, {
-    position: 'absolute',
-    left: '-9999px',
-    top: '0',
-    visibility: 'hidden',
-    boxSizing: 'border-box',
-    width: `${textarea.clientWidth}px`,
-    whiteSpace: 'pre-wrap',
-    overflowWrap: 'break-word',
-    wordBreak: computedStyle.wordBreak,
-  });
-  marker.textContent = '\u200b';
-  document.body.append(mirror);
-  return {
-    measure(position: number) {
-      mirror.textContent = value.slice(0, position);
-      mirror.append(marker);
-      return marker.offsetTop;
-    },
-    remove() {
-      mirror.remove();
-    },
-  };
-}
-
-function getCaretContentTop(textarea: HTMLTextAreaElement, value: string, position: number): number {
-  const mirror = createTextareaMirror(textarea, value);
-  const caretTop = mirror.measure(position);
-  mirror.remove();
-  return caretTop;
-}
-
-function getTextareaPositionAtContentTop(textarea: HTMLTextAreaElement, value: string, targetTop: number): number {
-  const mirror = createTextareaMirror(textarea, value);
-  let low = 0;
-  let high = value.length;
-  while (low < high) {
-    const middle = Math.floor((low + high) / 2);
-    if (mirror.measure(middle) < targetTop) low = middle + 1;
-    else high = middle;
-  }
-  mirror.remove();
-  return low;
-}
-
 export const Editor = forwardRef<EditorHandle, EditorProps>(({ 
   value, 
   onChange, 
@@ -189,14 +120,16 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
   onCancelReview,
   onOpenAiAssistant
 }, ref) => {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const scrollFrameRef = useRef(0);
-  const expectedScrollTopRef = useRef<number | null>(null);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [isPastingImage, setIsPastingImage] = useState(false);
   const [editorTypography, setEditorTypography] = useState(loadEditorTypography);
   const [selectedText, setSelectedText] = useState('');
   const isDark = uiMode === 'dark';
+  const { hostRef, viewRef, navigateToPosition, scrollToPosition } = useMarkdownEditor({
+    value, documentId, isDark, typography: editorTypography, reviewing: !!reviewSession,
+    onChange, onSelectionChange: setSelectedText, onPaste: handlePaste,
+    scrollSyncEnabled, onNavigateToPreview, onScrollPositionChange,
+  });
 
   useEffect(() => {
     localStorage.setItem(EDITOR_TYPOGRAPHY_STORAGE_KEY, JSON.stringify(editorTypography));
@@ -204,123 +137,28 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
 
   // Insert helper for formatting buttons
   const insertText = (before: string, after: string = '', defaultText: string = '') => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const scrollTop = textarea.scrollTop;
-
-    const selectedText = value.substring(start, end);
+    const view = viewRef.current;
+    if (!view || reviewSession) return;
+    const { from: start, to: end } = view.state.selection.main;
+    const selectedText = view.state.sliceDoc(start, end);
     const insertContent = selectedText || defaultText;
     const replacement = `${before}${insertContent}${after}`;
-
-    const newValue = value.substring(0, start) + replacement + value.substring(end);
-    onChange(newValue);
-
-    let selectStart: number;
-    let selectEnd: number;
-
-    if (selectedText) {
-      selectStart = start + before.length;
-      selectEnd = start + before.length + selectedText.length;
-    } else if (defaultText) {
-      selectStart = start + before.length;
-      selectEnd = start + before.length + defaultText.length;
-    } else {
-      selectStart = start + before.length;
-      selectEnd = start + before.length;
-    }
-
-    requestAnimationFrame(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-        textareaRef.current.setSelectionRange(selectStart, selectEnd);
-        textareaRef.current.scrollTop = scrollTop;
-      }
+    view.dispatch({
+      changes: { from: start, to: end, insert: replacement },
+      selection: EditorSelection.single(start + before.length, start + before.length + insertContent.length),
+      userEvent: 'input.format',
+      annotations: isolateHistory.of('full'),
     });
+    view.focus();
   };
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key !== 'Tab') return;
-    event.preventDefault();
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const scrollTop = textarea.scrollTop;
-    const beforeSelection = value.substring(0, start);
-    const afterSelection = value.substring(end);
-
-    if (start !== end) {
-      const lineStart = beforeSelection.lastIndexOf('\n') + 1;
-      const lines = value.substring(lineStart, end).split('\n');
-      let selectionLengthChange = 0;
-      const modifiedLines = lines.map((line) => {
-        if (!event.shiftKey) {
-          selectionLengthChange += 2;
-          return `  ${line}`;
-        }
-        if (line.startsWith('  ')) {
-          selectionLengthChange -= 2;
-          return line.slice(2);
-        }
-        if (line.startsWith(' ') || line.startsWith('\t')) {
-          selectionLengthChange -= 1;
-          return line.slice(1);
-        }
-        return line;
-      });
-      onChange(value.substring(0, lineStart) + modifiedLines.join('\n') + afterSelection);
-
-      requestAnimationFrame(() => {
-        if (!textareaRef.current) return;
-        const nextStart = Math.max(lineStart, start + (event.shiftKey ? -2 : 2));
-        const nextEnd = Math.max(nextStart, end + selectionLengthChange);
-        textareaRef.current.focus();
-        textareaRef.current.setSelectionRange(nextStart, nextEnd);
-        textareaRef.current.scrollTop = scrollTop;
-      });
-      return;
-    }
-
-    if (!event.shiftKey) {
-      onChange(`${beforeSelection}  ${afterSelection}`);
-      requestAnimationFrame(() => {
-        textareaRef.current?.focus();
-        textareaRef.current?.setSelectionRange(start + 2, start + 2);
-        if (textareaRef.current) textareaRef.current.scrollTop = scrollTop;
-      });
-      return;
-    }
-
-    const lineStart = beforeSelection.lastIndexOf('\n') + 1;
-    const currentLinePrefix = value.substring(lineStart, start);
-    const removedLength = currentLinePrefix.startsWith('  ')
-      ? 2
-      : currentLinePrefix.startsWith(' ') || currentLinePrefix.startsWith('\t') ? 1 : 0;
-    if (removedLength === 0) return;
-    onChange(value.substring(0, lineStart) + value.substring(lineStart + removedLength));
-    requestAnimationFrame(() => {
-      if (!textareaRef.current) return;
-      const nextPosition = Math.max(lineStart, start - removedLength);
-      textareaRef.current.focus();
-      textareaRef.current.setSelectionRange(nextPosition, nextPosition);
-      textareaRef.current.scrollTop = scrollTop;
-    });
-  };
-
-  const handlePaste = async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const imageItem = Array.from(event.clipboardData.items).find((item) => item.type.startsWith('image/'));
+  async function handlePaste(event: ClipboardEvent, view: EditorView) {
+    const imageItem = Array.from(event.clipboardData?.items ?? []).find((item) => item.type.startsWith('image/'));
     if (!imageItem) return;
     event.preventDefault();
 
     const file = imageItem.getAsFile();
     if (!file) return;
-    const selectionStart = event.currentTarget.selectionStart;
-    const selectionEnd = event.currentTarget.selectionEnd;
-    const scrollTop = event.currentTarget.scrollTop;
+    const { from: selectionStart, to: selectionEnd } = view.state.selection.main;
 
     setIsPastingImage(true);
     try {
@@ -339,21 +177,22 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
       await onAssetsChanged();
 
       const imageMarkdown = `\n\n![截图_${timestamp.slice(-4)}](@images/${asset.id})\n\n`;
-      const currentValue = textareaRef.current?.value ?? value;
-      onChange(currentValue.substring(0, selectionStart) + imageMarkdown + currentValue.substring(selectionEnd));
-      requestAnimationFrame(() => {
-        if (!textareaRef.current) return;
-        const cursorPosition = selectionStart + imageMarkdown.length;
-        textareaRef.current.focus();
-        textareaRef.current.setSelectionRange(cursorPosition, cursorPosition);
-        textareaRef.current.scrollTop = scrollTop;
+      if (viewRef.current !== view || view.state.readOnly) return;
+      const start = Math.min(selectionStart, view.state.doc.length);
+      const end = Math.min(selectionEnd, view.state.doc.length);
+      view.dispatch({
+        changes: { from: start, to: end, insert: imageMarkdown },
+        selection: EditorSelection.cursor(start + imageMarkdown.length),
+        userEvent: 'input.paste',
+        annotations: isolateHistory.of('full'),
       });
+      view.focus();
     } catch (error) {
       console.error('Failed to process pasted screenshot:', error);
     } finally {
       setIsPastingImage(false);
     }
-  };
+  }
 
   const insertTable = () => {
     const tableTemplate = `\n\n<!-- caption: 题注内容 -->\n| 表头1 | 表头2 | 表头3 |\n| :--- | :---: | ---: |\n| 内容数据A | 中心对齐 | 右对齐 |\n| 内容数据B | 中心对齐 | 右对齐 |\n\n`;
@@ -361,64 +200,18 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
   };
 
   const insertPageBreak = () => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const insertion = getPageBreakInsertion(value, textarea.selectionStart);
-    textarea.setSelectionRange(insertion.position, insertion.position);
+    const view = viewRef.current;
+    if (!view || reviewSession) return;
+    const insertion = getPageBreakInsertion(view.state.doc.toString(), view.state.selection.main.from);
+    view.dispatch({ selection: { anchor: insertion.position } });
     insertText(insertion.text);
   };
 
-  const scrollTextareaToPosition = (position: number) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const safePosition = Math.min(value.length, Math.max(0, position));
-    const caretTop = getCaretContentTop(textarea, value, safePosition);
-    const targetScrollTop = caretTop - textarea.clientHeight / 3;
-    const maxScrollTop = textarea.scrollHeight - textarea.clientHeight;
-    const nextScrollTop = Math.max(
-      0,
-      maxScrollTop > 0 ? Math.min(targetScrollTop, maxScrollTop) : targetScrollTop,
-    );
-    if (Math.abs(textarea.scrollTop - nextScrollTop) > 1) {
-      expectedScrollTopRef.current = nextScrollTop;
-      textarea.scrollTop = nextScrollTop;
-    }
-  };
-
-  useEffect(() => () => cancelAnimationFrame(scrollFrameRef.current), []);
-
   useImperativeHandle(ref, () => ({
     insertAtSelection: (text: string) => insertText(text),
-    navigateToPosition: (position: number) => {
-      const textarea = textareaRef.current;
-      if (!textarea) return;
-      const safePosition = Math.min(value.length, Math.max(0, position));
-      textarea.focus();
-      textarea.setSelectionRange(safePosition, safePosition);
-      scrollTextareaToPosition(safePosition);
-    },
-    scrollToPosition: scrollTextareaToPosition,
+    navigateToPosition,
+    scrollToPosition,
   }));
-
-  const handleScroll = (event: React.UIEvent<HTMLTextAreaElement>) => {
-    if (!scrollSyncEnabled || !onScrollPositionChange) return;
-    const textarea = event.currentTarget;
-    const expectedScrollTop = expectedScrollTopRef.current;
-    if (expectedScrollTop !== null && Math.abs(textarea.scrollTop - expectedScrollTop) <= 1) {
-      expectedScrollTopRef.current = null;
-      return;
-    }
-    expectedScrollTopRef.current = null;
-    cancelAnimationFrame(scrollFrameRef.current);
-    scrollFrameRef.current = requestAnimationFrame(() => {
-      const targetTop = textarea.scrollTop + textarea.clientHeight / 3;
-      onScrollPositionChange(getTextareaPositionAtContentTop(textarea, value, targetTop));
-    });
-  };
-
-  const updateSelectedText = (textarea: HTMLTextAreaElement) => {
-    setSelectedText(textarea.value.substring(textarea.selectionStart, textarea.selectionEnd));
-  };
 
   const lineCount = value.split('\n').length;
   const wordCount = value.length;
@@ -669,7 +462,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
 
       {/* Editor Content Area */}
       <div className={`flex-1 relative flex overflow-hidden ${isDark ? 'bg-[#0A0A0A]' : 'bg-white'}`}>
-        {reviewSession ? (
+        <div ref={hostRef} className={`w-full h-full min-w-0 ${reviewSession ? 'hidden' : ''}`} />
+        {reviewSession && (
           <AiDiffReviewPanel
             sessionId={reviewSession.id}
             hunks={reviewSession.hunks}
@@ -681,29 +475,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
             onCancelReview={onCancelReview || (() => {})}
             isDark={isDark}
             description={reviewSession.description}
-          />
-        ) : (
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onSelect={(event) => updateSelectedText(event.currentTarget)}
-            onMouseUp={(event) => updateSelectedText(event.currentTarget)}
-            onKeyUp={(event) => updateSelectedText(event.currentTarget)}
-            onScroll={handleScroll}
-            onDoubleClick={scrollSyncEnabled
-              ? undefined
-              : (event) => onNavigateToPreview?.(event.currentTarget.selectionStart)}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            placeholder="在此处输入或粘贴您的 Markdown 文档内容..."
-            className={`w-full h-full p-4 resize-none focus:outline-none border-none select-text transition-colors duration-200 ${
-              isDark 
-                ? 'bg-[#0A0A0A] text-blue-400/90 selection:bg-blue-600 selection:text-white' 
-                : 'bg-white text-slate-800 selection:bg-blue-200 selection:text-blue-900'
-            }`}
-            style={editorTypography}
-            spellCheck={false}
           />
         )}
       </div>
