@@ -116,5 +116,5 @@ function createPlugin(id: string, name: string, description: string, options: Mi
 
 const recommendation = '正文内嵌，不独立占页；自动禁用目录生成。';
 
-export const minimalHeaderCoverPlugin = createPlugin('minimal-header', '极简公文头', recommendation, { logoRight: false });
-export const minimalLogoCoverPlugin = createPlugin('minimal-logo', '极简品牌头', recommendation, { logoRight: true });
+export const minimalHeaderCoverPlugin = createPlugin('minimal-header', '🧑‍💼 极简公文头', recommendation, { logoRight: false });
+export const minimalLogoCoverPlugin = createPlugin('minimal-logo', '🧑‍💼 极简品牌头', recommendation, { logoRight: true });

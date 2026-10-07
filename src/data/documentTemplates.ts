@@ -391,17 +391,15 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
     category: 'meeting',
     badge: '工作周报',
     iconName: 'briefcase',
-    recommendedThemeId: 'business-briefing',
+    recommendedThemeId: 'business-minimal-header',
     markdown: projectWeeklyReportMarkdown,
     metaConfig: {
       title: '核心研发项目周报与阶段性述职看板',
-      subtitle: '2026 年第 38 周项目里程碑推进与效能度量',
+      subtitle: '机密 · 内部传阅',
       author: '技术交付总监 / PMO',
-      organization: '研发管理中心',
+      organization: '某某科技有限公司',
+      department: '研发管理中心',
       version: '2026-W38',
-    },
-    coverConfig: {
-      showCover: false,
     },
     tocConfig: {
       show: false,
