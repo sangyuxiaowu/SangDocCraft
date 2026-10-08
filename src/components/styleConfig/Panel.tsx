@@ -13,7 +13,7 @@ import {
   Underline,
   X
 } from 'lucide-react';
-import { DocumentAsset, DocumentMeta, DocumentTheme, CoverConfig, HeaderConfig, FooterConfig, TocConfig, StyleConfig, ImageStyleConfig, TableCaptionConfig, CoverListItem, HeadingFontStyle, TocLevelStyle, TocTitleFont, WatermarkConfig, MermaidConfig, MermaidCustomColors } from '../../types';
+import { DocumentAsset, DocumentMeta, DocumentTheme, CoverConfig, HeaderConfig, FooterConfig, PageLayoutConfig, TocConfig, StyleConfig, ImageStyleConfig, TableCaptionConfig, CoverListItem, HeadingFontStyle, TocLevelStyle, TocTitleFont, WatermarkConfig, MermaidConfig, MermaidCustomColors } from '../../types';
 import { getTocLevelStyles, getTocTitleFont } from '../../utils/documentStructure';
 import { getWatermarkConfig } from '../../utils/watermark';
 import { getMermaidConfig, DEFAULT_MERMAID_CUSTOM_COLORS } from '../../utils/mermaidRenderer';
@@ -125,6 +125,17 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
     onChange({
       ...theme,
       footer: { ...theme.footer, [field]: val },
+    });
+  };
+
+  const updatePageLayout = (updates: Omit<Partial<PageLayoutConfig>, 'margins'> & { margins?: Partial<PageLayoutConfig['margins']> }) => {
+    onChange({
+      ...theme,
+      pageLayout: {
+        ...theme.pageLayout,
+        ...updates,
+        margins: { top: 20, right: 15, bottom: 20, left: 15, ...theme.pageLayout?.margins, ...updates.margins },
+      },
     });
   };
 
@@ -419,7 +430,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
     onChange,
     openThemePicker: () => setIsThemePickerOpen(true),
     openImagePicker: setImagePickerTarget,
-    updateMeta, updateCover, updateHeader, updateFooter, updateToc, updateStyle, updateWatermark,
+    updateMeta, updateCover, updateHeader, updateFooter, updatePageLayout, updateToc, updateStyle, updateWatermark,
     updateMermaid, updateCustomColor, updateTocTitleFont, updateTocLevelStyle, updateHeadingFont,
     renderTocFontDetails, renderHeadingDetails, handleAddCoverListItem, handleEditCoverListItem,
     handleRemoveCoverListItem, handleMoveCoverListItem,
@@ -504,7 +515,7 @@ export const StyleConfigPanel: React.FC<StyleConfigPanelProps> = ({
             }`}
           >
             <Sliders className="w-3.5 h-3.5" />
-            <span>页眉</span>
+            <span>页面</span>
           </button>
 
           <button

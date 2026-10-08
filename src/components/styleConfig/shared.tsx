@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
-import { DocumentMeta, DocumentTheme, CoverConfig, HeaderConfig, FooterConfig, TocConfig, StyleConfig, ImageStyleConfig, TableCaptionConfig, CoverListItem, HeadingFontStyle, TocLevelStyle, TocTitleFont, WatermarkConfig, MermaidConfig, MermaidCustomColors } from '../../types';
+import { DocumentMeta, DocumentTheme, CoverConfig, HeaderConfig, FooterConfig, PageLayoutConfig, TocConfig, StyleConfig, ImageStyleConfig, TableCaptionConfig, CoverListItem, HeadingFontStyle, TocLevelStyle, TocTitleFont, WatermarkConfig, MermaidConfig, MermaidCustomColors } from '../../types';
 
 interface ColorPickerInputProps {
   value: string;
@@ -97,6 +97,7 @@ export interface PanelTabModel {
   updateCover: <T extends keyof CoverConfig>(field: T, value: CoverConfig[T]) => void;
   updateHeader: <T extends keyof HeaderConfig>(field: T, value: HeaderConfig[T]) => void;
   updateFooter: <T extends keyof FooterConfig>(field: T, value: FooterConfig[T]) => void;
+  updatePageLayout: (updates: Omit<Partial<PageLayoutConfig>, 'margins'> & { margins?: Partial<PageLayoutConfig['margins']> }) => void;
   updateToc: <T extends keyof TocConfig>(field: T, value: TocConfig[T]) => void;
   updateStyle: <T extends keyof StyleConfig>(field: T, value: StyleConfig[T]) => void;
   updateWatermark: <T extends keyof WatermarkConfig>(field: T, value: WatermarkConfig[T]) => void;

@@ -93,6 +93,7 @@ export interface DomPaginationOptions {
   mermaidHeights?: Record<string, number>;
   infographicHeights?: Record<string, number>;
   firstPageReservedHeight?: number;
+  pageMargins?: { top: number; right: number; bottom: number; left: number };
 }
 
 const imageDimensions = new Map<string, { width: number; height: number }>();
@@ -547,7 +548,8 @@ export function paginateContentByDom(
   measurer.style.pointerEvents = 'none';
   measurer.style.boxSizing = 'border-box';
   measurer.style.display = 'flow-root';
-  measurer.style.width = '180mm';
+  const pageMargins = options.pageMargins ?? { top: 20, right: 15, bottom: 20, left: 15 };
+  measurer.style.width = `${210 - pageMargins.left - pageMargins.right}mm`;
   measurer.style.fontFamily = options.fontFamily || 'sans-serif';
   measurer.style.fontSize = `${options.fontSize || 14}px`;
   measurer.style.lineHeight = `${options.lineHeight || 1.6}`;
@@ -568,7 +570,8 @@ export function paginateContentByDom(
   const footerHeight = options.footerShow ? 42 : 0;
   const paragraphSplitTolerance = Math.ceil((options.fontSize || 14) * (options.lineHeight || 1.6));
   const renderingTolerance = paragraphSplitTolerance + 8;
-  const maxHeight = 1122.5 - 151.2 - headerHeight - footerHeight - renderingTolerance;
+  const pageHeight = 1122.5 - (pageMargins.top + pageMargins.bottom) * 96 / 25.4;
+  const maxHeight = pageHeight - headerHeight - footerHeight - renderingTolerance;
   const firstPageMaxHeight = maxHeight
     + headerHeight - ((options.firstPageHeaderShow ?? options.headerShow) ? 42 : 0)
     + footerHeight - ((options.firstPageFooterShow ?? options.footerShow) ? 42 : 0)

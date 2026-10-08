@@ -192,6 +192,23 @@ describe('Markdown pagination and numbering', () => {
     expect(document.querySelector('.pagination-measurer')).toBeNull();
   });
 
+  it('measures content at the configured horizontal page margins', () => {
+    const widths: string[] = [];
+    const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains('pagination-measurer')) widths.push(this.style.width);
+      return 0;
+    });
+    try {
+      paginateContentByDom('Page content', {
+        style: theme.style,
+        pageMargins: { top: 12, right: 18, bottom: 14, left: 16 },
+      });
+      expect(widths).toContain('176mm');
+    } finally {
+      scrollHeight.mockRestore();
+    }
+  });
+
   it('reserves the rendered header and footer for complete blocks', () => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       return this.querySelectorAll('p').length * 435;

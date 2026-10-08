@@ -397,7 +397,7 @@ mjx-container[jax="SVG"][display="true"] > svg {
     box-shadow: none !important;
     border: none !important;
     margin: 0 !important;
-    padding: 20mm 15mm !important;
+    padding: var(--page-margin-top, 15mm) var(--page-margin-right, 15mm) var(--page-margin-bottom, 15mm) var(--page-margin-left, 15mm) !important;
     page-break-after: always !important;
     break-after: page !important;
     overflow: hidden !important;

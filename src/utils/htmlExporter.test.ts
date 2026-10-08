@@ -14,6 +14,19 @@ const generateStandaloneHtml = (
 ) => generateHtml(markdown, documentMeta, theme, mermaidHeights);
 
 describe('generateStandaloneHtml', () => {
+  it('uses custom four-sided page margins in screen and print styles', () => {
+    const base = PRESET_THEMES[0];
+    const html = generateStandaloneHtml('# Content', {
+      ...base,
+      cover: { ...base.cover, showCover: false },
+      toc: { ...base.toc, show: false },
+      pageLayout: { margins: { top: 12, right: 13, bottom: 14, left: 16 }, showSafeMarginGuides: true },
+    });
+
+    expect(html).toContain('padding: 12mm 13mm 14mm 16mm;');
+    expect(html).toContain('padding: 12mm 13mm 14mm 16mm !important;');
+  });
+
   it('exports infographic containers and shares figure numbering with images and Mermaid', () => {
     const base = PRESET_THEMES[0];
     const html = generateStandaloneHtml(

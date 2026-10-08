@@ -71,6 +71,11 @@ export interface FooterConfig {
   hideOnCover: boolean;
 }
 
+export interface PageLayoutConfig {
+  margins: { top: number; right: number; bottom: number; left: number };
+  showSafeMarginGuides: boolean;
+}
+
 export interface TocTitleFont {
   fontFamily: string;
   fontSize: number;
@@ -199,6 +204,7 @@ export interface DocumentTheme {
   name: string;
   description: string;
   cover: CoverConfig;
+  pageLayout?: PageLayoutConfig;
   header: HeaderConfig;
   footer: FooterConfig;
   toc: TocConfig;

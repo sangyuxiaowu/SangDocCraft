@@ -190,7 +190,7 @@ export function generateStandaloneHtml(
       box-sizing: border-box;
       margin: 0 auto 30px auto;
       background: #ffffff;
-      padding: 20mm 15mm 20mm 15mm;
+      padding: ${theme.pageLayout?.margins?.top ?? 20}mm ${theme.pageLayout?.margins?.right ?? 15}mm ${theme.pageLayout?.margins?.bottom ?? 20}mm ${theme.pageLayout?.margins?.left ?? 15}mm;
       box-shadow: 0 10px 25px rgba(0,0,0,0.12);
       position: relative;
       display: flex;
@@ -721,7 +721,7 @@ export function generateStandaloneHtml(
         box-shadow: none !important;
         border: none !important;
         margin: 0 !important;
-        padding: 20mm 15mm 20mm 15mm !important;
+        padding: ${theme.pageLayout?.margins?.top ?? 20}mm ${theme.pageLayout?.margins?.right ?? 15}mm ${theme.pageLayout?.margins?.bottom ?? 20}mm ${theme.pageLayout?.margins?.left ?? 15}mm !important;
         background: #ffffff !important;
         page-break-before: always !important;
         break-before: page !important;

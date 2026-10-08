@@ -1,12 +1,73 @@
 import { Layout, AlignLeft, Trash2, Image as ImageIcon } from 'lucide-react';
-import { HeaderConfig, FooterConfig } from '../../types';
+import { HeaderConfig, FooterConfig, PageLayoutConfig } from '../../types';
 import { resolveImageSrc } from '../../utils/tauriHelper';
 import { PanelTabModel, DynamicFieldInput } from './shared';
 
-export function HeaderFooterTab({ model }: { model: Pick<PanelTabModel, 'theme' | 'isDark' | 'sectionBorderClass' | 'labelClass' | 'textMutedClass' | 'textSubClass' | 'subCardBgClass' | 'inputClass' | 'updateHeader' | 'updateFooter' | 'openImagePicker'> }) {
-  const { theme, isDark, sectionBorderClass, labelClass, textMutedClass, textSubClass, subCardBgClass, inputClass, updateHeader, updateFooter } = model;
+export function HeaderFooterTab({ model }: { model: Pick<PanelTabModel, 'theme' | 'isDark' | 'sectionBorderClass' | 'labelClass' | 'textMutedClass' | 'textSubClass' | 'subCardBgClass' | 'inputClass' | 'updateHeader' | 'updateFooter' | 'updatePageLayout' | 'openImagePicker'> }) {
+  const { theme, isDark, sectionBorderClass, labelClass, textMutedClass, textSubClass, subCardBgClass, inputClass, updateHeader, updateFooter, updatePageLayout } = model;
+  const marginPresets = [
+    { value: 10, label: '紧凑信息量大' },
+    { value: 15, label: '标准推荐' },
+    { value: 20, label: '宽松装订留白' },
+  ];
+  const pageLayout = theme.pageLayout ?? { margins: { top: 20, right: 15, bottom: 20, left: 15 }, showSafeMarginGuides: false };
+  const margins = pageLayout.margins;
+  const selectedMarginPreset = marginPresets.find(({ value }) => Object.values(margins).every((margin) => margin === value))?.value;
   return <>
 <div className="space-y-5">
+            <section className="space-y-3">
+              <div className={`flex items-center justify-between pb-2 border-b ${sectionBorderClass}`}>
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>打印边距</span>
+                <span className={`text-[10px] ${textMutedClass}`}>单位：毫米</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {marginPresets.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={selectedMarginPreset === value}
+                    onClick={() => updatePageLayout({ margins: { top: value, right: value, bottom: value, left: value } })}
+                    className={`rounded border px-2 py-2 text-left transition ${selectedMarginPreset === value ? 'border-blue-500 bg-blue-500/10 text-blue-600' : `${sectionBorderClass} ${textSubClass}`}`}
+                  >
+                    <span className="block text-[11px] font-bold">{value}mm</span>
+                    <span className="mt-1 block text-[10px] leading-4">{label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className={`grid grid-cols-2 gap-x-3 gap-y-2 rounded border p-3 ${sectionBorderClass}`}>
+                {(['top', 'right', 'bottom', 'left'] as const).map((side) => (
+                  <label key={side} className={`flex items-center justify-between gap-2 text-[11px] ${textSubClass}`}>
+                    <span>{{ top: '上边距', right: '右边距', bottom: '下边距', left: '左边距' }[side]}</span>
+                    <span className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min={0}
+                        max={50}
+                        step={1}
+                        aria-label={{ top: '上边距', right: '右边距', bottom: '下边距', left: '左边距' }[side]}
+                        value={margins[side]}
+                        onChange={(event) => {
+                          const sideMargin: Partial<PageLayoutConfig['margins']> = { [side]: Math.max(0, Math.min(50, Number(event.target.value) || 0)) };
+                          updatePageLayout({ margins: sideMargin });
+                        }}
+                        className={`w-16 rounded border px-2 py-1 text-right ${inputClass}`}
+                      />
+                      <span>mm</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <label className={`flex items-center gap-2 cursor-pointer text-[11px] ${textSubClass}`}>
+                <input
+                  type="checkbox"
+                  checked={pageLayout.showSafeMarginGuides}
+                  onChange={(event) => updatePageLayout({ showSafeMarginGuides: event.target.checked })}
+                  className={`rounded text-blue-600 ${isDark ? 'bg-[#181818] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
+                />
+                <span>在 A4 预览中显示安全边距虚线</span>
+              </label>
+            </section>
+
             {/* Header Settings */}
             <section className="space-y-3">
               <div className={`flex items-center justify-between pb-2 border-b ${sectionBorderClass}`}>

@@ -172,7 +172,8 @@ export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
 export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, meta, theme, uiMode = 'dark', viewMode = 'split', navigationTarget, onNavigateToEditor, scrollSyncEnabled = false, onScrollPositionChange, onOverflowPageNumbersChange, onMarkdownChange, isConfigPanelOpen }) => {
   const markdown = useDeferredValue(sourceMarkdown);
   const previewIsStale = markdown !== sourceMarkdown;
-  const { header, footer, toc, style } = theme;
+  const { header, footer, toc, style, pageLayout } = theme;
+  const pageMargins = pageLayout?.margins ?? { top: 20, right: 15, bottom: 20, left: 15 };
   const cover = theme.cover;
   const coverTemplate = getCoverTemplate(cover.coverStyle);
   const hasStandaloneCover = cover.showCover && coverTemplate.standalone !== false;
@@ -427,9 +428,10 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
     firstPageFooterShow: footer.show && (!hasInlineCover || !footer.hideOnCover),
     style,
     firstPageReservedHeight: inlineCoverHeight,
+    pageMargins,
     mermaidHeights,
     infographicHeights,
-  }), [markdown, fontStack, header.show, header.hideOnCover, footer.show, footer.hideOnCover, hasInlineCover, inlineCoverHeight, style, mermaidHeights, infographicHeights]);
+  }), [markdown, fontStack, header.show, header.hideOnCover, footer.show, footer.hideOnCover, hasInlineCover, inlineCoverHeight, style, pageMargins, mermaidHeights, infographicHeights]);
 
   // Build TOC page numbers from the same pages rendered below.
   // 目录分页按真实渲染高度自适应测量，目录页数与正文页码保持同步。
@@ -1004,6 +1006,15 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
             zoom: `${zoom / 100}`,
           }}
         >
+        <div className="relative w-[210mm] h-7 mb-1 select-none text-[9px] font-mono text-slate-500 print-hide" aria-label="A4 毫米标尺">
+          <div className="absolute inset-x-0 bottom-0 h-3 border-b border-slate-400" />
+          {Array.from({ length: 211 }, (_, millimeter) => (
+            <span key={millimeter} className="absolute bottom-0 w-px bg-slate-400" style={{ left: `${millimeter}mm`, height: millimeter % 10 === 0 ? '12px' : millimeter % 5 === 0 ? '8px' : '4px' }} />
+          ))}
+          {Array.from({ length: 22 }, (_, index) => index * 10).map((millimeter) => (
+            <span key={millimeter} className="absolute bottom-3 -translate-x-1/2" style={{ left: `${millimeter}mm` }}>{millimeter}</span>
+          ))}
+        </div>
         {/* Pages Render Loop */}
         {pages.map((page, index) => {
           const isInlineCoverPage = page.type === 'content' && page.contentPageIndex === 0 && hasInlineCover;
@@ -1035,18 +1046,30 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
                 isDark ? 'shadow-[0_10px_35px_rgba(0,0,0,0.6)]' : 'shadow-[0_10px_30px_rgba(0,0,0,0.12)] border border-slate-200'
               }`}
               style={{
-                padding: '20mm 15mm',
+                padding: `${pageMargins.top}mm ${pageMargins.right}mm ${pageMargins.bottom}mm ${pageMargins.left}mm`,
+                '--page-margin-top': `${pageMargins.top}mm`,
+                '--page-margin-right': `${pageMargins.right}mm`,
+                '--page-margin-bottom': `${pageMargins.bottom}mm`,
+                '--page-margin-left': `${pageMargins.left}mm`,
                 fontFamily: fontStack,
                 fontSize: `${style.fontSize}px`,
                 lineHeight: style.lineHeight,
                 color: style.textColor,
-              }}
+              } as React.CSSProperties}
             >
               <WatermarkOverlay
                 watermark={style.watermark}
                 isCover={page.type === 'cover'}
                 pageNum={page.pageNum}
               />
+
+              {pageLayout?.showSafeMarginGuides && (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute border border-dashed border-rose-500/70 z-20 print-hide"
+                  style={{ top: `${pageMargins.top}mm`, right: `${pageMargins.right}mm`, bottom: `${pageMargins.bottom}mm`, left: `${pageMargins.left}mm` }}
+                />
+              )}
 
               {header.show && (!isCoverPage || !header.hideOnCover) && headerLogoSrc && (
                 <img

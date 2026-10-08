@@ -69,7 +69,26 @@ describe('StyleConfigPanel - Watermark Settings in Other Tab', () => {
       cover: expect.objectContaining({ coverlist: [{ label: '标题', value: '@title' }] }),
     }));
 
-    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === '页眉')?.click());
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === '页面')?.click());
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('10mm'))?.click());
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      pageLayout: expect.objectContaining({ margins: { top: 10, right: 10, bottom: 10, left: 10 } }),
+    }));
+    const topMargin = container.querySelector<HTMLInputElement>('input[aria-label="上边距"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(topMargin, '12');
+      topMargin.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      pageLayout: expect.objectContaining({ margins: { top: 12, right: 15, bottom: 20, left: 15 } }),
+    }));
+    const safeMarginToggle = Array.from(container.querySelectorAll('label'))
+      .find((label) => label.textContent?.includes('安全边距'))?.querySelector<HTMLInputElement>('input');
+    await act(async () => safeMarginToggle?.click());
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      pageLayout: expect.objectContaining({ showSafeMarginGuides: true }),
+    }));
+
     const headerPicker = container.querySelector<HTMLSelectElement>('select[aria-label="页眉左侧插入变量"]')!;
     await act(async () => {
       headerPicker.value = 'h2';

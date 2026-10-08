@@ -36,6 +36,28 @@ vi.mock('./tauriHelper', async (importOriginal) => ({
 
 afterEach(() => vi.restoreAllMocks());
 
+it('writes custom page margins to Word section settings', async () => {
+  let exportedBlob: Blob | undefined;
+  vi.stubGlobal('URL', {
+    createObjectURL: (blob: Blob) => { exportedBlob = blob; return 'blob:document'; },
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const base = PRESET_THEMES[0];
+  try {
+    await exportToDocx('# Content', DEFAULT_DOCUMENT_META, {
+      ...base,
+      cover: { ...base.cover, showCover: false },
+      toc: { ...base.toc, show: false },
+      pageLayout: { margins: { top: 12, right: 13, bottom: 14, left: 16 }, showSafeMarginGuides: false },
+    });
+    const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
+    expect(strFromU8(files['word/document.xml'])).toMatch(/<w:pgMar[^>]*w:top="680"[^>]*w:right="737"[^>]*w:bottom="794"[^>]*w:left="907"/);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 it('exports infographic SVG and a real PNG fallback with a numbered caption', async () => {
   let exportedBlob: Blob | undefined;
   vi.stubGlobal('URL', {

@@ -21,6 +21,10 @@ export const PRESET_THEMES: DocumentTheme[] = [
         { label: '所属部门', value: '@department' }
       ]
     },
+    pageLayout: {
+      margins: { top: 20, right: 15, bottom: 20, left: 15 },
+      showSafeMarginGuides: false,
+    },
     header: {
       show: true,
       leftText: '@organization',

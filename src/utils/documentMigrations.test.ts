@@ -16,6 +16,7 @@ describe('migrateThemeData', () => {
     expect(theme.style.primaryColor).toBe('#123456');
     expect(theme.style.headingFonts).toEqual(PRESET_THEMES[0].style.headingFonts);
     expect(theme.cover).toEqual(PRESET_THEMES[0].cover);
+    expect(theme.pageLayout).toEqual(PRESET_THEMES[0].pageLayout);
     expect(theme.header).toEqual(PRESET_THEMES[0].header);
     expect(theme.mermaid?.theme).toBe('neutral');
     expect(theme).not.toHaveProperty('meta');

@@ -97,6 +97,8 @@ const transparentPngFallback = Uint8Array.from(
 
 export async function createDocxBlob(markdownText: string, meta: DocumentMeta, theme: DocumentTheme): Promise<Blob> {
   const { header, footer, toc, style } = theme;
+  const pageMargins = theme.pageLayout?.margins ?? { top: 20, right: 15, bottom: 20, left: 15 };
+  const millimetersToTwips = (millimeters: number) => Math.round(millimeters * 1440 / 25.4);
   const cover = theme.cover;
   const coverTemplate = getCoverTemplate(cover.coverStyle);
   const hasStandaloneCover = cover.showCover && coverTemplate.standalone !== false;
@@ -912,10 +914,10 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
                     titlePage: cover.showCover && (header.hideOnCover || footer.hideOnCover),
           page: {
             margin: {
-              top: 1440, // 1 inch
-              bottom: 1440,
-              left: 1440,
-              right: 1440,
+                        top: millimetersToTwips(pageMargins.top),
+                        bottom: millimetersToTwips(pageMargins.bottom),
+                        left: millimetersToTwips(pageMargins.left),
+                        right: millimetersToTwips(pageMargins.right),
             },
           },
         },
