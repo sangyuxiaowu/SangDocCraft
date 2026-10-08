@@ -29,8 +29,7 @@ function safeDeclarations(node: CssNode): string {
       const property = declaration.property.toLowerCase();
       const value = generate(declaration.value);
       if (/^(?:-(?:webkit|moz|ms|o)-)?(?:animation|transition)(?:-|$)/.test(property)
-        || /^(?:behavior|-moz-binding|z-index)$/.test(property)
-        || property === 'position' && !/^(?:static|relative)$/i.test(value)) return;
+        || /^(?:behavior|-moz-binding|z-index)$/.test(property)) return;
       let unsafe = false;
       walk(declaration.value, (part) => {
         if (part.type === 'Url' || part.type === 'Raw'

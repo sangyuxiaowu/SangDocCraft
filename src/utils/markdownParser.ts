@@ -1,4 +1,5 @@
 import { marked } from 'marked';
+import { getDocumentColorVariables } from './documentColors';
 import { sanitizeDocumentHtml } from './htmlBlocks';
 import hljs from 'highlight.js/lib/common';
 import { TocItem, CoverConfig, StyleConfig, ImageStyleConfig, TableCaptionConfig, TocConfig } from '../types';
@@ -554,9 +555,14 @@ export function paginateContentByDom(
   measurer.style.fontFamily = options.fontFamily || 'sans-serif';
   measurer.style.fontSize = `${options.fontSize || 14}px`;
   measurer.style.lineHeight = `${options.lineHeight || 1.6}`;
-  measurer.style.color = options.textColor || '#0f172a';
-  measurer.style.setProperty('--primary-color', options.primaryColor || '#1e293b');
-  measurer.style.setProperty('--accent-color', options.accentColor || '#2563eb');
+  const colors = getDocumentColorVariables({
+    ...options.style,
+    primaryColor: options.primaryColor ?? options.style?.primaryColor,
+    accentColor: options.accentColor ?? options.style?.accentColor,
+    textColor: options.textColor ?? options.style?.textColor,
+  });
+  measurer.style.color = colors['--text-color'];
+  Object.entries(colors).forEach(([property, value]) => measurer.style.setProperty(property, value));
 
   const measurerStyles = document.createElement('style');
   if (options.style) {

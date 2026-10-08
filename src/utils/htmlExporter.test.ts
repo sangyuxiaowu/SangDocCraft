@@ -14,6 +14,20 @@ const generateStandaloneHtml = (
 ) => generateHtml(markdown, documentMeta, theme, mermaidHeights);
 
 describe('generateStandaloneHtml', () => {
+  it('exports all four document color variables including a default image border', () => {
+    const base = PRESET_THEMES[0];
+    const colors = { primaryColor: '#112233', accentColor: '#445566', textColor: '#778899', imageConfig: { ...base.style.imageConfig, borderColor: '#aabbcc' } };
+    const source = '<section data-sdc-html>\n<style>p{color:var(--text-color);border:1px solid var(--img-border-color)}</style>\n<p>Text</p>\n</section>';
+    const html = generateStandaloneHtml(source, { ...base, style: { ...base.style, ...colors } });
+    for (const [property, value] of [['primary', '#112233'], ['accent', '#445566'], ['text', '#778899'], ['img-border', '#aabbcc']]) {
+      expect(html).toContain(`--${property}-color:${value};`);
+    }
+    expect(html).toContain('var(--text-color)');
+    expect(html).toContain('var(--img-border-color)');
+    const defaultHtml = generateStandaloneHtml(source, { ...base, style: { ...base.style, imageConfig: undefined } });
+    expect(defaultHtml).toContain('--img-border-color:#cbd5e1;');
+  });
+
   it('excludes pure HTML headings from document numbering and TOC anchors', () => {
     const base = PRESET_THEMES[0];
     const html = generateStandaloneHtml('# Before\n\n<section data-sdc-html>\n<h1>Template heading</h1>\n</section>\n\n# After', {

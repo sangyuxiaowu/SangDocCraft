@@ -1,4 +1,5 @@
 import { marked } from 'marked';
+import { getDocumentColorVariables } from './documentColors';
 import { transformMarkdownHeadings } from './htmlBlocks';
 import { DocumentTheme, FooterConfig, DocumentMeta } from '../types';
 import { getFooterSlots, getHeadingText, getTocTitleStyleObject, styleObjectToCss } from './documentStructure';
@@ -156,10 +157,7 @@ export function generateStandaloneHtml(
     }
     
     :root {
-      --primary-color: ${style.primaryColor};
-      --accent-color: ${style.accentColor};
-      --text-color: ${style.textColor};
-      ${style.imageConfig?.borderColor ? `--img-border-color: ${style.imageConfig.borderColor};` : ''}
+      ${styleObjectToCss(getDocumentColorVariables(style))}
       --font-family: ${fontStack};
       --base-font-size: ${style.fontSize}px;
       --line-height: ${style.lineHeight};

@@ -1,5 +1,6 @@
 import React, { useDeferredValue, useMemo, useState, useRef, useEffect } from 'react';
 import { marked } from 'marked';
+import { getDocumentColorVariables } from '../utils/documentColors';
 import { transformMarkdownHeadings } from '../utils/htmlBlocks';
 import { 
   ZoomIn, 
@@ -147,12 +148,14 @@ export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
   html,
   primaryColor,
   accentColor,
+  textColor,
   bulletChar,
   imgBorderColor,
 }: {
   html: string;
   primaryColor: string;
   accentColor: string;
+  textColor?: string;
   bulletChar: string;
   imgBorderColor?: string;
 }) {
@@ -160,10 +163,8 @@ export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
     <div
       className="markdown-rendered-body flex-1 flow-root"
       style={{
-        '--primary-color': primaryColor,
-        '--accent-color': accentColor,
+        ...getDocumentColorVariables({ primaryColor, accentColor, textColor, imageConfig: { borderColor: imgBorderColor } }),
         '--bullet-char': `"${bulletChar}"`,
-        ...(imgBorderColor ? { '--img-border-color': imgBorderColor } : {}),
       } as React.CSSProperties}
       dangerouslySetInnerHTML={{ __html: html }}
     />
@@ -1187,6 +1188,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
                     html={page.contentHtml}
                     primaryColor={style.primaryColor}
                     accentColor={style.accentColor}
+                    textColor={style.textColor}
                     bulletChar={bulletChar}
                     imgBorderColor={style.imageConfig?.borderColor}
                   />

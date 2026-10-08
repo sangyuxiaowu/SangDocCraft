@@ -4,6 +4,7 @@ import { marked } from 'marked';
 import { compileScopedCss, sanitizeDocumentHtml } from './htmlBlocks';
 import { splitExplicitPages } from './pageBreaks';
 import { paginateContentByDom, postProcessRenderedHtml } from './markdownParser';
+import { PRESET_THEMES } from '../data/presetThemes';
 
 describe('print HTML blocks', () => {
   it('keeps blank lines, nested sections and pagebreak comments in one raw HTML token', () => {
@@ -52,6 +53,24 @@ describe('print HTML blocks', () => {
     const section = '<section data-sdc-html>\n<style>p{margin:0}</style>\n\n<p>First</p>\n<p>Second</p>\n</section>';
     try {
       expect(paginateContentByDom(`Intro\n\n${section}\n\nAfter`)).toEqual(['Intro', section, 'After']);
+    } finally { height.mockRestore(); }
+  });
+
+  it('injects all four document colors into the pagination measurer', () => {
+    const measured: string[][] = [];
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains('pagination-measurer')) {
+        measured.push(['--primary-color', '--accent-color', '--text-color', '--img-border-color'].map(property => this.style.getPropertyValue(property)));
+      }
+      return 100;
+    });
+    const base = PRESET_THEMES[0].style;
+    try {
+      paginateContentByDom('<section data-sdc-html><p>Text</p></section>', {
+        style: { ...base, primaryColor: '#112233', accentColor: '#445566', textColor: '#778899', imageConfig: { ...base.imageConfig, borderColor: '#aabbcc' } },
+      });
+      expect(measured.length).toBeGreaterThan(0);
+      expect(measured.every(colors => colors.join(',') === '#112233,#445566,#778899,#aabbcc')).toBe(true);
     } finally { height.mockRestore(); }
   });
 

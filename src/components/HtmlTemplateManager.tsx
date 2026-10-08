@@ -1,16 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { Copy, Download, FileCode, Plus, Save, Search, Trash2, Upload, X } from 'lucide-react';
-import { BUILTIN_HTML_TEMPLATES, buildHtmlTemplateBlock, exportHtmlTemplates, importHtmlTemplates, loadHtmlTemplates, saveHtmlTemplates, type HtmlTemplate } from '../utils/htmlTemplateStore';
+import { BUILTIN_HTML_TEMPLATES } from '../data/htmlTemplates';
+import type { HtmlTemplate } from '../types/htmlTemplate';
+import { buildHtmlTemplateBlock, exportHtmlTemplates, importHtmlTemplates, loadHtmlTemplates, saveHtmlTemplates } from '../utils/htmlTemplateStore';
 import { sanitizeDocumentHtml } from '../utils/htmlBlocks';
+import { getDocumentColorVariables, type DocumentColors } from '../utils/documentColors';
+import { styleObjectToCss } from '../utils/documentStructure';
 import { modal } from '../utils/modalDialog';
 
 interface Props {
   isDark: boolean;
+  documentStyle?: DocumentColors;
   onClose: () => void;
   onInsert: (block: string) => void;
 }
 
-export function HtmlTemplateManager({ isDark, onClose, onInsert }: Props) {
+export function HtmlTemplateManager({ isDark, documentStyle, onClose, onInsert }: Props) {
   const [templates, setTemplates] = useState<HtmlTemplate[]>([]);
   const [draft, setDraft] = useState<HtmlTemplate>(BUILTIN_HTML_TEMPLATES[0]);
   const [query, setQuery] = useState('');
@@ -80,7 +85,7 @@ export function HtmlTemplateManager({ isDark, onClose, onInsert }: Props) {
   let previewError = '';
   try { block = buildHtmlTemplateBlock(draft); }
   catch (reason) { previewError = String(reason); }
-  const preview = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src https: http: data: blob:; font-src 'none';"><style>body{margin:20px;font:14px/1.6 'Microsoft YaHei',sans-serif;color:#222}*{box-sizing:border-box}img{max-width:100%}</style></head><body>${sanitizeDocumentHtml(block)}</body></html>`;
+  const preview = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src https: http: data: blob:; font-src 'none';"><style>:root{${styleObjectToCss(getDocumentColorVariables(documentStyle))}}body{margin:20px;font:14px/1.6 'Microsoft YaHei',sans-serif;color:var(--text-color)}*{box-sizing:border-box}img{max-width:100%}</style></head><body>${sanitizeDocumentHtml(block)}</body></html>`;
   const fieldClass = `w-full rounded border px-2 py-1.5 text-sm outline-none focus:border-blue-500 ${isDark ? 'bg-zinc-950 border-zinc-700' : 'bg-white border-slate-300'}`;
   const toolClass = `p-2 rounded hover:bg-blue-500/10 disabled:opacity-40 disabled:cursor-not-allowed`;
 

@@ -38,9 +38,11 @@ import { DiffReviewSession } from '../types/ai';
 import { AiDiffReviewPanel } from './ai/AiDiffReviewPanel';
 import { useMarkdownEditor } from './editor/useMarkdownEditor';
 import type { EditorTypography } from './editor/editorTheme';
+import type { DocumentColors } from '../utils/documentColors';
 
 interface EditorProps {
   value: string;
+  documentStyle?: DocumentColors;
   onChange: (val: string) => void;
   onNavigateToPreview?: (position: number) => void;
   scrollSyncEnabled?: boolean;
@@ -101,6 +103,7 @@ function loadEditorTypography(): EditorTypography {
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(({ 
   value, 
+  documentStyle,
   onChange, 
   onNavigateToPreview, 
   scrollSyncEnabled = false,
@@ -559,6 +562,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
       {showHtmlTemplates && (
         <HtmlTemplateManager
           isDark={isDark}
+          documentStyle={documentStyle}
           onClose={() => setShowHtmlTemplates(false)}
           onInsert={(block) => {
             insertText(`\n\n${block}\n\n`);

@@ -115,4 +115,19 @@ describe('RenderedMarkdownPage', () => {
     expect(container.querySelector('[data-rendered="true"]')).not.toBeNull();
     expect(container.textContent).not.toContain('flowchart LR');
   });
+
+  it('injects all four document colors and supplies a default image border', async () => {
+    const container = document.createElement('div'); document.body.append(container);
+    const root = createRoot(container); roots.push(root);
+    const props = { html: '<section data-sdc-html><p>Text</p></section>', primaryColor: '#112233', accentColor: '#445566', textColor: '#778899', imgBorderColor: '#aabbcc', bulletChar: '*' };
+    await act(async () => root.render(<RenderedMarkdownPage {...props} />));
+    const body = container.querySelector<HTMLElement>('.markdown-rendered-body')!;
+    expect(body.style.getPropertyValue('--primary-color')).toBe('#112233');
+    expect(body.style.getPropertyValue('--accent-color')).toBe('#445566');
+    expect(body.style.getPropertyValue('--text-color')).toBe('#778899');
+    expect(body.style.getPropertyValue('--img-border-color')).toBe('#aabbcc');
+    await act(async () => root.render(<RenderedMarkdownPage {...props} textColor="#123456" imgBorderColor={undefined} />));
+    expect(body.style.getPropertyValue('--text-color')).toBe('#123456');
+    expect(body.style.getPropertyValue('--img-border-color')).toBe('#cbd5e1');
+  });
 });

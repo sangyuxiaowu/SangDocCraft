@@ -691,6 +691,7 @@ export default function App() {
             <Editor
               ref={editorRef}
               value={markdown}
+              documentStyle={previewTheme.style}
               onChange={handleMarkdownChange}
               onNavigateToPreview={(position) => setPreviewNavigationTarget({
                 position,

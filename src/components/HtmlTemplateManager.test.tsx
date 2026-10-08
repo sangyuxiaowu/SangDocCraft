@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HtmlTemplateManager } from './HtmlTemplateManager';
 import { loadHtmlTemplates, saveHtmlTemplates } from '../utils/htmlTemplateStore';
 import { modal } from '../utils/modalDialog';
+import type { DocumentColors } from '../utils/documentColors';
 
 let root: Root;
 let container: HTMLDivElement;
@@ -23,10 +24,10 @@ function input(label: string, value: string) {
   });
 }
 
-function render() {
+function render(documentStyle?: DocumentColors) {
   const onClose = vi.fn();
   const onInsert = vi.fn();
-  act(() => root.render(<HtmlTemplateManager isDark={false} onClose={onClose} onInsert={onInsert} />));
+  act(() => root.render(<HtmlTemplateManager isDark={false} documentStyle={documentStyle} onClose={onClose} onInsert={onInsert} />));
   return { onClose, onInsert };
 }
 
@@ -51,6 +52,19 @@ describe('HTML template manager', () => {
     expect(frame.srcdoc).toContain("default-src 'none'");
     await click(Array.from(container.querySelectorAll('button')).find(element => element.textContent?.includes('插入模板'))!);
     expect(onInsert).toHaveBeenCalledWith(expect.stringContaining('<section data-sdc-html>'));
+  });
+
+  it('injects document colors into the template iframe and updates them with the theme', () => {
+    const style = { primaryColor: '#112233', accentColor: '#445566', textColor: '#778899', imageConfig: { borderColor: '#aabbcc' } };
+    render(style);
+    const source = container.querySelector('iframe')!.srcdoc;
+    expect(source).toContain('--primary-color:#112233;');
+    expect(source).toContain('--accent-color:#445566;');
+    expect(source).toContain('--text-color:#778899;');
+    expect(source).toContain('--img-border-color:#aabbcc;');
+    render({ ...style, primaryColor: '#123456', imageConfig: undefined });
+    expect(container.querySelector('iframe')!.srcdoc).toContain('--primary-color:#123456;');
+    expect(container.querySelector('iframe')!.srcdoc).toContain('--img-border-color:#cbd5e1;');
   });
 
   it('creates, saves, edits and deletes a user template', async () => {
