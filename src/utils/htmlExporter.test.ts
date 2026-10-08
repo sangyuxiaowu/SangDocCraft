@@ -14,6 +14,33 @@ const generateStandaloneHtml = (
 ) => generateHtml(markdown, documentMeta, theme, mermaidHeights);
 
 describe('generateStandaloneHtml', () => {
+  it('excludes pure HTML headings from document numbering and TOC anchors', () => {
+    const base = PRESET_THEMES[0];
+    const html = generateStandaloneHtml('# Before\n\n<section data-sdc-html>\n<h1>Template heading</h1>\n</section>\n\n# After', {
+      ...base, cover: { ...base.cover, showCover: false }, toc: { ...base.toc, show: true, headingNumbering: 'decimal' },
+    });
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    const templateHeading = parsed.querySelector('section h1')!;
+    expect(templateHeading.textContent).toBe('Template heading');
+    expect(templateHeading.hasAttribute('id')).toBe(false);
+    expect(parsed.querySelector('#heading-2')?.textContent).toContain('After');
+    expect(parsed.querySelector('#heading-3')).toBeNull();
+  });
+
+  it('exports unique scoped HTML blocks without scripts, animation or outside CSS', () => {
+    const base = PRESET_THEMES[0];
+    const block = '<section data-sdc-html>\n<style>.title{color:#c62828} p{margin:0;animation:spin 1s}</style>\n\n<h3 class="title">项目说明</h3><p onclick="alert(1)">正文</p><script>alert(1)</script>\n</section>';
+    const html = generateStandaloneHtml(`<style>body{background:red}</style>\n\n${block}\n\n${block}`, {
+      ...base, cover: { ...base.cover, showCover: false }, toc: { ...base.toc, show: false },
+    });
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    const sections = Array.from(parsed.querySelectorAll('section[data-sdc-html]'));
+    expect(sections).toHaveLength(2);
+    expect(new Set(sections.map(section => section.getAttribute('data-sdc-scope'))).size).toBe(2);
+    expect(sections[0].querySelector('style')?.textContent).toContain('.title {color:#c62828}');
+    expect(html).not.toMatch(/body\{background:red\}|onclick=|alert\(1\)|animation:spin/);
+  });
+
   it('uses custom four-sided page margins in screen and print styles', () => {
     const base = PRESET_THEMES[0];
     const html = generateStandaloneHtml('# Content', {

@@ -73,6 +73,19 @@ describe('Editor keyboard indentation', () => {
     expect(rendered.onChange).toHaveBeenCalledWith('  alpha beta');
   });
 
+  it('inserts an HTML template at the selection as one undoable edit', async () => {
+    const rendered = renderEditor('Before After');
+    roots.push(rendered.root);
+    selectText(rendered.view, 7);
+    await act(async () => rendered.container.querySelector<HTMLButtonElement>('[aria-label="HTML 模板管理"]')!.click());
+    const insert = Array.from(rendered.container.querySelectorAll('button')).find(button => button.textContent?.includes('插入模板'))!;
+    await act(async () => insert.click());
+    expect(rendered.view.state.doc.toString()).toMatch(/Before \n\n<section data-sdc-html>[\s\S]*<\/section>\n\nAfter/);
+    expect(rendered.container.querySelector('[aria-label="HTML 模板管理"][role="dialog"]')).toBeNull();
+    act(() => undo(rendered.view));
+    expect(rendered.view.state.doc.toString()).toBe('Before After');
+  });
+
   it('unindents every selected line with Shift+Tab', () => {
     const rendered = renderEditor('  alpha\n  beta');
     roots.push(rendered.root);

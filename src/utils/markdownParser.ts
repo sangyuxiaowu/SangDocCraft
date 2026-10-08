@@ -1,4 +1,5 @@
 import { marked } from 'marked';
+import { sanitizeDocumentHtml } from './htmlBlocks';
 import hljs from 'highlight.js/lib/common';
 import { TocItem, CoverConfig, StyleConfig, ImageStyleConfig, TableCaptionConfig, TocConfig } from '../types';
 import {
@@ -1328,6 +1329,20 @@ export function postProcessRenderedHtml(
   mermaidConfigInput?: MermaidConfig
 ): string {
   if (!html) return '';
+  html = sanitizeDocumentHtml(html);
+  const blocks = new Map<string, string>();
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  container.querySelectorAll<HTMLElement>('section[data-sdc-html]').forEach(section => {
+    if (section.parentElement?.closest('section[data-sdc-html]')) return;
+    section.querySelectorAll<HTMLImageElement>('img[src]').forEach(image => {
+      image.setAttribute('src', resolveImageSrc(image.getAttribute('src') || ''));
+    });
+    const placeholder = `sdc-html-${crypto.randomUUID()}`;
+    blocks.set(placeholder, section.outerHTML);
+    section.replaceWith(document.createComment(placeholder));
+  });
+  html = container.innerHTML;
 
   const docMermaid = getMermaidConfig(mermaidConfigInput || style?.mermaid);
 
@@ -1512,5 +1527,8 @@ export function postProcessRenderedHtml(
     (_, captionRaw, tableHtml) => handleTableCaption(captionRaw, tableHtml)
   );
 
+  blocks.forEach((block, placeholder) => {
+    processed = processed.replace(`<!--${placeholder}-->`, () => block);
+  });
   return processed;
 }

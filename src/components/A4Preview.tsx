@@ -1,5 +1,6 @@
 import React, { useDeferredValue, useMemo, useState, useRef, useEffect } from 'react';
 import { marked } from 'marked';
+import { transformMarkdownHeadings } from '../utils/htmlBlocks';
 import { 
   ZoomIn, 
   ZoomOut, 
@@ -473,7 +474,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
 
   useEffect(() => {
     const headings = containerRef.current?.querySelectorAll<HTMLElement>('.markdown-rendered-body h1, .markdown-rendered-body h2, .markdown-rendered-body h3, .markdown-rendered-body h4');
-    headings?.forEach((heading, index) => {
+    Array.from(headings || []).filter(heading => !heading.closest('section[data-sdc-html]')).forEach((heading, index) => {
       const outlineItem = outlineItems[index];
       if (outlineItem) heading.id = outlineItem.id;
     });
@@ -668,9 +669,11 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
       if (!trimmed && rawContentPages.length !== 1) return [];
       const preprocessedMd = preprocessMarkdownCaptions(trimmed || pageMd);
       const rawHtml = marked.parse(preprocessedMd) as string;
-      const numberedHtml = rawHtml.replace(/<h([1-4])([^>]*)>([\s\S]*?)<\/h\1>/gi, (_match, level: string, attributes: string, content: string) => {
-        const prefix = getHeadingText('', Number(level), headingCounters, toc.headingNumbering).trim();
-        return `<h${level}${attributes}>${prefix ? `${prefix} ` : ''}${content}</h${level}>`;
+      const numberedHtml = transformMarkdownHeadings(rawHtml, heading => {
+        const level = Number(heading.tagName.slice(1));
+        if (level > 4) return;
+        const prefix = getHeadingText('', level, headingCounters, toc.headingNumbering).trim();
+        if (prefix) heading.prepend(`${prefix} `);
       });
       return [{
         section: contentSections[contentPageIndex],

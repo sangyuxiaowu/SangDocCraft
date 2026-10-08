@@ -29,6 +29,7 @@ import {
 import { getPageBreakInsertion } from '../utils/pageBreaks';
 import type { DocumentAsset } from '../types';
 import { ImagePicker } from './ImagePicker';
+import { HtmlTemplateManager } from './HtmlTemplateManager';
 import { formatImageDimensionSuffix } from '../utils/imageDimensions';
 import { createDocumentAsset } from '../utils/documentPackage';
 import { putDocumentAsset } from '../utils/imageRepository';
@@ -121,6 +122,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
   onOpenAiAssistant
 }, ref) => {
   const [showImagePicker, setShowImagePicker] = useState(false);
+  const [showHtmlTemplates, setShowHtmlTemplates] = useState(false);
   const [isPastingImage, setIsPastingImage] = useState(false);
   const [editorTypography, setEditorTypography] = useState(loadEditorTypography);
   const [selectedText, setSelectedText] = useState('');
@@ -353,6 +355,17 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
           <ImageIcon className="w-4 h-4 text-blue-500" />
         </button>
 
+        <button
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => setShowHtmlTemplates(true)}
+          disabled={!!reviewSession}
+          className={`p-1.5 rounded transition disabled:opacity-40 ${btnHoverClass}`}
+          title="HTML 模板管理"
+          aria-label="HTML 模板管理"
+        >
+          <FileCode className="w-4 h-4 text-blue-500" />
+        </button>
+
         <div className={`w-px h-4 mx-1 ${dividerClass}`} />
 
         {/* Page Break Tag Insert */}
@@ -542,6 +555,17 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
           setShowImagePicker(false);
         }}
       />
+
+      {showHtmlTemplates && (
+        <HtmlTemplateManager
+          isDark={isDark}
+          onClose={() => setShowHtmlTemplates(false)}
+          onInsert={(block) => {
+            insertText(`\n\n${block}\n\n`);
+            setShowHtmlTemplates(false);
+          }}
+        />
+      )}
 
     </div>
   );

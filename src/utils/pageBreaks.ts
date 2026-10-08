@@ -1,4 +1,5 @@
 import { marked, type Token, type Tokens } from 'marked';
+import './htmlBlocks';
 
 const pageBreakPattern = /^(?:<!--\s*pagebreak\s*-->|<div\b[^>]*(?:page-break-after|class=["']page-break["'])[^>]*>\s*<\/div>)$/i;
 

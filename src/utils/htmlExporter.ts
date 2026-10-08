@@ -1,4 +1,5 @@
 import { marked } from 'marked';
+import { transformMarkdownHeadings } from './htmlBlocks';
 import { DocumentTheme, FooterConfig, DocumentMeta } from '../types';
 import { getFooterSlots, getHeadingText, getTocTitleStyleObject, styleObjectToCss } from './documentStructure';
 import { extractTocHeadings, assignTocPageNumbers, paginateTocItemsByDom, buildTocItemHtml, buildTocTitleHtml, buildTocPageIndicator, paginateContentByDom, preprocessMarkdownCaptions, postProcessRenderedHtml, getDocumentFontStack, getMarkdownBodyCss, hasImageDimensions, rememberImageDimensions } from './markdownParser';
@@ -24,17 +25,19 @@ function renderFooterHtml(pageNum: number, totalPages: number, footer: FooterCon
 }
 
 function addTocAnchors(html: string, maxDepth: number, anchorIndex: { value: number }): string {
-  return html.replace(/<h([1-6])([^>]*)>/gi, (match, level: string, attributes: string) => {
-    if (Number(level) > maxDepth) return match;
+  return transformMarkdownHeadings(html, heading => {
+    if (Number(heading.tagName.slice(1)) > maxDepth) return;
     anchorIndex.value += 1;
-    return `<h${level}${attributes} id="heading-${anchorIndex.value}">`;
+    heading.id = `heading-${anchorIndex.value}`;
   });
 }
 
 function addHeadingNumbers(html: string, headingNumbering: DocumentTheme['toc']['headingNumbering'], counters: number[]): string {
-  return html.replace(/<h([1-4])([^>]*)>([\s\S]*?)<\/h\1>/gi, (match, level: string, attributes: string, content: string) => {
-    const prefix = getHeadingText('', Number(level), counters, headingNumbering).trim();
-    return `<h${level}${attributes}>${prefix ? `${prefix} ` : ''}${content}</h${level}>`;
+  return transformMarkdownHeadings(html, heading => {
+    const level = Number(heading.tagName.slice(1));
+    if (level > 4) return;
+    const prefix = getHeadingText('', level, counters, headingNumbering).trim();
+    if (prefix) heading.prepend(`${prefix} `);
   });
 }
 
