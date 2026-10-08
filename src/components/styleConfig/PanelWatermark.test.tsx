@@ -74,6 +74,10 @@ describe('StyleConfigPanel - Watermark Settings in Other Tab', () => {
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
       pageLayout: expect.objectContaining({ margins: { top: 10, right: 10, bottom: 10, left: 10 } }),
     }));
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('20-30mm'))?.click());
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      pageLayout: expect.objectContaining({ margins: { top: 25, right: 20, bottom: 25, left: 30 } }),
+    }));
     const topMargin = container.querySelector<HTMLInputElement>('input[aria-label="上边距"]')!;
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(topMargin, '12');

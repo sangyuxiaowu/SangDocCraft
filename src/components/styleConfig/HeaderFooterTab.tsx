@@ -6,13 +6,15 @@ import { PanelTabModel, DynamicFieldInput } from './shared';
 export function HeaderFooterTab({ model }: { model: Pick<PanelTabModel, 'theme' | 'isDark' | 'sectionBorderClass' | 'labelClass' | 'textMutedClass' | 'textSubClass' | 'subCardBgClass' | 'inputClass' | 'updateHeader' | 'updateFooter' | 'updatePageLayout' | 'openImagePicker'> }) {
   const { theme, isDark, sectionBorderClass, labelClass, textMutedClass, textSubClass, subCardBgClass, inputClass, updateHeader, updateFooter, updatePageLayout } = model;
   const marginPresets = [
-    { value: 10, label: '紧凑信息量大' },
-    { value: 15, label: '标准推荐' },
-    { value: 20, label: '宽松装订留白' },
+    { id: 'compact', margins: { top: 10, right: 10, bottom: 10, left: 10 }, title: '10mm', label: '紧凑信息量大' },
+    { id: 'standard', margins: { top: 15, right: 15, bottom: 15, left: 15 }, title: '15mm', label: '标准推荐' },
+    { id: 'relaxed', margins: { top: 20, right: 20, bottom: 20, left: 20 }, title: '20mm', label: '宽松装订留白' },
+    { id: 'binding', margins: { top: 25, right: 20, bottom: 25, left: 30 }, title: '20-30mm', label: '左侧装订留白' },
   ];
   const pageLayout = theme.pageLayout ?? { margins: { top: 20, right: 15, bottom: 20, left: 15 }, showSafeMarginGuides: false };
   const margins = pageLayout.margins;
-  const selectedMarginPreset = marginPresets.find(({ value }) => Object.values(margins).every((margin) => margin === value))?.value;
+  const selectedMarginPreset = marginPresets.find(({ margins: presetMargins }) =>
+    (['top', 'right', 'bottom', 'left'] as const).every((side) => margins[side] === presetMargins[side]))?.id;
   return <>
 <div className="space-y-5">
             <section className="space-y-3">
@@ -20,17 +22,17 @@ export function HeaderFooterTab({ model }: { model: Pick<PanelTabModel, 'theme' 
                 <span className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>打印边距</span>
                 <span className={`text-[10px] ${textMutedClass}`}>单位：毫米</span>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {marginPresets.map(({ value, label }) => (
+              <div className="grid grid-cols-4 gap-1.5">
+                {marginPresets.map(({ id, margins: presetMargins, title, label }) => (
                   <button
-                    key={value}
+                    key={id}
                     type="button"
-                    aria-pressed={selectedMarginPreset === value}
-                    onClick={() => updatePageLayout({ margins: { top: value, right: value, bottom: value, left: value } })}
-                    className={`rounded border px-2 py-2 text-left transition ${selectedMarginPreset === value ? 'border-blue-500 bg-blue-500/10 text-blue-600' : `${sectionBorderClass} ${textSubClass}`}`}
+                    aria-pressed={selectedMarginPreset === id}
+                    onClick={() => updatePageLayout({ margins: presetMargins })}
+                    className={`min-w-0 rounded border px-1.5 py-2 text-left transition ${selectedMarginPreset === id ? 'border-blue-500 bg-blue-500/10 text-blue-600' : `${sectionBorderClass} ${textSubClass}`}`}
                   >
-                    <span className="block text-[11px] font-bold">{value}mm</span>
-                    <span className="mt-1 block text-[10px] leading-4">{label}</span>
+                    <span className="block break-words text-[11px] font-bold">{title}</span>
+                    <span className="mt-1 block break-words text-[10px] leading-4">{label}</span>
                   </button>
                 ))}
               </div>
