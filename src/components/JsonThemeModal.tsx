@@ -29,9 +29,9 @@ const THEME_TABS: ThemeTabOption[] = [
   { key: 'header', label: '页眉', tag: 'header', desc: '页眉左中右文字、装饰线与规则' },
   { key: 'footer', label: '页脚', tag: 'footer', desc: '页脚说明、页码格式与对齐规则' },
   { key: 'toc', label: '目录', tag: 'toc', desc: '目录标题、层级深度与引导符样式' },
-  { key: 'style', label: '排版样式', tag: 'style', desc: '配色方案、字体、正文间距与水印配置' },
-  { key: 'mermaid', label: 'Mermaid', tag: 'mermaid', desc: '图表主题与自定义配色' },
-  { key: 'all', label: '全部配置', tag: 'all', desc: '完整样式代码 (不含 ID / 名称 / 描述)' },
+  { key: 'style', label: '排版', tag: 'style', desc: '配色方案、字体、正文间距与水印配置' },
+  { key: 'mermaid', label: '图表', tag: 'mermaid', desc: '图表主题与自定义配色' },
+  { key: 'all', label: '全部', tag: 'all', desc: '完整样式代码 (不含 ID / 名称 / 描述)' },
 ];
 
 function splitTheme(theme: DocumentTheme) {

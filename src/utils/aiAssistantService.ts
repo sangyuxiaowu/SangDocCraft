@@ -26,6 +26,8 @@ import {
   MERMAID_COLOR_FIELDS,
   MERMAID_FIELDS,
   META_FIELDS,
+  PAGE_LAYOUT_FIELDS,
+  PAGE_MARGIN_FIELDS,
   STYLE_FIELDS,
   TABLE_CAPTION_FIELDS,
   TOC_FIELDS,
@@ -110,7 +112,7 @@ interface MarkdownHeading {
   line: number;
 }
 
-const DOCUMENT_CONFIG_TYPES = ['meta', 'cover', 'header', 'footer', 'toc', 'color', 'style', 'mermaid', 'watermark'] as const;
+const DOCUMENT_CONFIG_TYPES = ['meta', 'cover', 'header', 'footer', 'pageLayout', 'toc', 'color', 'style', 'mermaid', 'watermark'] as const;
 type DocumentConfigType = typeof DOCUMENT_CONFIG_TYPES[number];
 
 function readDocumentConfigTypes(value: unknown): DocumentConfigType[] {
@@ -313,6 +315,10 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
           cover: theme.cover,
           header: theme.header,
           footer: theme.footer,
+          pageLayout: theme.pageLayout ?? {
+            margins: { top: 20, right: 15, bottom: 20, left: 15 },
+            showSafeMarginGuides: false,
+          },
           toc: {
             ...theme.toc,
             titleFont: getTocTitleFont(theme.toc),
@@ -656,6 +662,26 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
           ...verifyScalarFields(sections, args, HEADER_FIELDS),
           ...verifyScalarFields(sections, args, FOOTER_FIELDS),
         ];
+        return formatUpdateVerification(checks);
+      }
+    },
+    {
+      definition: AI_TOOL_DEFINITIONS.update_page_layout_config,
+      handler: async (args) => {
+        const current = context.getTheme();
+        const currentLayout = current.pageLayout ?? {
+          margins: { top: 20, right: 15, bottom: 20, left: 15 },
+          showSafeMarginGuides: false,
+        };
+        const requestedMargins = args.margins;
+        const margins = applySubFields(currentLayout.margins, requestedMargins, PAGE_MARGIN_FIELDS);
+        const layoutFields = pickSubFields(args, PAGE_LAYOUT_FIELDS);
+        const pageLayout = { ...currentLayout, ...layoutFields, margins } as DocumentTheme['pageLayout'];
+        context.onUpdateTheme({ ...current, pageLayout });
+
+        const checks: UpdateVerification[] = [];
+        verifySubFields(checks, 'margins', requestedMargins, pageLayout?.margins, PAGE_MARGIN_FIELDS);
+        verifySubFields(checks, 'pageLayout', args, pageLayout, PAGE_LAYOUT_FIELDS);
         return formatUpdateVerification(checks);
       }
     },

@@ -155,6 +155,17 @@ export const WATERMARK_FIELDS: SubFieldSpecs = {
   imageWidth: { kind: 'number', min: 1 },
 };
 
+export const PAGE_MARGIN_FIELDS: SubFieldSpecs = {
+  top: { kind: 'number', min: 0, max: 50, description: '上边距，单位 mm' },
+  right: { kind: 'number', min: 0, max: 50, description: '右边距，单位 mm' },
+  bottom: { kind: 'number', min: 0, max: 50, description: '下边距，单位 mm' },
+  left: { kind: 'number', min: 0, max: 50, description: '左边距，单位 mm' },
+};
+
+export const PAGE_LAYOUT_FIELDS: SubFieldSpecs = {
+  showSafeMarginGuides: { kind: 'boolean', description: '是否在 A4 预览显示安全边距虚线' },
+};
+
 export const MERMAID_FIELDS: SubFieldSpecs = {
   theme: { kind: 'enum', values: ['neutral', 'default', 'dark', 'forest', 'base', 'custom'], description: '文档默认 Mermaid 图表主题' },
 };

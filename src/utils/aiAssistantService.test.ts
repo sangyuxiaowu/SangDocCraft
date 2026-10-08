@@ -384,6 +384,29 @@ describe('AI assistant setting tools', () => {
       .resolves.toBe('更新成功');
   });
 
+  it('updates and reads partial page margins and validates their range', async () => {
+    const tools = createTools('# Test');
+    const pageLayoutTool = tools.find(item => item.definition.function.name === 'update_page_layout_config')!;
+    const configTool = tools.find(item => item.definition.function.name === 'get_document_config')!;
+
+    await expect(pageLayoutTool.handler({
+      margins: { top: 10, left: 18 },
+      showSafeMarginGuides: true,
+      ignored: true,
+    })).resolves.toBe('更新成功');
+    expect(JSON.parse(await configTool.handler({ types: ['pageLayout'] }))).toEqual({
+      pageLayout: {
+        margins: { top: 10, right: 15, bottom: 20, left: 18 },
+        showSafeMarginGuides: true,
+      },
+    });
+    await expect(pageLayoutTool.handler({ margins: { right: 51 } })).rejects.toThrow('right 不能大于 50');
+
+    const properties = pageLayoutTool.definition.function.parameters.properties as Record<string, any>;
+    expect(properties.margins.properties.top).toMatchObject({ type: 'number', minimum: 0, maximum: 50 });
+    expect(properties.showSafeMarginGuides.type).toBe('boolean');
+  });
+
   it('reports success for partial TOC updates and ignores fields that were not requested', async () => {
     const tools = createTools('# Test');
     const tocTool = tools.find(item => item.definition.function.name === 'update_toc_config')!;
@@ -438,6 +461,7 @@ describe('AI assistant setting tools', () => {
       cover: { showCover: expect.any(Boolean), coverStyle: expect.any(String) },
       header: { show: expect.any(Boolean), lineStyle: expect.any(String) },
       footer: { show: expect.any(Boolean), pageNumberFormat: expect.any(String) },
+      pageLayout: { margins: { top: expect.any(Number), left: expect.any(Number) }, showSafeMarginGuides: expect.any(Boolean) },
       toc: { maxDepth: expect.any(Number), levelStyles: expect.any(Array) },
       color: {
         primaryColor: expect.any(String),

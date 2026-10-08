@@ -7,6 +7,8 @@ import {
   MERMAID_COLOR_FIELDS,
   MERMAID_FIELDS,
   META_FIELDS,
+  PAGE_LAYOUT_FIELDS,
+  PAGE_MARGIN_FIELDS,
   STYLE_FIELDS,
   TABLE_CAPTION_FIELDS,
   TOC_FIELDS,
@@ -53,6 +55,7 @@ export type AiToolName =
   | 'update_document_meta'
   | 'update_document_style'
   | 'update_header_footer_config'
+  | 'update_page_layout_config'
   | 'update_toc_config';
 
 /**
@@ -66,16 +69,16 @@ export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
     type: 'function',
     function: {
       name: 'get_document_config',
-      description: '获取当前交付文档的配置信息。可按类型读取文档元数据、封面、页眉、页脚、目录、配色、排版样式、Mermaid 图表或水印；省略 types 或提供 all 时返回全部配置。',
+      description: '获取当前交付文档的配置信息。可按类型读取文档元数据、封面、页眉、页脚、页面边距、目录、配色、排版样式、Mermaid 图表或水印；省略 types 或提供 all 时返回全部配置。',
       parameters: {
         type: 'object',
         properties: {
           types: {
             type: 'array',
-            description: '要获取的配置类型。可选 meta、cover、header、footer、toc、color、style、mermaid、watermark；传入 all 或不传时返回全部配置。',
+            description: '要获取的配置类型。可选 meta、cover、header、footer、pageLayout、toc、color、style、mermaid、watermark；传入 all 或不传时返回全部配置。',
             items: {
               type: 'string',
-              enum: ['all', 'meta', 'cover', 'header', 'footer', 'toc', 'color', 'style', 'mermaid', 'watermark']
+              enum: ['all', 'meta', 'cover', 'header', 'footer', 'pageLayout', 'toc', 'color', 'style', 'mermaid', 'watermark']
             },
             minItems: 1
           }
@@ -285,6 +288,24 @@ export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
         properties: {
           ...buildProperties(HEADER_FIELDS),
           ...buildProperties(FOOTER_FIELDS)
+        }
+      }
+    }
+  },
+  update_page_layout_config: {
+    type: 'function',
+    function: {
+      name: 'update_page_layout_config',
+      description: '配置 A4 页面打印边距（毫米）和预览安全边距虚线。可仅提供需要修改的方向；未提供的边距保持不变，边距范围为 0–50mm。',
+      parameters: {
+        type: 'object',
+        properties: {
+          margins: {
+            type: 'object',
+            description: '四边打印边距，单位 mm，可只修改部分方向',
+            properties: buildSubProperties(PAGE_MARGIN_FIELDS),
+          },
+          ...buildSubProperties(PAGE_LAYOUT_FIELDS),
         }
       }
     }
