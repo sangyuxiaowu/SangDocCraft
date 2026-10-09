@@ -92,6 +92,7 @@ export function generateStandaloneHtml(
 
   // Split markdown body using dynamic DOM measurement algorithm
   const coverListItems = resolveCoverList(cover.coverlist ?? [], meta);
+  const paragraphContinuations = new Set<number>();
   const rawContentPages = paginateContentByDom(markdownText, {
     fontSize: style.fontSize,
     lineHeight: style.lineHeight,
@@ -110,6 +111,7 @@ export function generateStandaloneHtml(
       : 0,
     mermaidHeights,
     infographicHeights,
+    onParagraphContinuation: pageIndex => paragraphContinuations.add(pageIndex),
   });
   const contentSections = getPageSections(rawContentPages);
   const tocSection = { h1: toc.title || '目 录', h2: toc.title || '目 录' };
@@ -844,7 +846,7 @@ export function generateStandaloneHtml(
       const preprocessed = preprocessMarkdownCaptions(pageMd || '');
       const rawHtml = marked.parse(preprocessed) as string;
       const numberedHtml = addHeadingNumbers(rawHtml, toc.headingNumbering, headingCounters);
-      const renderedHtml = postProcessRenderedHtml(numberedHtml, style, exportCounters, theme.mermaid);
+      const renderedHtml = postProcessRenderedHtml(numberedHtml, style, exportCounters, theme.mermaid, paragraphContinuations.has(idx));
       const pageHtml = hasToc ? addTocAnchors(renderedHtml, toc.maxDepth || 3, tocAnchorIndex) : renderedHtml;
       const inlineCover = hasInlineCover && idx === 0
         ? `<div class="inline-cover cover-style-${coverStyle}">${coverTemplate.renderHtml({ meta, cover, style, coverListItems })}</div>`

@@ -22,6 +22,13 @@ import {
 const theme = PRESET_THEMES[0];
 
 describe('Markdown pagination and numbering', () => {
+  it('shares nested paragraph margins and line height with the A4 preview', () => {
+    const css = getMarkdownBodyCss('.pagination-measurer', theme.style);
+    expect(css).toContain('.pagination-measurer p { margin-bottom: 0.6em; line-height: 1.6; }');
+    expect(css).toContain('.pagination-measurer > p');
+    expect(css).toContain('line-height: inherit;');
+  });
+
   it('measures inline covers at content width including the gap before the body', () => {
     const height = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
       expect(this.style.width).toBe('180mm');
@@ -157,7 +164,7 @@ describe('Markdown pagination and numbering', () => {
 
   it('keeps a Mermaid figure caption with its diagram when the page fills up', () => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
-      return this.querySelectorAll('h2').length * 600 + this.querySelectorAll('.mermaid').length * 250
+      return this.querySelectorAll('h2').length * 630 + this.querySelectorAll('.mermaid').length * 250
         + this.querySelectorAll('.doc-image-caption').length * 100;
     });
     try {
@@ -211,7 +218,7 @@ describe('Markdown pagination and numbering', () => {
 
   it('reserves the rendered header and footer for complete blocks', () => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
-      return this.querySelectorAll('p').length * 435;
+      return this.querySelectorAll('p').length * 450;
     });
     try {
       const pages = paginateContentByDom('First paragraph\n\nSecond paragraph', {
@@ -242,17 +249,17 @@ describe('Markdown pagination and numbering', () => {
       expect(paginateContentByDom(source, {
         ...options, firstPageReservedHeight: 0, firstPageHeaderShow: false, firstPageFooterShow: false,
       })).toEqual(['First\n\nSecond\n\nThird', 'Fourth\n\nFifth', 'Sixth']);
-      expect(paginateContentByDom('First\n\nSecond', { ...options, firstPageReservedHeight: 250 }))
+      expect(paginateContentByDom('First\n\nSecond', { ...options, firstPageReservedHeight: 270 }))
         .toEqual(['First', 'Second']);
-      expect(paginateContentByDom('First\n\nSecond', { ...options, firstPageReservedHeight: 250, firstPageHeaderShow: false }))
+      expect(paginateContentByDom('First\n\nSecond', { ...options, firstPageReservedHeight: 270, firstPageHeaderShow: false }))
         .toEqual(['First\n\nSecond']);
     } finally {
       height.mockRestore();
     }
   });
 
-  it('keeps an intact paragraph when it fits without the split-only line allowance', () => {
-    const paragraph = 'A complete paragraph with `inline code` that fits within the remaining page height.';
+  it.each(['plain text', '`inline code`'])('keeps an intact paragraph with %s within the usable height', (content) => {
+    const paragraph = `A complete paragraph with ${content} that fits within the remaining page height.`;
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       return this.querySelectorAll('h2').length * 600 + this.querySelectorAll('p').length * 268;
     });
@@ -264,10 +271,78 @@ describe('Markdown pagination and numbering', () => {
     }
   });
 
+  it.each(['word'.repeat(750), ','.repeat(3000)])('measures split paragraphs with their rendered indentation and exact cut length', (source) => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return Array.from(this.querySelectorAll('p')).reduce((total, paragraph) =>
+        total + (paragraph.textContent?.length ?? 0) + (paragraph.classList.contains('p-continuation') ? 0 : 24), 0);
+    });
+    try {
+      const paragraphContinuations = new Set<number>();
+      const pages = paginateContentByDom(source, {
+        style: { ...theme.style, indentParagraph: true }, headerShow: true, footerShow: true,
+        onParagraphContinuation: pageIndex => paragraphContinuations.add(pageIndex),
+      });
+      expect(pages.length).toBeGreaterThan(1);
+      expect(pages.join('')).toBe(source);
+      expect([...paragraphContinuations]).toEqual(pages.slice(1).map((_, index) => index + 1));
+      pages.forEach((page, pageIndex) => {
+        const rendered = document.createElement('div');
+        rendered.innerHTML = postProcessRenderedHtml(marked.parse(page) as string, theme.style, undefined, undefined, paragraphContinuations.has(pageIndex));
+        expect(rendered.firstElementChild?.classList.contains('p-continuation')).toBe(pageIndex > 0);
+        expect(rendered.scrollHeight).toBeLessThanOrEqual(888);
+      });
+    } finally {
+      height.mockRestore();
+    }
+  });
+
+  it('uses the remaining height instead of reserving an extra strip at the page bottom', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.querySelectorAll('p').length * 443;
+    });
+    try {
+      expect(paginateContentByDom('First paragraph\n\nSecond paragraph', {
+        style: theme.style, headerShow: true, footerShow: true,
+      })).toEqual(['First paragraph\n\nSecond paragraph']);
+    } finally {
+      height.mockRestore();
+    }
+  });
+
+  it.each([90, 106])('fills the final line instead of backing up to punctuation at character %i', (prefixLength) => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.querySelectorAll('h2').length * 600 + Array.from(this.querySelectorAll('p'))
+        .reduce((total, paragraph) => total + Math.ceil((paragraph.textContent?.length ?? 0) / 10) * 24, 0);
+    });
+    try {
+      const paragraph = `${'a'.repeat(prefixLength)}。${'b'.repeat(140)}`;
+      const pages = paginateContentByDom(`## Heading\n\n${paragraph}`, { style: theme.style, headerShow: true, footerShow: true });
+      expect(pages[0]).toContain(`${'a'.repeat(prefixLength)}。${'b'.repeat(109 - prefixLength)}`);
+      expect(pages.join('').replace('## Heading\n\n', '')).toBe(paragraph);
+    } finally {
+      height.mockRestore();
+    }
+  });
+
+  it('only removes indentation from the first paragraph of a continuation page', () => {
+    const rendered = document.createElement('div');
+    rendered.innerHTML = postProcessRenderedHtml('<p>Continued text</p><p>New paragraph</p>', theme.style, undefined, undefined, true);
+    expect(rendered.firstElementChild?.classList.contains('p-continuation')).toBe(true);
+    expect(rendered.lastElementChild?.classList.contains('p-continuation')).toBe(false);
+  });
+
+  it('does not mark a new paragraph after an explicit page break as a continuation', () => {
+    const continuation = vi.fn();
+    expect(paginateContentByDom('First paragraph\n\n<!-- pagebreak -->\n\nNew paragraph', {
+      style: theme.style, onParagraphContinuation: continuation,
+    })).toEqual(['First paragraph', 'New paragraph']);
+    expect(continuation).not.toHaveBeenCalled();
+  });
+
   it('measures a table caption together with its table', () => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       return this.querySelectorAll('p').length * 200
-        + this.querySelectorAll('table').length * 350
+        + this.querySelectorAll('table').length * 380
         + this.querySelectorAll('.doc-table-caption').length * 400;
     });
     const source = 'Intro\n\n<!-- caption: Delivery formats -->\n| Format | Purpose |\n| --- | --- |\n| HTML | Archive |\n\nFollowing';
@@ -465,7 +540,7 @@ describe('Markdown pagination and numbering', () => {
       pages.forEach(page => {
         const rendered = document.createElement('div');
         rendered.innerHTML = postProcessRenderedHtml(marked.parse(page) as string, theme.style);
-        expect(rendered.scrollHeight).toBeLessThanOrEqual(880);
+        expect(rendered.scrollHeight).toBeLessThanOrEqual(963);
       });
     } finally {
       height.mockRestore();
@@ -605,6 +680,19 @@ describe('Markdown pagination and numbering', () => {
       height.mockRestore();
     }
     expect(document.querySelector('.toc-pagination-measurer')).toBeNull();
+  });
+
+  it('keeps TOC rows that fit in the final line of the page', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return 30 + this.querySelectorAll(':scope > div:not(.doc-toc-title)').length * 30;
+    });
+    const items = Array.from({ length: 27 }, (_, index) => ({ id: `heading-${index}`, text: `Heading ${index}`, level: 1 }));
+    try {
+      expect(paginateTocItemsByDom(items, { toc: theme.toc, style: theme.style, headerShow: true, footerShow: true }))
+        .toEqual([items]);
+    } finally {
+      height.mockRestore();
+    }
   });
 
   it('re-measures TOC rows when the final page indicator changes', () => {

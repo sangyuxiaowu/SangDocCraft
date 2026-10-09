@@ -96,6 +96,7 @@ export interface DomPaginationOptions {
   infographicHeights?: Record<string, number>;
   firstPageReservedHeight?: number;
   pageMargins?: { top: number; right: number; bottom: number; left: number };
+  onParagraphContinuation?: (pageIndex: number) => void;
 }
 
 const imageDimensions = new Map<string, { width: number; height: number }>();
@@ -220,6 +221,7 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
       margin-top: ${style.headingFonts.h4.marginBefore}px;
       margin-bottom: ${style.headingFonts.h4.marginAfter}px;
     }
+    ${selector} p { margin-bottom: 0.6em; line-height: 1.6; }
     ${selector} > p { margin-top: ${style.paragraphMarginBefore ?? 0}px; margin-bottom: ${style.paragraphMarginAfter ?? 6}px; line-height: inherit; text-indent: ${style.indentParagraph ? '2em' : '0'}; }
     ${selector} p.p-continuation, ${selector} .p-continuation p, ${selector} blockquote p, ${selector} li p, ${selector} table p { text-indent: 0 !important; }
     ${selector} blockquote { border-left: 4px solid var(--accent-color); background: #f8fafc; padding: 10px 16px; margin: 1.2em 0; border-radius: 0 6px 6px 0; color: #475569; font-style: italic; }
@@ -314,12 +316,13 @@ function paragraphContainsImage(token: any): boolean {
 function findDomParagraphSplit(
   text: string,
   measurer: HTMLElement,
-  maxHeight: number
+  maxHeight: number,
+  paragraphContinuation: boolean = false
 ): { part1: string; part2: string } | null {
   if (!text || text.length < 10) return null;
 
   const testP = document.createElement('p');
-  testP.className = 'p-continuation';
+  if (paragraphContinuation) testP.className = 'p-continuation';
   measurer.appendChild(testP);
 
   let low = 1;
@@ -338,30 +341,13 @@ function findDomParagraphSplit(
     }
   }
 
-  measurer.removeChild(testP);
-
   if (bestFitIdx <= 5 || bestFitIdx >= text.length - 2) {
+    measurer.removeChild(testP);
     return null;
   }
 
-  let splitIdx = -1;
-  for (let i = bestFitIdx; i >= Math.max(5, bestFitIdx - 35); i--) {
-    if (['。', '！', '？', '\n'].includes(text[i])) {
-      splitIdx = i + 1;
-      break;
-    }
-  }
-  if (splitIdx === -1) {
-    for (let i = bestFitIdx; i >= Math.max(5, bestFitIdx - 25); i--) {
-      if (['，', '；', '、', ',', ';', '.', ' '].includes(text[i])) {
-        splitIdx = i + 1;
-        break;
-      }
-    }
-  }
-  if (splitIdx === -1) {
-    splitIdx = bestFitIdx;
-  }
+  let splitIdx = bestFitIdx;
+  measurer.removeChild(testP);
 
   // 公式不能被拆到两页：切点落在 $...$ 内部时前移到公式之前，让公式整体进入下一页
   const mathRange = getMathRanges(text).find((range) => splitIdx > range.start && splitIdx < range.end);
@@ -572,13 +558,10 @@ export function paginateContentByDom(
   document.body.appendChild(measurer);
 
   // Match the rendered sheet's outer header/footer boxes, including their 16px margins.
-  // Splitting a paragraph can reflow its last line; keep that allowance for other blocks too.
   const headerHeight = options.headerShow ? 42 : 0;
   const footerHeight = options.footerShow ? 42 : 0;
-  const paragraphSplitTolerance = Math.ceil((options.fontSize || 14) * (options.lineHeight || 1.6));
-  const renderingTolerance = paragraphSplitTolerance + 8;
   const pageHeight = 1122.5 - (pageMargins.top + pageMargins.bottom) * 96 / 25.4;
-  const maxHeight = pageHeight - headerHeight - footerHeight - renderingTolerance;
+  const maxHeight = pageHeight - headerHeight - footerHeight;
   const firstPageMaxHeight = maxHeight
     + headerHeight - ((options.firstPageHeaderShow ?? options.headerShow) ? 42 : 0)
     + footerHeight - ((options.firstPageFooterShow ?? options.footerShow) ? 42 : 0)
@@ -605,6 +588,7 @@ export function paginateContentByDom(
       }
 
       let currentPageTokens: string[] = [];
+      let pageStartsWithContinuation = false;
       let pageMaxHeight = firstPage ? firstPageMaxHeight : maxHeight;
       measurer.innerHTML = '';
 
@@ -612,6 +596,7 @@ export function paginateContentByDom(
         if (currentPageTokens.length > 0) {
           const pageMd = currentPageTokens.join('\n\n').trim();
           if (pageMd) {
+            if (pageStartsWithContinuation) options.onParagraphContinuation?.(pages.length);
             pages.push(pageMd);
           }
           currentPageTokens = [];
@@ -623,6 +608,7 @@ export function paginateContentByDom(
 
       const processToken = (token: any) => {
         if (token.type === 'space') return;
+        if (currentPageTokens.length === 0) pageStartsWithContinuation = !!token.paragraphContinuation;
         const isH1 = token.type === 'heading' && token.depth === 1;
         const isHeading = token.type === 'heading';
         const isImageParagraph = token.type === 'paragraph' && paragraphContainsImage(token);
@@ -640,7 +626,7 @@ export function paginateContentByDom(
 
         const tempContainer = document.createElement('template');
         const rawTokenHtml = marked.parse(token.raw || '') as string;
-        tempContainer.innerHTML = postProcessRenderedHtml(rawTokenHtml, options.style);
+        tempContainer.innerHTML = postProcessRenderedHtml(rawTokenHtml, options.style, undefined, undefined, !!token.paragraphContinuation);
         if (token.type === 'code' && (isMermaidLang(token.lang) || isInfographicLang(token.lang))) {
           const isInfographic = isInfographicLang(token.lang);
           const mermaidElement = tempContainer.content.querySelector<HTMLElement>(isInfographic ? '.infographic' : '.mermaid');
@@ -670,9 +656,7 @@ export function paginateContentByDom(
           measurer.append(...tokenNodes);
         }
 
-        const hasInlineCode = token.type === 'paragraph'
-          && token.tokens?.some((inlineToken: { type: string }) => inlineToken.type === 'codespan');
-        if (measurer.scrollHeight <= pageMaxHeight + (hasInlineCode && !isImageParagraph ? paragraphSplitTolerance : 0)) {
+        if (measurer.scrollHeight <= pageMaxHeight) {
           currentPageTokens.push(token.raw);
           return;
         }
@@ -680,11 +664,11 @@ export function paginateContentByDom(
         tokenNodes.forEach(node => node.remove());
 
         if (token.type === 'paragraph' && !paragraphContainsImage(token)) {
-          const splitRes = findDomParagraphSplit(token.text || token.raw || '', measurer, pageMaxHeight);
+          const splitRes = findDomParagraphSplit(token.text || token.raw || '', measurer, pageMaxHeight, !!token.paragraphContinuation);
           if (splitRes) {
             currentPageTokens.push(splitRes.part1);
             flushPage();
-            processToken({ ...token, type: 'paragraph', text: splitRes.part2, raw: splitRes.part2 });
+            processToken({ ...token, type: 'paragraph', text: splitRes.part2, raw: splitRes.part2, paragraphContinuation: true });
             return;
           }
         } else if (token.type === 'list') {
@@ -894,7 +878,7 @@ export function paginateTocItemsByDom<T extends TocRenderableItem>(items: T[], o
 
   const headerHeight = options.headerShow ? 42 : 0;
   const footerHeight = options.footerShow ? 42 : 0;
-  const renderingTolerance = Math.ceil((style.fontSize || 14) * (style.lineHeight || 1.6)) + 8;
+  const renderingTolerance = 8;
   // 目录页正文区高度：A4 高 - 上下页边距 - 页眉页脚 - 容器 py-4(上下各 16px)
   const availableHeight = 1122.5 - 151.2 - headerHeight - footerHeight - renderingTolerance - 32;
 
@@ -1332,13 +1316,17 @@ export function postProcessRenderedHtml(
   html: string,
   style?: StyleConfig,
   counters: { imgCount: number; tableCount: number } = { imgCount: 0, tableCount: 0 },
-  mermaidConfigInput?: MermaidConfig
+  mermaidConfigInput?: MermaidConfig,
+  paragraphContinuation: boolean = false
 ): string {
   if (!html) return '';
   html = sanitizeDocumentHtml(html);
   const blocks = new Map<string, string>();
   const container = document.createElement('div');
   container.innerHTML = html;
+  if (paragraphContinuation && container.firstElementChild?.tagName === 'P') {
+    container.firstElementChild.classList.add('p-continuation');
+  }
   container.querySelectorAll<HTMLElement>('section[data-sdc-html]').forEach(section => {
     if (section.parentElement?.closest('section[data-sdc-html]')) return;
     section.querySelectorAll<HTMLImageElement>('img[src]').forEach(image => {

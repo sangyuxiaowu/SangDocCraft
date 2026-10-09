@@ -76,10 +76,18 @@ export function sanitizeDocumentHtml(html: string): string {
   });
   const fragment = DOMPurify.sanitize(protectedHtml, {
     RETURN_DOM_FRAGMENT: true,
-    ADD_TAGS: ['style', 'mjx-container'],
+    ADD_TAGS: ['style', 'mjx-container', 'use'],
     ADD_ATTR: ['jax', 'display'],
     FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'link', 'meta', 'base', 'form', 'input', 'button', 'textarea', 'select', 'animate', 'animateMotion', 'animateTransform', 'set', 'foreignObject'],
     FORBID_ATTR: ['srcdoc', 'autofocus'],
+  });
+  fragment.querySelectorAll('use').forEach(element => {
+    const references = [element.getAttribute('href'), element.getAttribute('xlink:href')]
+      .filter((reference): reference is string => reference !== null);
+    if (element.namespaceURI !== 'http://www.w3.org/2000/svg' || !element.closest('svg')
+      || references.length === 0 || references.some(reference => !/^#[^\s]+$/.test(reference))) {
+      element.remove();
+    }
   });
   fragment.querySelectorAll('[data-sdc-comment]').forEach(element => {
     const comment = comments[Number(element.getAttribute('data-sdc-comment'))];

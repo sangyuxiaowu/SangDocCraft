@@ -79,9 +79,56 @@ describe('getOverflowPageNumbers', () => {
       { offsetHeight: 1124, clientHeight: 1124, scrollHeight: 1124, dataset: { pageNum: '1' } },
       { offsetHeight: 1124, clientHeight: 1124, scrollHeight: 1240, dataset: { pageNum: '2' } },
       { offsetHeight: 1280, clientHeight: 1280, scrollHeight: 1280, dataset: { pageNum: '4' } },
-    ] as unknown as HTMLElement[];
+    ].map(sheet => ({ ...sheet, querySelector: () => null })) as unknown as HTMLElement[];
 
     expect(getOverflowPageNumbers(sheets)).toEqual([2, 4]);
+  });
+
+  it.each([0.5, 0.8, 1, 1.5])('allows 1.5px rounding but detects larger bottom margin intrusion at scale %s', (scale) => {
+    const sheet = document.createElement('div');
+    sheet.dataset.pageNum = '8';
+    sheet.style.cssText = 'height:1122.5px;padding-bottom:75px;box-sizing:border-box;';
+    sheet.innerHTML = '<div data-page-main></div><div data-page-footer></div>';
+    document.body.appendChild(sheet);
+    const main = sheet.querySelector<HTMLElement>('[data-page-main]')!;
+    const footer = sheet.querySelector<HTMLElement>('[data-page-footer]')!;
+    Object.defineProperties(sheet, { offsetHeight: { value: 1123 }, clientHeight: { value: 1123 }, scrollHeight: { value: 1123 } });
+    vi.spyOn(sheet, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 794 * scale, 1122.5 * scale));
+    vi.spyOn(main, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 75 * scale, 680 * scale, 900 * scale));
+    const footerRect = vi.spyOn(footer, 'getBoundingClientRect');
+    try {
+      footerRect.mockReturnValue(new DOMRect(0, 1025 * scale, 680 * scale, 27.5 * scale));
+      expect(getOverflowPageNumbers([sheet])).toEqual([8]);
+      footerRect.mockReturnValue(new DOMRect(0, 1025 * scale, 680 * scale, 23 * scale));
+      expect(getOverflowPageNumbers([sheet])).toEqual([]);
+      for (const excess of [1.007496, 1.5, 1.51]) {
+        footerRect.mockReturnValue(new DOMRect(0, 1025 * scale, 680 * scale, (22.5 + excess) * scale));
+        expect(getOverflowPageNumbers([sheet])).toEqual(excess <= 1.5 ? [] : [8]);
+      }
+    } finally {
+      sheet.remove();
+    }
+  });
+
+  it('detects clipped main content even when the sheet itself has no scroll overflow', () => {
+    const sheet = document.createElement('div');
+    sheet.dataset.pageNum = '2';
+    sheet.innerHTML = '<div data-page-main></div>';
+    const main = sheet.firstElementChild!;
+    Object.defineProperties(main, { clientHeight: { value: 800 }, scrollHeight: { value: 830 } });
+    expect(getOverflowPageNumbers([sheet])).toEqual([2]);
+  });
+
+  it.each([1, 2])('applies the same tolerance to %ipx of sheet and main scroll overflow', (excess) => {
+    const sheet = document.createElement('div');
+    sheet.dataset.pageNum = '10';
+    sheet.innerHTML = '<div data-page-main></div>';
+    Object.defineProperties(sheet, { clientHeight: { value: 1123 }, scrollHeight: { value: 1123 + excess, configurable: true } });
+    expect(getOverflowPageNumbers([sheet])).toEqual(excess <= 1.5 ? [] : [10]);
+    Object.defineProperty(sheet, 'scrollHeight', { value: 1123 });
+    const main = sheet.firstElementChild!;
+    Object.defineProperties(main, { clientHeight: { value: 800 }, scrollHeight: { value: 800 + excess } });
+    expect(getOverflowPageNumbers([sheet])).toEqual(excess <= 1.5 ? [] : [10]);
   });
 });
 

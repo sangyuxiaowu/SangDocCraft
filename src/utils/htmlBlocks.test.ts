@@ -7,6 +7,28 @@ import { paginateContentByDom, postProcessRenderedHtml } from './markdownParser'
 import { PRESET_THEMES } from '../data/presetThemes';
 
 describe('print HTML blocks', () => {
+  it('preserves local SVG glyph references used by MathJax', () => {
+    const html = sanitizeDocumentHtml('<mjx-container jax="SVG"><svg xmlns="http://www.w3.org/2000/svg"><defs><path id="glyph" d="M0 0L10 10"/></defs><use xlink:href="#glyph"/><use href="#glyph"/></svg></mjx-container>');
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    expect(container.querySelector('mjx-container')?.getAttribute('jax')).toBe('SVG');
+    expect(container.querySelectorAll('use')).toHaveLength(2);
+    expect(container.querySelector('use')?.getAttribute('xlink:href')).toBe('#glyph');
+    expect(container.querySelectorAll('use')[1].getAttribute('href')).toBe('#glyph');
+    expect(container.querySelector('path')?.id).toBe('glyph');
+  });
+
+  it.each(['https://example.test/glyph.svg#glyph', '//example.test/glyph.svg#glyph', 'javascript:alert(1)', 'data:image/svg+xml,unsafe'])('rejects nonlocal SVG use references: %s', (reference) => {
+    const html = sanitizeDocumentHtml(`<svg><use href="${reference}"/><use xlink:href="${reference}"/><use href="#glyph" xlink:href="${reference}"/></svg>`);
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    expect(html).not.toContain(reference);
+    container.querySelectorAll('use').forEach(element => {
+      expect(element.getAttribute('href')).toBe('#glyph');
+      expect(element.hasAttribute('xlink:href')).toBe(false);
+    });
+  });
+
   it('keeps blank lines, nested sections and pagebreak comments in one raw HTML token', () => {
     const source = '<section data-sdc-html>\n<style>p {margin:0}</style>\n\n<section><p>**not markdown**</p></section>\n<!-- pagebreak -->\n</section>';
     expect(marked.lexer(source)).toHaveLength(1);

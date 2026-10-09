@@ -14,6 +14,30 @@ const generateStandaloneHtml = (
 ) => generateHtml(markdown, documentMeta, theme, mermaidHeights);
 
 describe('generateStandaloneHtml', () => {
+  it('exports split paragraphs as unindented continuations without changing subsequent paragraphs', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return Array.from(this.querySelectorAll('p')).reduce((total, paragraph) =>
+        total + (paragraph.textContent?.length ?? 0) + (paragraph.classList.contains('p-continuation') ? 0 : 24), 0);
+    });
+    try {
+      const base = PRESET_THEMES[0];
+      const source = 'word'.repeat(750);
+      const html = generateStandaloneHtml(`${source}\n\nNew paragraph`, {
+        ...base, cover: { ...base.cover, showCover: false }, toc: { ...base.toc, show: false },
+        style: { ...base.style, indentParagraph: true },
+      });
+      const parsed = new DOMParser().parseFromString(html, 'text/html');
+      const paragraphs = Array.from(parsed.querySelectorAll('.markdown-content > p'));
+      expect(paragraphs.length).toBeGreaterThan(2);
+      expect(paragraphs[0].classList.contains('p-continuation')).toBe(false);
+      expect(paragraphs.slice(1, -1).every(paragraph => paragraph.classList.contains('p-continuation'))).toBe(true);
+      expect(paragraphs.at(-1)?.classList.contains('p-continuation')).toBe(false);
+      expect(paragraphs.map(paragraph => paragraph.textContent).join('')).toBe(`${source}New paragraph`);
+    } finally {
+      height.mockRestore();
+    }
+  });
+
   it('uses the muted text color for both headers and footers', () => {
     const base = PRESET_THEMES[0];
     const html = generateStandaloneHtml('# Content', {

@@ -134,7 +134,7 @@ flowchart LR
 如需只调整一张图，可在围栏语言后追加属性。下面的图表使用面板中保存的 `custom` 配色，并指定宽度、高度及居中对齐；即使文档默认主题不是 `custom`，单图设置也会生效：
 
 <!-- caption: 单图主题、尺寸与对齐的独立覆盖 -->
-```mermaid {theme=custom w=80% h=200 align=center}
+```mermaid {theme=custom w=80% h=114 align=center}
 flowchart LR
   Global[文档默认主题] --> Override[单图属性覆盖]
   Override --> Export[A4 预览与导出]

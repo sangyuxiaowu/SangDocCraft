@@ -68,6 +68,7 @@ export interface PreviewPageLocation {
 
 const PAGE_BREAK_PATTERN = /<!--\s*pagebreak\s*-->/gi;
 const A4_PAGE_HEIGHT_PX = 1124;
+const PAGE_OVERFLOW_TOLERANCE_PX = 1.5;
 
 export function getFigureViewportRect(element: HTMLElement, zoom: number): DOMRect {
   const native = element.getBoundingClientRect();
@@ -81,7 +82,19 @@ export function getFigureViewportRect(element: HTMLElement, zoom: number): DOMRe
 
 export function getOverflowPageNumbers(sheets: Iterable<HTMLElement>): number[] {
   return Array.from(sheets)
-    .filter(sheet => sheet.offsetHeight > A4_PAGE_HEIGHT_PX || sheet.scrollHeight > sheet.clientHeight + 1)
+    .filter(sheet => {
+      if (sheet.offsetHeight > A4_PAGE_HEIGHT_PX || sheet.scrollHeight > sheet.clientHeight + PAGE_OVERFLOW_TOLERANCE_PX) return true;
+      const main = sheet.querySelector<HTMLElement>('[data-page-main]');
+      if (!main) return false;
+      if (main.scrollHeight > main.clientHeight + PAGE_OVERFLOW_TOLERANCE_PX) return true;
+      const sheetRect = sheet.getBoundingClientRect();
+      const sheetStyle = getComputedStyle(sheet);
+      const scale = sheetRect.height / parseFloat(sheetStyle.height);
+      if (!Number.isFinite(scale) || scale <= 0) return false;
+      const safeBottom = sheetRect.bottom - (parseFloat(sheetStyle.paddingBottom) + (parseFloat(sheetStyle.borderBottomWidth) || 0)) * scale;
+      const footer = sheet.querySelector<HTMLElement>('[data-page-footer]');
+      return Math.max(main.getBoundingClientRect().bottom, footer?.getBoundingClientRect().bottom ?? 0) > safeBottom + PAGE_OVERFLOW_TOLERANCE_PX * scale;
+    })
     .map(sheet => Number(sheet.dataset.pageNum))
     .filter(Number.isInteger);
 }
@@ -433,24 +446,30 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
   const inlineCoverHeight = useMemo(() => hasInlineCover
     ? measureInlineCoverHeight(coverTemplate.renderHtml({ meta, cover, style, coverListItems: resolveCoverList(cover.coverlist ?? [], meta) }), style, coverTemplate.inlinePageHeight)
     : 0, [hasInlineCover, coverTemplate, meta, cover, style]);
-  const rawContentPages = useMemo(() => paginateContentByDom(markdown, {
-    fontSize: style.fontSize,
-    lineHeight: style.lineHeight,
-    fontFamily: fontStack,
-    primaryColor: style.primaryColor,
-    accentColor: style.accentColor,
-    textColor: style.textColor,
-    h1PageBreak: style.h1PageBreak,
-    headerShow: header.show,
-    footerShow: footer.show,
-    firstPageHeaderShow: header.show && (!hasInlineCover || !header.hideOnCover),
-    firstPageFooterShow: footer.show && (!hasInlineCover || !footer.hideOnCover),
-    style,
-    firstPageReservedHeight: inlineCoverHeight,
-    pageMargins,
-    mermaidHeights,
-    infographicHeights,
-  }), [markdown, fontStack, header.show, header.hideOnCover, footer.show, footer.hideOnCover, hasInlineCover, inlineCoverHeight, style, pageMargins, mermaidHeights, infographicHeights]);
+  const contentPagination = useMemo(() => {
+    const paragraphContinuations = new Set<number>();
+    const pages = paginateContentByDom(markdown, {
+      fontSize: style.fontSize,
+      lineHeight: style.lineHeight,
+      fontFamily: fontStack,
+      primaryColor: style.primaryColor,
+      accentColor: style.accentColor,
+      textColor: style.textColor,
+      h1PageBreak: style.h1PageBreak,
+      headerShow: header.show,
+      footerShow: footer.show,
+      firstPageHeaderShow: header.show && (!hasInlineCover || !header.hideOnCover),
+      firstPageFooterShow: footer.show && (!hasInlineCover || !footer.hideOnCover),
+      style,
+      firstPageReservedHeight: inlineCoverHeight,
+      pageMargins,
+      mermaidHeights,
+      infographicHeights,
+      onParagraphContinuation: pageIndex => paragraphContinuations.add(pageIndex),
+    });
+    return { pages, paragraphContinuations };
+  }, [markdown, fontStack, header.show, header.hideOnCover, footer.show, footer.hideOnCover, hasInlineCover, inlineCoverHeight, style, pageMargins, mermaidHeights, infographicHeights]);
+  const rawContentPages = contentPagination.pages;
 
   // Build TOC page numbers from the same pages rendered below.
   // 目录分页按真实渲染高度自适应测量，目录页数与正文页码保持同步。
@@ -695,11 +714,11 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
       });
       return [{
         section: contentSections[contentPageIndex],
-        contentHtml: postProcessRenderedHtml(numberedHtml, style, docCounters, theme.mermaid),
+        contentHtml: postProcessRenderedHtml(numberedHtml, style, docCounters, theme.mermaid, contentPagination.paragraphContinuations.has(contentPageIndex)),
         contentPageIndex,
       }];
     });
-  }, [rawContentPages, contentSections, toc.headingNumbering, style, theme.mermaid]);
+  }, [rawContentPages, contentPagination.paragraphContinuations, contentSections, toc.headingNumbering, style, theme.mermaid]);
   contentPageItems.forEach((item) => pages.push({ type: 'content', pageNum: pageCounter++, ...item }));
 
   const totalPages = pages.length;
@@ -736,7 +755,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
     const images: HTMLImageElement[] = [];
     sheets.forEach((sheet: HTMLElement) => {
       observer.observe(sheet);
-      sheet.querySelectorAll<HTMLElement>('.markdown-rendered-body').forEach((body) => observer.observe(body));
+      sheet.querySelectorAll<HTMLElement>('.markdown-rendered-body, [data-page-main], [data-page-footer]').forEach((body) => observer.observe(body));
       sheet.querySelectorAll<HTMLImageElement>('.markdown-rendered-body img').forEach((image) => {
         observer.observe(image);
         images.push(image);
@@ -1064,7 +1083,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
                 ? () => onNavigateToEditor?.(getMarkdownPositionForPreviewPage(markdown, rawContentPages, page.contentPageIndex!))
                 : undefined}
               className={`a4-sheet-page w-[210mm] h-[297mm] max-h-[297mm] bg-white text-slate-900 relative my-2 flex flex-col justify-between shrink-0 rounded-sm overflow-hidden transition-all duration-300 ${
-                isDark ? 'shadow-[0_10px_35px_rgba(0,0,0,0.6)]' : 'shadow-[0_10px_30px_rgba(0,0,0,0.12)] border border-slate-200'
+                isDark ? 'shadow-[0_10px_35px_rgba(0,0,0,0.6)]' : 'shadow-[0_10px_30px_rgba(0,0,0,0.12)] outline outline-1 outline-slate-200 print:outline-none'
               }`}
               style={{
                 padding: `${pageMargins.top}mm ${pageMargins.right}mm ${pageMargins.bottom}mm ${pageMargins.left}mm`,
@@ -1124,7 +1143,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
               )}
 
               {/* Page Main Content Area */}
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col" style={page.type === 'content' ? { minHeight: 'auto', overflow: 'visible' } : undefined}>
+              <div data-page-main className="flex-1 min-h-0 overflow-hidden flex flex-col" style={page.type === 'content' ? { minHeight: 'auto', overflow: 'visible' } : undefined}>
                 
                 {/* 1. Cover Page Content */}
                 {page.type === 'cover' && (
@@ -1223,6 +1242,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
                 const slots = getFooterSlots(page.pageNum, totalPages, footer, meta, page.section);
                 return (
                   <div
+                    data-page-footer
                     className="w-full flex items-center justify-between text-[11px] select-none shrink-0"
                     style={{
                       paddingTop: '6px',
