@@ -222,6 +222,18 @@ describe('generateStandaloneHtml', () => {
     const html = generateStandaloneHtml('打分公式 $S(q, d)$ 如下：\n\n$$\nE = mc^2\n$$', PRESET_THEMES[0]);
     expect(html).toContain('<mjx-container');
     expect(html).toContain('class="math-block"');
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    const formulas = Array.from(parsed.querySelectorAll('mjx-container'));
+    expect(formulas).toHaveLength(2);
+    formulas.forEach(formula => {
+      const references = Array.from(formula.querySelectorAll('use'));
+      const paths = Array.from(formula.querySelectorAll('path[id]'));
+      expect(references.length).toBeGreaterThan(0);
+      references.forEach(element => {
+        const reference = element.getAttribute('href') || element.getAttribute('xlink:href');
+        expect(paths.some(path => `#${path.id}` === reference)).toBe(true);
+      });
+    });
     // 公式字形内嵌在 SVG 中，导出文件不依赖外部字体或脚本
     expect(html).not.toContain('MathJax.js');
   });

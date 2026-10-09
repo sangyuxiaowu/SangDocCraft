@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { marked } from 'marked';
+import { postProcessRenderedHtml } from './markdownParser';
 import {
   containsMath,
   ensureMathLoaded,
@@ -42,6 +43,22 @@ describe('mathRenderer', () => {
     const html = renderMathHtml('\\frac{1}{', true);
     expect(html).toContain('math-error');
     expect(html).toContain('\\frac{1}{');
+  });
+
+  it.each([false, true])('preserves visible SVG glyphs through document post-processing (display=%s)', async (display) => {
+    await ensureMathLoaded();
+    const raw = document.createElement('div');
+    raw.innerHTML = renderMathHtml('S(q,d)=\\frac{a}{b}', display);
+    const rendered = document.createElement('div');
+    rendered.innerHTML = postProcessRenderedHtml(raw.innerHTML);
+    const references = Array.from(rendered.querySelectorAll('use'));
+    expect(references.length).toBeGreaterThan(0);
+    expect(references).toHaveLength(raw.querySelectorAll('use').length);
+    references.forEach(element => {
+      const reference = element.getAttribute('href') || element.getAttribute('xlink:href');
+      const paths = Array.from(element.closest('svg')!.querySelectorAll('path[id]'));
+      expect(paths.some(path => `#${path.id}` === reference)).toBe(true);
+    });
   });
 
   it('detects formulas without flagging currency amounts', () => {
