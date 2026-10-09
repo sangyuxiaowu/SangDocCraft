@@ -43,6 +43,7 @@ import { createDiffHunks } from './diffUtils';
 import { appendUniqueHistory, createHistoryEntry } from './documentHistory';
 import { getTocLevelStyles, getTocTitleFont } from './documentStructure';
 import { listDocumentAssets, listLibraryAssets } from './imageRepository';
+import { BUILTIN_HTML_TEMPLATES, buildHtmlTemplateBlock, loadHtmlTemplates, saveHtmlTemplates } from './htmlTemplateStore';
 import { getMermaidConfig } from './mermaidRenderer';
 import infographicGuide from '../data/templates/infographic.md?raw';
 
@@ -76,6 +77,7 @@ export const DEFAULT_SYSTEM_PROMPT = `你是 SangDocCraft 智能交付文档排�
    - 可以通过自定义 html 代码块提供高级的排版与样式控制，提供更灵活的文档展示效果。
    - 需谨慎使用，语法为 \`<section data-sdc-html><style>可选的css</style>html内容</section>\`。
    - 支持色彩变量：--primary-color，--accent-color，--text-color，--text-secondary，--text-muted，--border-color，--border-light，--img-border-color
+   - 使用 manage_html_templates 可获取模板库已有的 HTML 模板。
 
 7. 数学公式（LaTeX）：
    - 行内公式使用单个美元符号，例如 \`$E = mc^2$\`；独立居中的公式块使用双美元符号独占若干行：
@@ -308,6 +310,72 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
   };
 
   return [
+    {
+      definition: AI_TOOL_DEFINITIONS.manage_html_templates,
+      handler: async (args) => {
+        const action = args.action;
+        if (!['list', 'read', 'add', 'edit'].includes(action as string)) {
+          throw new AiToolExecutionError('invalid_arguments', 'action 必须为 list、read、add 或 edit。');
+        }
+        if ((action === 'read' || action === 'edit') && (typeof args.id !== 'string' || !args.id.trim())) {
+          throw new AiToolExecutionError('invalid_arguments', 'read/edit 必须提供模板 id。');
+        }
+        let templates: ReturnType<typeof loadHtmlTemplates>;
+        try {
+          templates = loadHtmlTemplates();
+        } catch (reason) {
+          throw new AiToolExecutionError('system_failure', `读取 HTML 模板库失败：${String(reason)}`);
+        }
+        const builtin = BUILTIN_HTML_TEMPLATES.find(template => template.id === args.id);
+        if (action === 'list') {
+          const summaries = [
+            ...BUILTIN_HTML_TEMPLATES.map(({ id, title, description }) => ({ id, title, description, builtin: true, readOnly: true })),
+            ...templates.map(({ id, title, description }) => ({ id, title, description, builtin: false, readOnly: false })),
+          ];
+          return JSON.stringify({ total: summaries.length, templates: summaries }, null, 2);
+        }
+        const existing = builtin ?? templates.find(template => template.id === args.id);
+        if (action === 'read') {
+          if (!existing) throw new AiToolExecutionError('invalid_arguments', '未找到该 HTML 模板，请先调用 list 获取有效 id。');
+          return JSON.stringify({ ...existing, builtin: !!builtin, readOnly: !!builtin }, null, 2);
+        }
+        if (action === 'edit' && builtin) {
+          throw new AiToolExecutionError('invalid_arguments', '内置 HTML 模板只读，请使用 add 创建自定义模板。');
+        }
+        if (action === 'edit' && !existing) {
+          throw new AiToolExecutionError('invalid_arguments', '未找到该自定义 HTML 模板，请先调用 list 获取有效 id。');
+        }
+        const template = action === 'add'
+          ? { id: crypto.randomUUID(), title: '', description: '', css: '', html: '' }
+          : { ...existing! };
+        const fields = ['title', 'description', 'css', 'html'] as const;
+        if (action === 'edit' && !fields.some(field => args[field] !== undefined)) {
+          throw new AiToolExecutionError('invalid_arguments', 'edit 至少需要提供一个要修改的模板字段。');
+        }
+        for (const field of fields) {
+          if (args[field] === undefined) continue;
+          if (typeof args[field] !== 'string' || args[field].length > 200_000) {
+            throw new AiToolExecutionError('invalid_arguments', `模板字段 ${field} 必须为字符串且不超过 200000 字符。`);
+          }
+          template[field] = (args[field] as string).replace(/\r\n?/g, '\n');
+        }
+        template.title = template.title.trim();
+        if (!template.title || !template.html.trim()) {
+          throw new AiToolExecutionError('invalid_arguments', '模板标题和 HTML 不能为空。');
+        }
+        try {
+          buildHtmlTemplateBlock(template);
+        } catch (reason) {
+          throw new AiToolExecutionError('invalid_arguments', String(reason));
+        }
+        try {
+          saveHtmlTemplates(action === 'add' ? [...templates, template] : templates.map(item => item.id === template.id ? template : item));
+        } catch (reason) {
+          throw new AiToolExecutionError('system_failure', `保存 HTML 模板失败：${String(reason)}`);
+        }
+        return JSON.stringify({ action, success: true, id: template.id, title: template.title, description: template.description, builtin: false, readOnly: false }, null, 2);
+      },
+    },
     {
       definition: AI_TOOL_DEFINITIONS.get_document_config,
       handler: async (args) => {

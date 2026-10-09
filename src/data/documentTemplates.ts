@@ -142,11 +142,21 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateItem[] = [
       organization: '开源文档工作组',
       department: '文档工程组',
       version: 'v6.0.0',
+      number: 'SDC-HELP-2026',
+    },
+    coverConfig: { 
+      coverlist: [
+        {label: "文档编号",value: "@number"},
+        {label: "撰写团队",value: "@organization"},
+        {label: "所属部门",value: "@department"},
+        {label: "发布日期",value: "@date"}
+      ],
     },
     headerConfig: { leftText: '@title', rightText: '@h1' },
-    footerConfig: { leftText: 'SangDocCraft · 使用帮助' },
+    footerConfig: { leftText: 'SangDocCraft · 使用帮助', centerText: '@number' },
     tocConfig: { headingNumbering: 'decimal' },
     styleConfig: {
+      indentParagraph: true,
       watermark: { ...DEFAULT_WATERMARK_CONFIG, show: true, text: 'SangDocCraft', color: '#2563eb', opacity: 0.06 },
     },
   },

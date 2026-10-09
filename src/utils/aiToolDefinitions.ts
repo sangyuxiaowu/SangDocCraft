@@ -48,6 +48,7 @@ export type AiToolName =
   | 'get_document_config'
   | 'get_document_summary'
   | 'get_image_library'
+  | 'manage_html_templates'
   | 'get_infographic_guide'
   | 'get_markdown_content'
   | 'edit_markdown_content'
@@ -65,6 +66,26 @@ export type AiToolName =
  * 避免每次 buildAiTools 都重建整套 schema；新增或调整字段只需改这里。
  */
 export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
+  manage_html_templates: {
+    type: 'function',
+    function: {
+      name: 'manage_html_templates',
+      description: '管理 HTML 模板库。list 仅返回内置与自定义模板的 ID、标题、说明及只读标记，不返回源码；read 按 ID 返回完整 HTML/CSS；add 新建自定义模板并自动生成 ID；edit 按 ID 部分更新已有自定义模板，内置模板只读。',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: { type: 'string', enum: ['list', 'read', 'add', 'edit'], description: '模板管理操作' },
+          id: { type: 'string', description: 'read/edit 必填，使用 list 返回的模板 ID；add 自动生成 ID' },
+          title: { type: 'string', minLength: 1, maxLength: 200000, description: '模板标题，add 必填，edit 可选' },
+          description: { type: 'string', maxLength: 200000, description: '模板用途说明，add 默认空字符串，edit 可选' },
+          html: { type: 'string', minLength: 1, maxLength: 200000, description: '纯 HTML 内容，不带外围 section data-sdc-html；add 必填，edit 可选' },
+          css: { type: 'string', maxLength: 200000, description: 'CSS 源码，不带 style 标签；add 默认空字符串，edit 可选。可使用文档主题颜色变量' },
+        },
+        required: ['action'],
+        additionalProperties: false,
+      },
+    },
+  },
   get_document_config: {
     type: 'function',
     function: {
