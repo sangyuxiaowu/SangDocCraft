@@ -14,19 +14,22 @@ order: 30
 
 h4 {
   margin: 0 0 20px;
+  color: var(--primary-color);
 }
 
 p {
   margin: 12px 0;
+  color: var(--text-color);
 }
 
 .line {
   display: inline-block;
-  width: 120px;
-  border-bottom: 1px solid #555;
+  width: 140px;
+  border-bottom: 1px solid var(--border-color, #555);
 }
 </style>
 <div class="signatures">
   <div><h4>甲方确认</h4><p>签字：<span class="line">&nbsp;</span></p><p>日期：<span class="line">&nbsp;</span></p></div>
   <div><h4>乙方确认</h4><p>签字：<span class="line">&nbsp;</span></p><p>日期：<span class="line">&nbsp;</span></p></div>
 </div>
+<br>

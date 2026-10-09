@@ -234,7 +234,7 @@ export const AI_TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
     type: 'function',
     function: {
       name: 'update_document_style',
-      description: '调整排版与视觉风格，包括字体、标题、图片、水印和文档默认 Mermaid 图表主题及 custom 配色。',
+      description: '调整排版与视觉风格，包括主辅色、正文/辅助/弱化文本颜色、主/浅边框颜色、字体、标题、图片、水印和文档默认 Mermaid 图表主题及 custom 配色。',
       parameters: {
         type: 'object',
         properties: {

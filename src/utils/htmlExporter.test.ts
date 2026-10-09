@@ -14,6 +14,21 @@ const generateStandaloneHtml = (
 ) => generateHtml(markdown, documentMeta, theme, mermaidHeights);
 
 describe('generateStandaloneHtml', () => {
+  it('uses the muted text color for both headers and footers', () => {
+    const base = PRESET_THEMES[0];
+    const html = generateStandaloneHtml('# Content', {
+      ...base,
+      style: { ...base.style, textSecondaryColor: '#112233', textMutedColor: '#aabbcc' },
+    });
+
+    expect(html).toContain('--text-muted:#aabbcc;');
+    for (const selector of ['doc-header', 'doc-footer']) {
+      const rule = html.match(new RegExp(`\\.${selector} \\{[^}]*\\}`))?.[0];
+      expect(rule).toContain('color: var(--text-muted)');
+      expect(rule).not.toContain('color: var(--text-secondary)');
+    }
+  });
+
   it('exports all four document color variables including a default image border', () => {
     const base = PRESET_THEMES[0];
     const colors = { primaryColor: '#112233', accentColor: '#445566', textColor: '#778899', imageConfig: { ...base.style.imageConfig, borderColor: '#aabbcc' } };

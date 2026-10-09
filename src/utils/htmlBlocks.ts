@@ -28,6 +28,7 @@ function safeDeclarations(node: CssNode): string {
     enter(declaration: Declaration) {
       const property = declaration.property.toLowerCase();
       const value = generate(declaration.value);
+      // 这里允许 position 相关的属性通过安全检查，方便样式调整，和伪元素的使用
       if (/^(?:-(?:webkit|moz|ms|o)-)?(?:animation|transition)(?:-|$)/.test(property)
         || /^(?:behavior|-moz-binding|z-index)$/.test(property)) return;
       let unsafe = false;

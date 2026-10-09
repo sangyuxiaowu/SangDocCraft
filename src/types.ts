@@ -124,6 +124,10 @@ export interface StyleConfig {
   primaryColor: string;
   accentColor: string;
   textColor: string;
+  textSecondaryColor?: string; // 辅助文本颜色 (--text-secondary，默认 #64748b)
+  textMutedColor?: string; // 页眉页脚弱化文本颜色 (--text-muted，默认 #94a3b8)
+  borderColor?: string; // 页眉/主要边框颜色 (--border-color，默认 #cbd5e1)
+  borderLightColor?: string; // 页脚/浅色分割线颜色 (--border-light，默认 #e2e8f0)
   fontFamily: FontChoice;
   latinFontFamily?: string;
   bodyFontFamily: string;

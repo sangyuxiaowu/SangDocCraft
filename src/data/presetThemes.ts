@@ -54,6 +54,10 @@ export const PRESET_THEMES: DocumentTheme[] = [
       primaryColor: '#0f172a', // Slate 900
       accentColor: '#2563eb',  // Blue 600
       textColor: '#334155',    // Slate 700
+      textSecondaryColor: '#64748b', // 辅助文本颜色 (--text-secondary)
+      textMutedColor: '#94a3b8',     // 页脚文本颜色 (--text-muted)
+      borderColor: '#cbd5e1',        // 页眉/主边框颜色 (--border-color)
+      borderLightColor: '#e2e8f0',   // 页脚/浅边框颜色 (--border-light)
       fontFamily: 'sans',
       bodyFontFamily: 'inherit',
       fontSize: 14,

@@ -2,6 +2,7 @@ import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'rea
 import { EditorSelection } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { isolateHistory } from '@codemirror/commands';
+import { foldEffect } from '@codemirror/language';
 import { 
   Heading1, 
   Heading2, 
@@ -37,6 +38,7 @@ import { registerAssetUrl } from '../utils/assetUrlRegistry';
 import { DiffReviewSession } from '../types/ai';
 import { AiDiffReviewPanel } from './ai/AiDiffReviewPanel';
 import { useMarkdownEditor } from './editor/useMarkdownEditor';
+import { getMarkdownFoldBlocks } from './editor/markdownExtensions';
 import type { EditorTypography } from './editor/editorTheme';
 import type { DocumentColors } from '../utils/documentColors';
 
@@ -565,7 +567,19 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
           documentStyle={documentStyle}
           onClose={() => setShowHtmlTemplates(false)}
           onInsert={(block) => {
-            insertText(`\n\n${block}\n\n`);
+            const view = viewRef.current;
+            if (!view || reviewSession) return;
+            const start = view.state.selection.main.from;
+            const insertion = view.state.toText(`\n\n${block}\n\n`).toString();
+            insertText(insertion);
+            const end = start + insertion.length;
+            const blocks = getMarkdownFoldBlocks(view.state).filter((fold) =>
+              fold.kind === 'html' && fold.start >= start && fold.to <= end,
+            );
+            view.dispatch({
+              selection: EditorSelection.cursor(end),
+              effects: blocks.map((fold) => foldEffect.of(fold)),
+            });
             setShowHtmlTemplates(false);
           }}
         />

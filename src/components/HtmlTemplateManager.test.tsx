@@ -67,6 +67,30 @@ describe('HTML template manager', () => {
     expect(container.querySelector('iframe')!.srcdoc).toContain('--img-border-color:#cbd5e1;');
   });
 
+  it('aligns preview and color panel headers without width switching controls', () => {
+    render();
+    const previewHeader = Array.from(container.querySelectorAll('span')).find(element => element.textContent === 'A4 交付文档渲染预览')!.parentElement!.parentElement!;
+    const colorHeader = Array.from(container.querySelectorAll('span')).find(element => element.textContent === '本次插入色彩调整')!.parentElement!.parentElement!;
+    for (const header of [previewHeader, colorHeader]) {
+      expect(header.classList.contains('h-11')).toBe(true);
+      expect(header.classList.contains('border-slate-200')).toBe(true);
+    }
+    expect(container.querySelector('[title="自适应宽度"]')).toBeNull();
+    expect(container.textContent).not.toContain('A4 宽度 (700px)');
+  });
+
+  it('unchecks concrete colors when the default palette is selected', async () => {
+    const { onInsert } = render();
+    const checkbox = container.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    expect(checkbox.checked).toBe(false);
+    await click(Array.from(container.querySelectorAll('button')).find(element => element.textContent?.includes('深蓝商务'))!);
+    expect(checkbox.checked).toBe(true);
+    await click(Array.from(container.querySelectorAll('button')).find(element => element.textContent?.includes('继承全局'))!);
+    expect(checkbox.checked).toBe(false);
+    await click(Array.from(container.querySelectorAll('button')).find(element => element.textContent?.includes('插入模板'))!);
+    expect(onInsert).toHaveBeenCalledWith(expect.stringContaining('var(--accent-color)'));
+  });
+
   it('creates, saves, edits and deletes a user template', async () => {
     render();
     await click(button('新增模板'));

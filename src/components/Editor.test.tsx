@@ -81,9 +81,14 @@ describe('Editor keyboard indentation', () => {
     const insert = Array.from(rendered.container.querySelectorAll('button')).find(button => button.textContent?.includes('插入模板'))!;
     await act(async () => insert.click());
     expect(rendered.view.state.doc.toString()).toMatch(/Before \n\n<section data-sdc-html>[\s\S]*<\/section>\n\nAfter/);
+    expect(foldedRanges(rendered.view.state).size).toBe(1);
+    expect(rendered.container.querySelector('.cm-foldPlaceholder')?.textContent).toContain('HTML');
+    expect(rendered.view.state.selection.main.empty).toBe(true);
+    expect(rendered.view.state.selection.main.from).toBe(rendered.view.state.doc.length - 'After'.length);
     expect(rendered.container.querySelector('[aria-label="HTML 模板管理"][role="dialog"]')).toBeNull();
     act(() => undo(rendered.view));
     expect(rendered.view.state.doc.toString()).toBe('Before After');
+    expect(foldedRanges(rendered.view.state).size).toBe(0);
   });
 
   it('unindents every selected line with Shift+Tab', () => {

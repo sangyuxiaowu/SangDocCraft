@@ -43,12 +43,12 @@ function cleanHex(hex: string): string {
   return hex.replace('#', '').trim();
 }
 
-function dynamicWordRuns(text: string, meta: DocumentMeta, font: { ascii: string; hAnsi: string; eastAsia: string }, headings: Set<number>): (TextRun | SimpleField)[] {
+function dynamicWordRuns(text: string, meta: DocumentMeta, font: { ascii: string; hAnsi: string; eastAsia: string }, headings: Set<number>, color = '64748B'): (TextRun | SimpleField)[] {
   if (text === '@h1' || text === '@h2') {
     const level = text === '@h1' ? 1 : headings.has(2) ? 2 : 1;
     return headings.has(level) ? [new SimpleField(`STYLEREF "Heading ${level}"`)] : [];
   }
-  return [new TextRun({ text: resolveDynamicText(text, meta), size: 18, color: '64748B', font })];
+  return [new TextRun({ text: resolveDynamicText(text, meta), size: 18, color, font })];
 }
 
 function parseDimensionToNumber(val?: string | number, containerMax = 560): number | undefined {
@@ -113,6 +113,9 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
   const primaryHex = cleanHex(style.primaryColor);
   const accentHex = cleanHex(style.accentColor);
   const textHex = cleanHex(style.textColor);
+  const textMutedHex = cleanHex(style.textMutedColor || '#94a3b8');
+  const borderHex = cleanHex(style.borderColor || '#cbd5e1');
+  const borderLightHex = cleanHex(style.borderLightColor || '#e2e8f0');
 
   const fontName = style.fontFamily === 'serif' ? 'SimSun' :
                    style.fontFamily === 'kaiti' ? 'KaiTi' :
@@ -831,7 +834,11 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
       new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
         borders: header.lineStyle !== 'none' ? {
-          bottom: { color: accentHex, size: header.lineStyle === 'double' ? 18 : 12, style: BorderStyle.SINGLE },
+          bottom: {
+            color: header.lineStyle === 'accent' || header.lineStyle === 'double' ? accentHex : borderHex,
+            size: header.lineStyle === 'double' ? 18 : 12,
+            style: BorderStyle.SINGLE
+          },
           top: noTableBorders.top,
           left: noTableBorders.left,
           right: noTableBorders.right,
@@ -846,7 +853,7 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
           borders: noTableBorders,
           children: [new Paragraph({ alignment: cell.alignment, children: [
             ...(cell.logoRun ? [cell.logoRun] : []),
-            ...dynamicWordRuns(cell.text, meta, docxFont, headings),
+            ...dynamicWordRuns(cell.text, meta, docxFont, headings, textMutedHex),
           ] })],
         })),
         })],
@@ -858,7 +865,7 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
   if (footer.show) {
     const leftFooter = footer.leftText ?? meta.organization ?? '';
     const pageNumberRuns = (): TextRun[] => {
-      const run = (text?: string, children?: (typeof PageNumber)[keyof typeof PageNumber][]) => new TextRun({ text, children, size: 18, color: '64748B', font: docxFont });
+      const run = (text?: string, children?: (typeof PageNumber)[keyof typeof PageNumber][]) => new TextRun({ text, children, size: 18, color: textMutedHex, font: docxFont });
       if (footer.pageNumberFormat === 'none') return [];
       if (footer.pageNumberFormat === 'simple') return [run(undefined, [PageNumber.CURRENT])];
       if (footer.pageNumberFormat === 'hyphen') return [run('- '), run(undefined, [PageNumber.CURRENT]), run(' -')];
@@ -873,11 +880,18 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
     footerChildren.push(
       new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
-        borders: noTableBorders,
+        borders: {
+          top: { color: borderLightHex, size: 6, style: BorderStyle.SINGLE },
+          bottom: noTableBorders.bottom,
+          left: noTableBorders.left,
+          right: noTableBorders.right,
+          insideHorizontal: noTableBorders.insideHorizontal,
+          insideVertical: noTableBorders.insideVertical,
+        },
         rows: [new TableRow({ children: footerCells.map((cell) => new TableCell({
           borders: noTableBorders,
           children: [new Paragraph({ alignment: cell.alignment, children: [
-            ...dynamicWordRuns(cell.text, meta, docxFont, headings),
+            ...dynamicWordRuns(cell.text, meta, docxFont, headings, textMutedHex),
             ...(cell.includePage ? pageNumberRuns() : []),
           ] })],
         })) })],

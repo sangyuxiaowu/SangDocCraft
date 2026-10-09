@@ -46,6 +46,10 @@ export function ColorsTab({ model }: { model: Pick<PanelTabModel, 'theme' | 'isD
                             ...theme.style,
                             primaryColor: c.primary,
                             accentColor: c.accent,
+                            textSecondaryColor: theme.style.textSecondaryColor || '#64748b',
+                            textMutedColor: theme.style.textMutedColor || '#94a3b8',
+                            borderColor: theme.style.borderColor || '#cbd5e1',
+                            borderLightColor: theme.style.borderLightColor || '#e2e8f0',
                           },
                         });
                       }}
@@ -121,7 +125,7 @@ export function ColorsTab({ model }: { model: Pick<PanelTabModel, 'theme' | 'isD
                   <div className="relative group inline-flex items-center cursor-help" tabIndex={0} aria-label="正文文字颜色说明">
                     <Info className="w-3.5 h-3.5 text-slate-400 hover:text-blue-500 transition-colors" />
                     <div className="absolute left-0 bottom-full mb-1.5 hidden group-hover:block group-focus:block z-50 w-64 p-2.5 text-[11px] leading-relaxed rounded-md shadow-xl bg-slate-900 text-slate-100 dark:bg-zinc-800 dark:text-zinc-100 border border-slate-700/60 dark:border-zinc-700 pointer-events-none transition-opacity">
-                      仅作用于正文内容（段落、列表、表格、引用）的文字颜色，预览、HTML 与 Word 导出同步生效；各级标题颜色由主色调控制，页眉页脚使用固定灰阶，均不跟随此项。
+                      仅作用于正文内容（段落、列表、表格、引用）的文字颜色，预览、HTML 与 Word 导出同步生效；各级标题颜色由主色调控制。
                     </div>
                   </div>
                 </div>
@@ -145,6 +149,80 @@ export function ColorsTab({ model }: { model: Pick<PanelTabModel, 'theme' | 'isD
                 <ColorPickerInput
                   value={theme.style.imageConfig?.borderColor || '#cbd5e1'}
                   onChange={(val) => updateStyle('imageConfig', { ...imageConfig, borderColor: val })}
+                  inputClass={inputClass}
+                />
+              </div>
+            </div>
+
+            {/* 辅助文本颜色与页脚文本颜色 一行并排 */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>辅助文本颜色</label>
+                  <div className="relative group inline-flex items-center cursor-help" tabIndex={0} aria-label="辅助文本颜色说明">
+                    <Info className="w-3.5 h-3.5 text-slate-400 hover:text-blue-500 transition-colors" />
+                    <div className="absolute left-0 bottom-full mb-1.5 hidden group-hover:block group-focus:block z-50 w-64 p-2.5 text-[11px] leading-relaxed rounded-md shadow-xl bg-slate-900 text-slate-100 dark:bg-zinc-800 dark:text-zinc-100 border border-slate-700/60 dark:border-zinc-700 pointer-events-none transition-opacity">
+                      对应 CSS 变量 --text-secondary，常用于小字注解、副标题、标签及 HTML 模板辅助文字。默认 #64748b。
+                    </div>
+                  </div>
+                </div>
+                <ColorPickerInput
+                  value={theme.style.textSecondaryColor || '#64748b'}
+                  onChange={(val) => updateStyle('textSecondaryColor', val)}
+                  inputClass={inputClass}
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>弱化文本颜色</label>
+                  <div className="relative group inline-flex items-center cursor-help" tabIndex={0} aria-label="弱化文本颜色说明">
+                    <Info className="w-3.5 h-3.5 text-slate-400 hover:text-blue-500 transition-colors" />
+                    <div className="absolute right-0 bottom-full mb-1.5 hidden group-hover:block group-focus:block z-50 w-64 p-2.5 text-[11px] leading-relaxed rounded-md shadow-xl bg-slate-900 text-slate-100 dark:bg-zinc-800 dark:text-zinc-100 border border-slate-700/60 dark:border-zinc-700 pointer-events-none transition-opacity">
+                      对应 CSS 变量 --text-muted，用于页眉页脚文字、页码与低对比度注脚，HTML 模板中可作为弱化说明。默认 #94a3b8。
+                    </div>
+                  </div>
+                </div>
+                <ColorPickerInput
+                  value={theme.style.textMutedColor || '#94a3b8'}
+                  onChange={(val) => updateStyle('textMutedColor', val)}
+                  inputClass={inputClass}
+                />
+              </div>
+            </div>
+
+            {/* 页眉主边框颜色与页脚浅边框颜色 一行并排 */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>主边框颜色</label>
+                  <div className="relative group inline-flex items-center cursor-help" tabIndex={0} aria-label="页眉边框颜色说明">
+                    <Info className="w-3.5 h-3.5 text-slate-400 hover:text-blue-500 transition-colors" />
+                    <div className="absolute left-0 bottom-full mb-1.5 hidden group-hover:block group-focus:block z-50 w-64 p-2.5 text-[11px] leading-relaxed rounded-md shadow-xl bg-slate-900 text-slate-100 dark:bg-zinc-800 dark:text-zinc-100 border border-slate-700/60 dark:border-zinc-700 pointer-events-none transition-opacity">
+                      对应 CSS 变量 --border-color，控制页眉下分割线、主要卡片边框及 HTML 模板主区隔线（颜色较深）。默认 #cbd5e1。
+                    </div>
+                  </div>
+                </div>
+                <ColorPickerInput
+                  value={theme.style.borderColor || '#cbd5e1'}
+                  onChange={(val) => updateStyle('borderColor', val)}
+                  inputClass={inputClass}
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${labelClass}`}>浅边框颜色</label>
+                  <div className="relative group inline-flex items-center cursor-help" tabIndex={0} aria-label="页脚浅边框说明">
+                    <Info className="w-3.5 h-3.5 text-slate-400 hover:text-blue-500 transition-colors" />
+                    <div className="absolute right-0 bottom-full mb-1.5 hidden group-hover:block group-focus:block z-50 w-64 p-2.5 text-[11px] leading-relaxed rounded-md shadow-xl bg-slate-900 text-slate-100 dark:bg-zinc-800 dark:text-zinc-100 border border-slate-700/60 dark:border-zinc-700 pointer-events-none transition-opacity">
+                      对应 CSS 变量 --border-light，控制页脚上分割线、浅色细线区隔及次级边框（颜色较浅）。默认 #e2e8f0。
+                    </div>
+                  </div>
+                </div>
+                <ColorPickerInput
+                  value={theme.style.borderLightColor || '#e2e8f0'}
+                  onChange={(val) => updateStyle('borderLightColor', val)}
                   inputClass={inputClass}
                 />
               </div>

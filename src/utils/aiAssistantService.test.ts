@@ -39,6 +39,48 @@ describe('AI assistant setting tools', () => {
     });
   };
 
+  it('exposes and updates all auxiliary document colors through AI tools', async () => {
+    const tools = createTools('# Test');
+    const configTool = tools.find(item => item.definition.function.name === 'get_document_config')!;
+    const styleTool = tools.find(item => item.definition.function.name === 'update_document_style')!;
+    const colors = {
+      textSecondaryColor: '#123456',
+      textMutedColor: '#234567',
+      borderColor: '#345678',
+      borderLightColor: '#456789',
+    };
+    const before = JSON.parse(await configTool.handler({ types: ['color', 'style'] }));
+    const properties = styleTool.definition.function.parameters.properties as Record<string, unknown>;
+    for (const field of Object.keys(colors)) {
+      expect(properties[field]).toMatchObject({ type: 'string' });
+    }
+
+    await styleTool.handler(colors);
+    const after = JSON.parse(await configTool.handler({ types: ['color', 'style'] }));
+    expect(after.color).toEqual({ ...before.color, ...colors });
+    expect(after.style).toEqual(before.style);
+    for (const field of Object.keys(colors)) {
+      expect(after.style).not.toHaveProperty(field);
+    }
+
+    await styleTool.handler({ textMutedColor: '#abcdef' });
+    const partial = JSON.parse(await configTool.handler({ types: ['color'] }));
+    expect(partial.color).toEqual({ ...after.color, textMutedColor: '#abcdef' });
+  });
+
+  it('returns effective defaults for cleared auxiliary colors', async () => {
+    const tools = createTools('# Test');
+    const configTool = tools.find(item => item.definition.function.name === 'get_document_config')!;
+    const styleTool = tools.find(item => item.definition.function.name === 'update_document_style')!;
+    await styleTool.handler({ textSecondaryColor: '', textMutedColor: '', borderColor: '', borderLightColor: '' });
+    expect(JSON.parse(await configTool.handler({ types: ['color'] })).color).toMatchObject({
+      textSecondaryColor: '#64748b',
+      textMutedColor: '#94a3b8',
+      borderColor: '#cbd5e1',
+      borderLightColor: '#e2e8f0',
+    });
+  });
+
   it('returns document summary with meta but without Markdown content', async () => {
     const markdown = '# 项目概述\n正文\n\n## 背景说明\n细节';
     const tools = createTools(markdown);

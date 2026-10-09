@@ -468,13 +468,13 @@ export function generateStandaloneHtml(
       display: flex;
       justify-content: space-between;
       font-size: 11px;
-      color: #64748b;
+      color: var(--text-muted);
       padding-bottom: 6px;
       margin-bottom: 16px;
       border-bottom: ${header.lineStyle === 'none' ? 'none' :
         header.lineStyle === 'double' ? `3px double ${style.accentColor}` :
         header.lineStyle === 'accent' ? `2px solid ${style.accentColor}` :
-        '1px solid #cbd5e1'};
+        `1px solid ${style.borderColor || '#cbd5e1'}`};
       flex-shrink: 0;
     }
     .doc-header-left {
@@ -491,10 +491,10 @@ export function generateStandaloneHtml(
       justify-content: space-between;
       align-items: center;
       font-size: 11px;
-      color: #64748b;
+      color: var(--text-muted);
       padding-top: 6px;
       margin-top: 16px;
-      border-top: 1px solid #e2e8f0;
+      border-top: 1px solid var(--border-light);
       flex-shrink: 0;
     }
     .doc-footer .footer-left {

@@ -72,13 +72,18 @@ export const DEFAULT_SYSTEM_PROMPT = `你是 SangDocCraft 智能交付文档排�
    - 在你不了解信息图并有生成或修改需求时，应先调用 get_infographic_guide 获取规范与模板。
    - 支持题注，方法是在围栏前添加 \`<!-- caption: 题注文本 -->\` 注释。
 
-6. 数学公式（LaTeX）：
+6. 高级自定义：
+   - 可以通过自定义 html 代码块提供高级的排版与样式控制，提供更灵活的文档展示效果。
+   - 需谨慎使用，语法为 \`<section data-sdc-html><style>可选的css</style>html内容</section>\`。
+   - 支持色彩变量：--primary-color，--accent-color，--text-color，--text-secondary，--text-muted，--border-color，--border-light，--img-border-color
+
+7. 数学公式（LaTeX）：
    - 行内公式使用单个美元符号，例如 \`$E = mc^2$\`；独立居中的公式块使用双美元符号独占若干行：
      \`$$\` 换行写公式内容，再换行写 \`$$\`。
    - 也支持 \`\\(...\\)\`、\`\\[...\\]\`、\`\\begin{equation}...\\end{equation}\` 等写法；公式会被渲染为矢量图并参与分页，导出 DOCX 时自动栅格化为图片。
    - 避免在正文中用单个美元符号表示货币金额，否则会被识别为公式。
 
-7. 章节大纲与版式规范：
+8. 章节大纲与版式规范：
    - 顶级章节使用一级标题 \`#\`，二级使用 \`##\`，三级使用 \`###\`。
    - 正式技术交付文本应保持结构严谨、逻辑清晰、措辞专业。`;
 
@@ -309,7 +314,7 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
         const types = readDocumentConfigTypes(args.types);
         const meta = context.getMeta();
         const theme = context.getTheme();
-        const { primaryColor, accentColor, textColor, watermark, ...style } = theme.style;
+        const { primaryColor, accentColor, textColor, textSecondaryColor, textMutedColor, borderColor, borderLightColor, watermark, ...style } = theme.style;
         const config: Record<DocumentConfigType, unknown> = {
           meta,
           cover: theme.cover,
@@ -324,7 +329,13 @@ export function buildAiTools(context: AiToolContext): AiToolRuntime[] {
             titleFont: getTocTitleFont(theme.toc),
             levelStyles: getTocLevelStyles(theme.toc)
           },
-          color: { primaryColor, accentColor, textColor },
+          color: {
+            primaryColor, accentColor, textColor,
+            textSecondaryColor: textSecondaryColor || '#64748b',
+            textMutedColor: textMutedColor || '#94a3b8',
+            borderColor: borderColor || '#cbd5e1',
+            borderLightColor: borderLightColor || '#e2e8f0',
+          },
           style,
           mermaid: getMermaidConfig(theme),
           watermark: watermark ?? null

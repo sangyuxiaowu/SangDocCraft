@@ -149,6 +149,10 @@ export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
   primaryColor,
   accentColor,
   textColor,
+  textSecondaryColor,
+  textMutedColor,
+  borderColor,
+  borderLightColor,
   bulletChar,
   imgBorderColor,
 }: {
@@ -156,6 +160,10 @@ export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
   primaryColor: string;
   accentColor: string;
   textColor?: string;
+  textSecondaryColor?: string;
+  textMutedColor?: string;
+  borderColor?: string;
+  borderLightColor?: string;
   bulletChar: string;
   imgBorderColor?: string;
 }) {
@@ -163,7 +171,16 @@ export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
     <div
       className="markdown-rendered-body flex-1 flow-root"
       style={{
-        ...getDocumentColorVariables({ primaryColor, accentColor, textColor, imageConfig: { borderColor: imgBorderColor } }),
+        ...getDocumentColorVariables({
+          primaryColor,
+          accentColor,
+          textColor,
+          textSecondaryColor,
+          textMutedColor,
+          borderColor,
+          borderLightColor,
+          imageConfig: { borderColor: imgBorderColor }
+        }),
         '--bullet-char': `"${bulletChar}"`,
       } as React.CSSProperties}
       dangerouslySetInnerHTML={{ __html: html }}
@@ -1087,21 +1104,22 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
               {/* Page Header Bar */}
               {header.show && (!isCoverPage || !header.hideOnCover) && (
                 <div 
-                  className="w-full relative flex items-center justify-between text-[11px] text-slate-500 select-none shrink-0"
+                  className="w-full relative flex items-center justify-between text-[11px] select-none shrink-0"
                   style={{
+                    color: style.textMutedColor || '#94a3b8',
                     paddingBottom: '6px',
                     marginBottom: '16px',
                     borderBottom: header.lineStyle === 'none' ? 'none' :
                                   header.lineStyle === 'double' ? `3px double ${style.accentColor}` :
                                   header.lineStyle === 'accent' ? `2px solid ${style.accentColor}` :
-                                  `1px solid #cbd5e1`,
+                                  `1px solid ${style.borderColor || '#cbd5e1'}`,
                   }}
                 >
-                  <div className="font-medium text-slate-600 shrink-0" style={{ marginLeft: `${header.leftTextOffset ?? 0}px` }}>
+                  <div className="font-medium shrink-0" style={{ marginLeft: `${header.leftTextOffset ?? 0}px` }}>
                     <span>{resolveDynamicText(header.leftText || '', meta, page.section)}</span>
                   </div>
-                  <span className="text-slate-400 truncate px-4 text-center flex-1">{resolveDynamicText(header.centerText || '', meta, page.section)}</span>
-                  <span className="text-slate-400 truncate">{resolveDynamicText(header.rightText ?? meta.title ?? '', meta, page.section)}</span>
+                  <span className="truncate px-4 text-center flex-1 opacity-80">{resolveDynamicText(header.centerText || '', meta, page.section)}</span>
+                  <span className="truncate opacity-80">{resolveDynamicText(header.rightText ?? meta.title ?? '', meta, page.section)}</span>
                 </div>
               )}
 
@@ -1189,6 +1207,10 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
                     primaryColor={style.primaryColor}
                     accentColor={style.accentColor}
                     textColor={style.textColor}
+                    textSecondaryColor={style.textSecondaryColor}
+                    textMutedColor={style.textMutedColor}
+                    borderColor={style.borderColor}
+                    borderLightColor={style.borderLightColor}
                     bulletChar={bulletChar}
                     imgBorderColor={style.imageConfig?.borderColor}
                   />
@@ -1200,7 +1222,15 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
               {footer.show && (!isCoverPage || !footer.hideOnCover) && (() => {
                 const slots = getFooterSlots(page.pageNum, totalPages, footer, meta, page.section);
                 return (
-                  <div className="w-full flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-200 select-none shrink-0" style={{ paddingTop: '6px', marginTop: '16px' }}>
+                  <div
+                    className="w-full flex items-center justify-between text-[11px] select-none shrink-0"
+                    style={{
+                      paddingTop: '6px',
+                      marginTop: '16px',
+                      color: style.textMutedColor || '#94a3b8',
+                      borderTop: `1px solid ${style.borderLightColor || '#e2e8f0'}`,
+                    }}
+                  >
                     <span className="text-left flex-1 min-w-0 truncate">{slots.left}</span>
                     <span className="text-center flex-1 min-w-0 truncate font-mono">{slots.center}</span>
                     <span className="text-right flex-1 min-w-0 truncate font-mono">{slots.right}</span>
