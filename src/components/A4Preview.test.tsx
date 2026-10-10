@@ -74,6 +74,27 @@ describe('getPreviewPageLocation', () => {
 });
 
 describe('getOverflowPageNumbers', () => {
+  it.each([0, -5000, -15000])('does not report a footerless cover above the viewport at y=%i', (top) => {
+    const sheet = document.createElement('div');
+    sheet.dataset.pageNum = '1';
+    sheet.style.cssText = 'height:1122.5px;padding-bottom:75px;box-sizing:border-box;';
+    sheet.innerHTML = '<div data-page-main></div>';
+    document.body.appendChild(sheet);
+    const main = sheet.firstElementChild as HTMLElement;
+    Object.defineProperties(sheet, { offsetHeight: { value: 1123 }, clientHeight: { value: 1123 }, scrollHeight: { value: 1123 } });
+    Object.defineProperties(main, { clientHeight: { value: 972 }, scrollHeight: { value: 972 } });
+    vi.spyOn(sheet, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, top, 794, 1122.5));
+    const mainRect = vi.spyOn(main, 'getBoundingClientRect');
+    try {
+      mainRect.mockReturnValue(new DOMRect(0, top + 75, 680, 972.5));
+      expect(getOverflowPageNumbers([sheet])).toEqual([]);
+      mainRect.mockReturnValue(new DOMRect(0, top + 75, 680, 975));
+      expect(getOverflowPageNumbers([sheet])).toEqual([1]);
+    } finally {
+      sheet.remove();
+    }
+  });
+
   it('returns pages with oversized sheets or clipped content', () => {
     const sheets = [
       { offsetHeight: 1124, clientHeight: 1124, scrollHeight: 1124, dataset: { pageNum: '1' } },

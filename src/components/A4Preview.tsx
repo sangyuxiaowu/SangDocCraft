@@ -93,7 +93,8 @@ export function getOverflowPageNumbers(sheets: Iterable<HTMLElement>): number[] 
       if (!Number.isFinite(scale) || scale <= 0) return false;
       const safeBottom = sheetRect.bottom - (parseFloat(sheetStyle.paddingBottom) + (parseFloat(sheetStyle.borderBottomWidth) || 0)) * scale;
       const footer = sheet.querySelector<HTMLElement>('[data-page-footer]');
-      return Math.max(main.getBoundingClientRect().bottom, footer?.getBoundingClientRect().bottom ?? 0) > safeBottom + PAGE_OVERFLOW_TOLERANCE_PX * scale;
+      const mainBottom = main.getBoundingClientRect().bottom;
+      return Math.max(mainBottom, footer?.getBoundingClientRect().bottom ?? mainBottom) > safeBottom + PAGE_OVERFLOW_TOLERANCE_PX * scale;
     })
     .map(sheet => Number(sheet.dataset.pageNum))
     .filter(Number.isInteger);
