@@ -25,8 +25,10 @@ import {
   Sparkles,
   GitPullRequest,
   Settings,
-  RotateCcw
+  RotateCcw,
+  Search
 } from 'lucide-react';
+import { openSearchPanel } from '@codemirror/search';
 import { getPageBreakInsertion } from '../utils/pageBreaks';
 import type { DocumentAsset } from '../types';
 import { ImagePicker } from './ImagePicker';
@@ -381,6 +383,21 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({
           title="插入强行分页标志 <!-- pagebreak -->"
         >
           <FilePlus className="w-4 h-4" />
+        </button>
+
+        <button
+          type="button"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            const view = viewRef.current;
+            if (view && !reviewSession) openSearchPanel(view);
+          }}
+          disabled={!!reviewSession}
+          className={`p-1.5 rounded transition disabled:opacity-40 ${btnHoverClass}`}
+          title="查找和替换 (Ctrl+F / Cmd+F)"
+          aria-label="查找和替换"
+        >
+          <Search className="w-4 h-4" />
         </button>
 
         {/* AI Assistant Quick Trigger */}

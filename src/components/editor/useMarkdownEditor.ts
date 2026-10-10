@@ -3,6 +3,7 @@ import { Compartment, EditorState, StateEffect, Transaction } from '@codemirror/
 import { EditorView, drawSelection, highlightActiveLineGutter, keymap, lineNumbers, placeholder } from '@codemirror/view';
 import { codeFolding, foldEffect, foldedRanges, foldGutter, foldKeymap, unfoldEffect } from '@codemirror/language';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import { search, searchKeymap } from '@codemirror/search';
 import { createEditorTheme, type EditorTypography } from './editorTheme';
 import { getInitialFoldBlocks, headingBackgrounds, markdownBlockFolding, markdownHighlighting, markdownSupport, markdownTabBinding } from './markdownExtensions';
 
@@ -71,7 +72,7 @@ export function useMarkdownEditor(options: MarkdownEditorOptions) {
     const extensions = [
       lineNumbers(), highlightActiveLineGutter(), drawSelection(), history(),
       EditorView.lineWrapping, markdownSupport, markdownHighlighting, headingBackgrounds, markdownBlockFolding,
-      keymap.of([markdownTabBinding, ...defaultKeymap, ...historyKeymap, ...foldKeymap]),
+      keymap.of([markdownTabBinding, ...defaultKeymap, ...historyKeymap, ...foldKeymap, ...searchKeymap]),
       foldGutter({ markerDOM: (open) => {
         const marker = document.createElement('span');
         marker.textContent = open ? '\u2304' : '\u203a';
@@ -99,6 +100,22 @@ export function useMarkdownEditor(options: MarkdownEditorOptions) {
           };
           return element;
         },
+      }),
+      search(),
+      EditorState.phrases.of({
+        Find: '查找',
+        Replace: '替换',
+        'match case': '区分大小写',
+        regexp: '正则',
+        'by word': '全词',
+        next: '下一个',
+        previous: '上一个',
+        all: '全选匹配',
+        replace: '替换',
+        'replace all': '全部替换',
+        close: '关闭',
+        'current match': '当前匹配',
+        'on line': '所在行',
       }),
       placeholder('在此处输入或粘贴您的 Markdown 文档内容...'),
       themeRef.current.of(createEditorTheme(current.isDark, current.typography)),

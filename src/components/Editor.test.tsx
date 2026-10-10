@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorView } from '@codemirror/view';
 import { foldedRanges, unfoldAll } from '@codemirror/language';
 import { redo, undo } from '@codemirror/commands';
+import { replaceAll, SearchQuery, searchPanelOpen, setSearchQuery } from '@codemirror/search';
 import { Editor, getSelectionStats, type EditorHandle } from './Editor';
 import type { DiffReviewSession } from '../types/ai';
 
@@ -97,6 +98,28 @@ describe('Editor keyboard indentation', () => {
     selectText(rendered.view, 0, 14);
     pressTab(rendered.content, true);
     expect(rendered.onChange).toHaveBeenCalledWith('alpha\nbeta');
+  });
+
+  it('opens the standard search panel and replaces all matching text', () => {
+    const rendered = renderEditor('apple apple');
+    roots.push(rendered.root);
+
+    act(() => rendered.container.querySelector<HTMLButtonElement>('[aria-label="查找和替换"]')?.click());
+
+    expect(searchPanelOpen(rendered.view.state)).toBe(true);
+    expect(rendered.container.querySelector('.cm-search input[name="search"]')).not.toBeNull();
+    expect(rendered.container.querySelector('.cm-search input[name="replace"]')).not.toBeNull();
+    expect(rendered.container.querySelector('.cm-search')?.textContent).toContain('区分大小写');
+    expect(rendered.container.querySelector('.cm-search')?.textContent).toContain('全部替换');
+    expect(getComputedStyle(rendered.container.querySelector('.cm-panels')!).zIndex).toBe('10');
+
+    act(() => {
+      rendered.view.dispatch({ effects: setSearchQuery.of(new SearchQuery({ search: 'apple', replace: 'pear' })) });
+      replaceAll(rendered.view);
+    });
+
+    expect(rendered.view.state.doc.toString()).toBe('pear pear');
+    expect(rendered.onChange).toHaveBeenCalledWith('pear pear');
   });
 
   it('reports the cursor position when the editor is double-clicked', () => {
