@@ -21,9 +21,12 @@ export default defineConfig(({ mode }) => {
       mode !== 'test' && react(),
       tailwindcss(),
       !isTauriMode && mode !== 'test' && VitePWA({
-        registerType: 'autoUpdate',
+        registerType: 'prompt',
+        injectRegister: false,
         includeAssets: ['reward-code.svg'],
         workbox: {
+          clientsClaim: true,
+          cleanupOutdatedCaches: true,
           globIgnores: ['assets/mathjax-*.js'],
           maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         },
