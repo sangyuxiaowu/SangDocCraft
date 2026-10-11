@@ -562,8 +562,8 @@ export function generateStandaloneHtml(
     blockquote {
       border-left: 4px solid var(--accent-color);
       background: #f8fafc;
-      padding: 10px 16px;
-      margin: 1em 0;
+      padding: 6px 12px;
+      margin: 0.6em 0;
       color: #475569;
       font-style: italic;
     }

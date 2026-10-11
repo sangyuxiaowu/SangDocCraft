@@ -1338,8 +1338,8 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
         .markdown-rendered-body blockquote {
           border-left: 4px solid var(--accent-color);
           background-color: #f8fafc;
-          padding: 10px 16px;
-          margin: 1.2em 0;
+          padding: 6px 12px;
+          margin: 0.6em 0;
           border-radius: 0 6px 6px 0;
           color: #475569;
           font-style: italic;

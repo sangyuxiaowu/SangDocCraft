@@ -325,8 +325,8 @@ mjx-container[jax="SVG"][display="true"] > svg {
 .markdown-rendered-body blockquote {
   border-left: 4px solid var(--accent-color, #2563eb);
   background: #f8fafc;
-  padding: 8px 14px;
-  margin: 0.8em 0;
+  padding: 6px 12px;
+  margin: 0.6em 0;
   color: #475569;
   font-style: italic;
   page-break-inside: avoid;

@@ -34,6 +34,10 @@ export function registerMermaidExtensions(): void {
   mermaidExtensionsRegistered = true;
   marked.use({
     renderer: {
+      blockquote(token) {
+        const tokens = marked.lexer(token.text, { ...this.parser.options, breaks: true });
+        return `<blockquote>\n${this.parser.parse(tokens)}</blockquote>\n`;
+      },
       code(token) {
         if (isInfographicLang(token.lang)) {
           const options = parseInfographicFenceOptions(token.lang);
@@ -224,7 +228,9 @@ export function getMarkdownBodyCss(selector: string, style: StyleConfig): string
     ${selector} p { margin-bottom: 0.6em; line-height: 1.6; }
     ${selector} > p { margin-top: ${style.paragraphMarginBefore ?? 0}px; margin-bottom: ${style.paragraphMarginAfter ?? 6}px; line-height: inherit; text-indent: ${style.indentParagraph ? '2em' : '0'}; }
     ${selector} p.p-continuation, ${selector} .p-continuation p, ${selector} blockquote p, ${selector} li p, ${selector} table p { text-indent: 0 !important; }
-    ${selector} blockquote { border-left: 4px solid var(--accent-color); background: #f8fafc; padding: 10px 16px; margin: 1.2em 0; border-radius: 0 6px 6px 0; color: #475569; font-style: italic; }
+    ${selector} blockquote { border-left: 4px solid var(--accent-color); background: #f8fafc; padding: 6px 12px; margin: 0.6em 0; border-radius: 0 6px 6px 0; color: #475569; font-style: italic; }
+    ${selector} blockquote > :first-child { margin-top: 0; }
+    ${selector} blockquote > :last-child { margin-bottom: 0; }
     ${selector} pre { background: ${style.codeTheme === 'light' ? '#f1f5f9' : '#0f172a'}; color: ${style.codeTheme === 'light' ? '#0f172a' : '#f8fafc'}; --code-keyword: ${style.codeTheme === 'light' ? '#a21caf' : '#f0abfc'}; --code-string: ${style.codeTheme === 'light' ? '#166534' : '#86efac'}; --code-number: ${style.codeTheme === 'light' ? '#9a3412' : '#fdba74'}; --code-comment: ${style.codeTheme === 'light' ? '#64748b' : '#94a3b8'}; --code-title: ${style.codeTheme === 'light' ? '#1d4ed8' : '#93c5fd'}; padding: 12px 16px; border-radius: 6px; overflow-x: auto; font-family: Consolas, monospace; font-size: 0.85em; margin: 1em 0; white-space: pre-wrap; word-break: break-all; overflow-wrap: break-word; }
     ${selector} code { background: #f1f5f9; color: #0f172a; padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 0.88em; }
     ${selector} pre code { background: transparent; color: inherit; padding: 0; }

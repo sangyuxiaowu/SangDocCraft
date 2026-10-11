@@ -21,6 +21,55 @@ import {
 
 const theme = PRESET_THEMES[0];
 
+describe('Markdown blockquotes', () => {
+  it('preserves quoted and lazy continuation line breaks without changing ordinary paragraphs', () => {
+    const source = '>1. 完善文档元数据\n2. 更换合适的主题\n3. 输入您的正文内容\n\n> 12323\n> 21323\n\n> 12323\n21323\n\nordinary\nparagraph';
+    const container = document.createElement('div');
+    container.innerHTML = postProcessRenderedHtml(marked.parse(source) as string, theme.style);
+    const quotes = container.querySelectorAll('blockquote');
+    expect(quotes).toHaveLength(3);
+    expect(quotes[0].querySelectorAll('li')).toHaveLength(1);
+    expect(container.querySelector(':scope > ol')?.querySelectorAll('li')).toHaveLength(2);
+    for (const quote of Array.from(quotes).slice(1)) {
+      expect(quote.querySelectorAll('p')).toHaveLength(1);
+      expect(quote.querySelectorAll('br')).toHaveLength(1);
+      expect(quote.textContent).toContain('12323');
+      expect(quote.textContent).toContain('21323');
+    }
+    expect(container.querySelector(':scope > p')?.querySelector('br')).toBeNull();
+  });
+
+  it('keeps explicit breaks, paragraph separation and nested quotes intact', () => {
+    const container = document.createElement('div');
+    container.innerHTML = marked.parse('> first  \n> second\n>\n> third\n>\n> > nested\n> > continuation') as string;
+    expect(container.querySelectorAll('blockquote')).toHaveLength(2);
+    expect(container.querySelectorAll('blockquote > p')).toHaveLength(3);
+    expect(container.querySelectorAll('br')).toHaveLength(2);
+  });
+
+  it('uses compact padding and removes the first and last child margins even for a single paragraph', () => {
+    const sheet = document.createElement('style');
+    sheet.textContent = getMarkdownBodyCss('.quote-test', theme.style);
+    const container = document.createElement('div');
+    container.className = 'quote-test';
+    container.style.fontSize = '16px';
+    container.innerHTML = marked.parse('> single\n\n> first\n>\n> last') as string;
+    document.head.appendChild(sheet);
+    document.body.appendChild(container);
+    try {
+      for (const quote of container.querySelectorAll('blockquote')) {
+        expect(getComputedStyle(quote).padding).toBe('6px 12px');
+        expect(getComputedStyle(quote.firstElementChild!).marginTop).toBe('0px');
+        expect(getComputedStyle(quote.lastElementChild!).marginBottom).toBe('0px');
+      }
+      expect(getComputedStyle(container.querySelectorAll('blockquote')[1].firstElementChild!).marginBottom).toBe('9.6px');
+    } finally {
+      container.remove();
+      sheet.remove();
+    }
+  });
+});
+
 describe('Markdown pagination and numbering', () => {
   it('shares nested paragraph margins and line height with the A4 preview', () => {
     const css = getMarkdownBodyCss('.pagination-measurer', theme.style);
