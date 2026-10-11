@@ -79,6 +79,11 @@ metadata:
    - 支持题注，方法是在信息图围栏前添加 `<!-- caption: 题注文本 -->` 注释。
    - 支持在围栏语言之后，同时支持3个可选参数，例如 `w`、`h` 和 `align`，分别表示宽度、高度和对齐方式。
 
+6. 高级自定义：
+   - 可以通过自定义 html 代码块提供高级的排版与样式控制，提供更灵活的文档展示效果。
+   - 需谨慎使用，语法为 \`<section data-sdc-html><style>可选的css</style>html内容</section>\`。
+   - 支持色彩变量：--primary-color，--accent-color，--text-color，--text-secondary，--text-muted，--border-color，--border-light，--img-border-color
+
 ## 命令示例
 
 以下命令从本 `SKILL.md` 所在目录运行；从其他目录运行时，请为脚本和输入文件使用相应路径。

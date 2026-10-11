@@ -76,6 +76,19 @@ test('exports a self-contained, paginated HTML document', async () => {
   }
 });
 
+test('exports custom HTML blocks from Markdown in the blank browser context', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'sdc-html-block-'));
+  const markdown = join(directory, 'document.md');
+  const output = join(directory, 'document.html');
+  try {
+    await writeFile(markdown, '# HTML 区块\n\n<section data-sdc-html><p>自定义内容</p></section>');
+    await execute(process.execPath, [command, markdown, '--title', 'HTML 区块', '-o', output]);
+    assert.match(await readFile(output, 'utf8'), /自定义内容/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('exports an editable Word document from Markdown', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'sdc-docx-'));
   const source = join(directory, 'paper');
@@ -306,12 +319,12 @@ test('dist runs without the source project or its node_modules', async () => {
   }
 });
 
-test('ignores inline code image examples and collects only actual Markdown images', async () => {
+test('ignores inline code image examples in CRLF Markdown and collects actual images', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'sdc-inline-code-'));
   const markdown = join(directory, 'guide.md');
   const output = join(directory, 'guide.sdc');
   const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/wQAAAABJRU5ErkJggg==', 'base64');
-  const content = '# Guide\n\n示例：`![样例](images/chart.png)`；`![带空格](<images/chart 1.png>)`。\n\n![真实图片](images/chart.png)';
+  const content = '# Guide\r\n\r\n`![图一](@images/<id>)`\r\n`![图二](@images/<id>)`\r\n`![图三](@images/<id>)`\r\n`![图四](@images/<id>)`\r\n\r\n![真实图片](images/chart.png)';
   try {
     await mkdir(join(directory, 'images'));
     await writeFile(join(directory, 'images', 'chart.png'), image);
@@ -319,8 +332,7 @@ test('ignores inline code image examples and collects only actual Markdown image
     await execute(process.execPath, [command, markdown, '--title', 'Guide', '-o', output]);
     const files = unzipSync(new Uint8Array(await readFile(output)));
     const body = strFromU8(files['document.md']);
-    assert.match(body, /`!\[样例\]\(images\/chart\.png\)`/);
-    assert.match(body, /`!\[带空格\]\(<images\/chart 1\.png>\)`/);
+    assert.equal((body.match(/`!\[/g) || []).length, 4);
     assert.match(body, /!\[真实图片\]\(@images\/img-/);
     assert.equal(JSON.parse(strFromU8(files['images.json'])).images.length, 1);
   } finally {

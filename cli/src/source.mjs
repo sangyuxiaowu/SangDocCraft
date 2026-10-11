@@ -120,6 +120,12 @@ export async function loadDocument(source, options = {}) {
 
   const replacements = [];
   const codeRanges = [];
+  const normalizedMarkdown = markdownSource.replace(/\r\n?/g, '\n');
+  const sourceOffsets = [0];
+  for (let index = 0; index < markdownSource.length; index++) {
+    if (markdownSource[index] === '\r' && markdownSource[index + 1] === '\n') index++;
+    sourceOffsets.push(index + 1);
+  }
   const findCodeRanges = (tokens, text, offset) => {
     let cursor = 0;
     for (const token of tokens) {
@@ -131,18 +137,29 @@ export async function loadDocument(source, options = {}) {
       } else {
         if (token.tokens) findCodeRanges(token.tokens, token.raw, absoluteStart);
         if (token.items) findCodeRanges(token.items, token.raw, absoluteStart);
+        if (token.header && token.rows) {
+          let cellCursor = 0;
+          for (const cell of [...token.header, ...token.rows.flat()]) {
+            const cellStart = token.raw.indexOf(cell.text, cellCursor);
+            if (cellStart < 0) continue;
+            if (cell.tokens) findCodeRanges(cell.tokens, cell.text, absoluteStart + cellStart);
+            cellCursor = cellStart + cell.text.length;
+          }
+        }
       }
       cursor = start + token.raw.length;
     }
   };
-  findCodeRanges(marked.lexer(markdownSource), markdownSource, 0);
+  findCodeRanges(marked.lexer(normalizedMarkdown), normalizedMarkdown, 0);
   const imagePattern = /(!\[[^\]]*\]\(\s*)(<[^>]+>|[^\s)>]+)([^)]*\))/g;
-  for (const match of markdownSource.matchAll(imagePattern)) {
+  for (const match of normalizedMarkdown.matchAll(imagePattern)) {
     if (codeRanges.some(([start, end]) => match.index >= start && match.index < end)) continue;
     const prefix = match[1];
     const source = match[2];
     const path = source.startsWith('<') ? source.slice(1, -1) : source;
-    replacements.push({ start: match.index + prefix.length, end: match.index + prefix.length + source.length, value: await collect(isRemote(path) ? path : decodeURIComponent(path)) });
+    const sourceStart = match.index + prefix.length;
+    const sourceEnd = sourceStart + source.length;
+    replacements.push({ start: sourceOffsets[sourceStart], end: sourceOffsets[sourceEnd], value: await collect(isRemote(path) ? path : decodeURIComponent(path)) });
   }
   let markdown = markdownSource;
   for (const { start, end, value } of replacements.reverse()) markdown = markdown.slice(0, start) + value + markdown.slice(end);
