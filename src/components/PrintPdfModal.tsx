@@ -198,7 +198,7 @@ export const PrintPdfModal: React.FC<PrintPdfModalProps> = ({
         }`}>
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span>提示：在浏览器打印面板中，目标打印机选择<strong>「另存为 PDF」</strong>，边距选择<strong>「无」</strong>，并勾选<strong>「背景图形」</strong>，即可获得最佳排版效果。</span>
+            <span>提示：在浏览器打印面板中，目标打印机选择<strong>「另存为 PDF」</strong>，并勾选<strong>「背景图形」</strong>，即可获得最佳排版效果。</span>
           </div>
           <span className="font-mono text-[10px] opacity-70 hidden sm:inline">ISO 216 - A4 (210 × 297mm)</span>
         </div>

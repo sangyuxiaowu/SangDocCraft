@@ -50,6 +50,15 @@ export function HeadingListTab({ model }: { model: Pick<PanelTabModel, 'theme' |
                       </select>
                     </div>
                   </div>
+                  <label className={`flex items-center gap-2 cursor-pointer font-bold text-[11px] ${textSubClass}`}>
+                    <input
+                      type="checkbox"
+                      checked={theme.style.linkUnderline !== false}
+                      onChange={(e) => updateStyle('linkUnderline', e.target.checked)}
+                      className={`rounded text-blue-600 ${isDark ? 'bg-[#0A0A0A] border-[#2A2A2A]' : 'bg-white border-slate-300'}`}
+                    />
+                    <span>链接下划线</span>
+                  </label>
                 </section>
 <section className="space-y-3 pt-1">
                   <div className={`flex items-center gap-1.5 pb-2 border-b ${sectionBorderClass}`}>

@@ -3,6 +3,7 @@ import type { ImageStyleConfig, StyleConfig } from '../types';
 export type DocumentColors = Partial<Pick<StyleConfig,
   'primaryColor' |
   'accentColor' |
+  'linkColor' |
   'textColor' |
   'textSecondaryColor' |
   'textMutedColor' |
@@ -16,6 +17,7 @@ export function getDocumentColorVariables(style: DocumentColors = {}) {
   return {
     '--primary-color': style.primaryColor || '#0f172a',
     '--accent-color': style.accentColor || '#2563eb',
+    '--link-color': style.linkColor || '#0000ee',
     '--text-color': style.textColor || '#334155',
     '--text-secondary': style.textSecondaryColor || '#64748b',
     '--text-muted': style.textMutedColor || '#94a3b8',

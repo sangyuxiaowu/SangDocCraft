@@ -121,6 +121,8 @@ export interface HeadingFontStyle {
 }
 
 export interface StyleConfig {
+  linkColor?: string;
+  linkUnderline?: boolean;
   primaryColor: string;
   accentColor: string;
   textColor: string;

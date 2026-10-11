@@ -154,6 +154,15 @@ export function ColorsTab({ model }: { model: Pick<PanelTabModel, 'theme' | 'isD
               </div>
             </div>
 
+            <div>
+              <label className={`block text-[10px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>链接颜色</label>
+              <ColorPickerInput
+                value={theme.style.linkColor || '#0000ee'}
+                onChange={(val) => updateStyle('linkColor', val)}
+                inputClass={inputClass}
+              />
+            </div>
+
             {/* 辅助文本颜色与页脚文本颜色 一行并排 */}
             <div className="grid grid-cols-2 gap-3">
               <div>

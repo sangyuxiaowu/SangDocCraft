@@ -14,6 +14,26 @@ const generateStandaloneHtml = (
 ) => generateHtml(markdown, documentMeta, theme, mermaidHeights);
 
 describe('generateStandaloneHtml', () => {
+  it('keeps reference URLs intact and preserves explicit line breaks with shared link styling', () => {
+    const base = PRESET_THEMES[0];
+    const url = 'https://doi.org/10.1007/s11227-012-0831-5';
+    const html = generateStandaloneHtml(`[12] Reference.  \n${url}`, {
+      ...base, cover: { ...base.cover, showCover: false }, toc: { ...base.toc, show: false },
+    });
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    const paragraph = parsed.querySelector('.markdown-content > p');
+    expect(paragraph?.querySelectorAll('br')).toHaveLength(1);
+    expect(paragraph?.querySelector('a')?.getAttribute('href')).toBe(url);
+    expect(paragraph?.querySelector('a')?.textContent).toBe(url);
+    expect(html).toContain('.markdown-content a { color: var(--link-color, #0000ee); text-decoration: underline; word-break: normal; overflow-wrap: anywhere; }');
+    expect(html).toContain('--link-color:#0000ee;');
+    const customHtml = generateStandaloneHtml(`[12] Reference.  \n${url}`, {
+      ...base, style: { ...base.style, linkColor: '#123456', linkUnderline: false },
+    });
+    expect(customHtml).toContain('--link-color:#123456;');
+    expect(customHtml).toContain('text-decoration: none; word-break: normal; overflow-wrap: anywhere;');
+  });
+
   it('exports split paragraphs as unindented continuations without changing subsequent paragraphs', () => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       return Array.from(this.querySelectorAll('p')).reduce((total, paragraph) =>

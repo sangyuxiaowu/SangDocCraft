@@ -71,6 +71,14 @@ describe('Markdown blockquotes', () => {
 });
 
 describe('Markdown pagination and numbering', () => {
+  it('shares link appearance and long URL wrapping across preview, measurement and export', () => {
+    for (const selector of ['.markdown-rendered-body', '.pagination-measurer', '.markdown-content']) {
+      const css = getMarkdownBodyCss(selector, theme.style);
+      expect(css).toContain(`${selector} a { color: var(--link-color, #0000ee); text-decoration: underline; word-break: normal; overflow-wrap: anywhere; }`);
+      expect(getMarkdownBodyCss(selector, { ...theme.style, linkUnderline: false })).toContain('text-decoration: none; word-break: normal; overflow-wrap: anywhere;');
+    }
+  });
+
   it('shares nested paragraph margins and line height with the A4 preview', () => {
     const css = getMarkdownBodyCss('.pagination-measurer', theme.style);
     expect(css).toContain('.pagination-measurer p { margin-bottom: 0.6em; line-height: 1.6; }');

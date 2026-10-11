@@ -18,6 +18,34 @@ describe('StyleConfigPanel - Watermark Settings in Other Tab', () => {
     document.body.innerHTML = '';
   });
 
+  it('updates link color and the default checked underline in global typography', async () => {
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    roots.push(root);
+    const onChange = vi.fn();
+    await act(async () => root.render(<StyleConfigPanel
+      theme={PRESET_THEMES[0]} themes={PRESET_THEMES} customThemeIds={[]}
+      onThemeChange={() => undefined} meta={DEFAULT_DOCUMENT_META} onChange={onChange}
+      onMetaChange={() => undefined} assets={[]} uiMode="light" />));
+    await act(async () => Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === '配色')?.click());
+    const colorLabel = Array.from(container.querySelectorAll('label')).find(label => label.textContent === '链接颜色')!;
+    const colorInput = colorLabel.parentElement!.querySelector<HTMLInputElement>('input[type="text"]')!;
+    expect(colorInput.value).toBe('#0000ee');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(colorInput, '#123456');
+      colorInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ style: expect.objectContaining({ linkColor: '#123456' }) }));
+    await act(async () => Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === '样式')?.click());
+    const underlineLabel = Array.from(container.querySelectorAll('label')).find(label => label.textContent === '链接下划线')!;
+    expect(underlineLabel.closest('section')?.textContent).toContain('全局排版');
+    const toggle = underlineLabel.querySelector<HTMLInputElement>('input')!;
+    expect(toggle.checked).toBe(true);
+    await act(async () => toggle.click());
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ style: expect.objectContaining({ linkUnderline: false }) }));
+  });
+
   it('opens the theme picker and applies a selected theme', async () => {
     const container = document.createElement('div');
     document.body.append(container);
