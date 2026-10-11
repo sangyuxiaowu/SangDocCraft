@@ -13,6 +13,23 @@ export interface OpenedDocument {
   path?: string;
 }
 
+export function getDocumentSaveErrorMessage(error: unknown): string {
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const messages: Record<string, string> = {
+      read_only: '文件为只读，无法保存修改。请取消文件的只读属性后重试，或另存为新文件。',
+      permission_denied: '没有写入权限。请检查文件或文件夹权限，或另存到其他位置。',
+      file_in_use: '文件正被其他程序占用。请关闭占用程序后重试，或另存为新文件。',
+    };
+    if (typeof error.code === 'string' && messages[error.code]) return messages[error.code];
+  }
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string' && error.trim()) return error;
+  if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
+    return error.message;
+  }
+  return '保存文档失败，请重试或另存为新文件。';
+}
+
 export async function readSangDocumentFile(file: File): Promise<OpenedDocument> {
   return { document: await unpackSangDocument(new Uint8Array(await file.arrayBuffer())) };
 }

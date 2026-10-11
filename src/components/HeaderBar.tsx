@@ -15,6 +15,7 @@ import {
   FilePlus2,
   FolderOpen,
   Save,
+  SaveAll,
   History,
   Info,
   Printer,
@@ -37,11 +38,13 @@ interface HeaderBarProps {
   effectiveUiMode: 'dark' | 'light';
   isDocumentDirty: boolean;
   saveStatus?: 'saved' | 'saving' | 'unsaved';
+  saveError?: string | null;
   lastSavedAt?: string | null;
   onOpenWelcome: () => void;
   onNewDocument: () => void;
   onOpenDocument: () => void;
   onSaveDocument: () => void;
+  onSaveAs?: () => void;
   onOpenHistory: () => void;
   onOpenAbout: () => void;
   onToggleAiAssistant?: () => void;
@@ -63,11 +66,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   effectiveUiMode,
   isDocumentDirty,
   saveStatus,
+  saveError,
   lastSavedAt,
   onOpenWelcome,
   onNewDocument,
   onOpenDocument,
   onSaveDocument,
+  onSaveAs,
   onOpenHistory,
   onOpenAbout,
   onToggleAiAssistant,
@@ -251,6 +256,19 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     </div>
                   </button>
 
+                  {onSaveAs && (
+                    <button
+                      onClick={() => { onSaveAs(); setActiveDropdown(null); }}
+                      disabled={saveStatus === 'saving'}
+                      className={`w-full text-left px-2.5 py-2 rounded-lg text-xs font-medium flex items-center gap-2.5 transition disabled:opacity-50 ${
+                        isDark ? 'hover:bg-zinc-800 text-zinc-200' : 'hover:bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      <SaveAll className="w-4 h-4 text-blue-500 shrink-0" />
+                      <span>另存为 .sdc 文档</span>
+                    </button>
+                  )}
+
                   <button
                     onClick={() => {
                       onOpenHistory();
@@ -292,7 +310,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <button 
               onClick={onSaveDocument} 
               className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition ${
-                isDocumentDirty
+                saveError ? `保存失败：${saveError}` : isDocumentDirty
                   ? isDark
                     ? 'bg-amber-500/10 border-amber-500/40 text-amber-400 hover:bg-amber-500/20'
                     : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
@@ -586,6 +604,20 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         </div>
 
       </div>
+      {saveError && (
+        <div role="alert" className={`flex items-start gap-2 px-4 py-2 border-t text-xs ${isDark ? 'bg-amber-950/30 border-amber-800 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span className="min-w-0 flex-1 break-words">保存失败：{saveError} 当前修改尚未保存，请勿关闭文档。</span>
+          <button onClick={onSaveDocument} disabled={saveStatus === 'saving'} className="flex items-center gap-1 shrink-0 underline disabled:opacity-50">
+            <Save className="w-3.5 h-3.5" />重试保存
+          </button>
+          {onSaveAs && (
+            <button onClick={onSaveAs} disabled={saveStatus === 'saving'} className="flex items-center gap-1 shrink-0 underline disabled:opacity-50">
+              <SaveAll className="w-3.5 h-3.5" />另存为
+            </button>
+          )}
+        </div>
+      )}
     </header>
   );
 };

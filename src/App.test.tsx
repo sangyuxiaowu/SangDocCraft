@@ -9,12 +9,13 @@ import type { DocumentAsset, DocumentTheme } from './types';
 import type { AiToolContext } from './utils/aiAssistantService';
 import App from './App';
 
-const { saveDraft, saveSangDocument, listChatSessions, listLibraryAssets, isTauriEnvironment } = vi.hoisted(() => ({
+const { saveDraft, saveSangDocument, listChatSessions, listLibraryAssets, isTauriEnvironment, confirm } = vi.hoisted(() => ({
   saveDraft: vi.fn(),
   saveSangDocument: vi.fn(),
   listChatSessions: vi.fn(),
   listLibraryAssets: vi.fn(),
   isTauriEnvironment: vi.fn(() => false),
+  confirm: vi.fn(async () => false),
 }));
 
 vi.mock('./utils/draftStore', async (importOriginal) => ({
@@ -27,6 +28,7 @@ vi.mock('./utils/draftStore', async (importOriginal) => ({
 vi.mock('./utils/documentFileOperations', () => ({
   readStartupDocument: async () => undefined,
   saveSangDocument,
+  getDocumentSaveErrorMessage: (error: unknown) => typeof error === 'string' ? error : '文件为只读',
 }));
 vi.mock('./utils/tauriHelper', async (importOriginal) => ({
   ...await importOriginal<typeof import('./utils/tauriHelper')>(),
@@ -43,9 +45,11 @@ vi.mock('./utils/imageRepository', () => ({
   listChatSessions,
 }));
 vi.mock('./components/HeaderBar', () => ({
-  HeaderBar: ({ onSaveDocument }: { onSaveDocument: () => void }) => <button onClick={onSaveDocument}>保存</button>,
+  HeaderBar: ({ onSaveDocument, onSaveAs, saveError }: { onSaveDocument: () => void; onSaveAs?: () => void; saveError?: string }) => (
+    <><button onClick={onSaveDocument}>保存</button><button onClick={onSaveAs}>另存为</button><span data-testid="save-error">{saveError}</span></>
+  ),
 }));
-vi.mock('./utils/modalDialog', () => ({ modal: { confirm: async () => true, alert: async () => {} } }));
+vi.mock('./utils/modalDialog', () => ({ modal: { confirm, alert: async () => {} } }));
 vi.mock('./components/Editor', () => ({
   Editor: ({ value, onChange, saveStatus, reviewSession, onRejectAllHunks, onApplyResolution }: {
     value: string;
@@ -97,6 +101,7 @@ describe('document saving', () => {
   beforeEach(() => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
     vi.useFakeTimers();
+    confirm.mockReset().mockResolvedValue(false);
     isTauriEnvironment.mockReturnValue(false);
     listChatSessions.mockResolvedValue([]);
     listLibraryAssets.mockResolvedValue([]);
@@ -238,5 +243,60 @@ describe('document saving', () => {
     await act(async () => { click('应用审查'); });
 
     expect(container.querySelector('[data-testid="body"]')?.textContent).toBe('first');
+  });
+
+  it('offers save as after native save failure and uses the new path for auto-save', async () => {
+    isTauriEnvironment.mockReturnValue(true);
+    await act(async () => { root.render(<App />); });
+    await act(async () => { click('新建'); });
+    await act(async () => { click('保存'); });
+    await act(async () => { click('第一次编辑'); });
+    saveSangDocument.mockRejectedValueOnce('拒绝访问。 (os error 5)').mockResolvedValueOnce('copy.sdc');
+    confirm.mockResolvedValueOnce(true);
+    await act(async () => { click('保存'); });
+    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ confirmText: '另存为', message: expect.stringContaining('os error 5') }));
+    expect(saveSangDocument.mock.calls[1][1]).toBe('document.sdc');
+    expect(saveSangDocument.mock.calls[2][1]).toBeUndefined();
+    expect(container.querySelector('[data-testid="save-error"]')?.textContent).toBe('');
+    await act(async () => { click('第二次编辑'); });
+    await act(async () => { vi.advanceTimersByTime(1500); });
+    expect(saveSangDocument.mock.calls.at(-1)?.[1]).toBe('copy.sdc');
+  });
+
+  it('keeps auto-save failures visible without opening a dialog and preserves edits on save-as cancellation', async () => {
+    isTauriEnvironment.mockReturnValue(true);
+    await act(async () => { root.render(<App />); });
+    await act(async () => { click('新建'); });
+    await act(async () => { click('保存'); });
+    await act(async () => { click('第一次编辑'); });
+    saveSangDocument.mockRejectedValueOnce({ code: 'read_only' });
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await act(async () => { vi.advanceTimersByTime(1500); });
+      expect(confirm).not.toHaveBeenCalled();
+      expect(container.querySelector('[data-testid="save-error"]')?.textContent).toContain('只读');
+      saveSangDocument.mockResolvedValueOnce(undefined);
+      await act(async () => { click('另存为'); });
+      expect(container.querySelector('output')?.textContent).toBe('unsaved');
+      expect(container.querySelector('[data-testid="body"]')?.textContent).toBe('first');
+      expect(container.querySelector('[data-testid="save-error"]')?.textContent).toContain('只读');
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it('saves the latest edits after waiting for the failure dialog', async () => {
+    isTauriEnvironment.mockReturnValue(true);
+    await act(async () => { root.render(<App />); });
+    await act(async () => { click('新建'); });
+    await act(async () => { click('第一次编辑'); });
+    let finishConfirm!: (value: boolean) => void;
+    confirm.mockImplementationOnce(() => new Promise<boolean>((resolve) => { finishConfirm = resolve; }));
+    saveSangDocument.mockRejectedValueOnce('denied');
+    await act(async () => { click('保存'); });
+    await act(async () => { click('第二次编辑'); });
+    await act(async () => { finishConfirm(true); });
+    expect(saveSangDocument.mock.calls.at(-1)?.[0].markdown).toBe('second');
+    expect(saveSangDocument.mock.calls.at(-1)?.[1]).toBeUndefined();
   });
 });

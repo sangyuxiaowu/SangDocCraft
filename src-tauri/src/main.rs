@@ -52,7 +52,7 @@ async fn open_sdc_document_by_path(path: String) -> Result<Option<NativeDocument
 }
 
 #[tauri::command]
-async fn save_sdc_document(request: SaveDocumentRequest) -> Result<Option<String>, String> {
+async fn save_sdc_document(request: SaveDocumentRequest) -> Result<Option<String>, DocumentSaveError> {
     let path = if let Some(path) = request.path {
         std::path::PathBuf::from(path)
     } else {
@@ -63,8 +63,36 @@ async fn save_sdc_document(request: SaveDocumentRequest) -> Result<Option<String
             .await else { return Ok(None); };
         handle.path().to_path_buf()
     };
-    std::fs::write(&path, request.bytes).map_err(|error| error.to_string())?;
+    std::fs::write(&path, request.bytes).map_err(|error| document_save_error(&path, error))?;
     Ok(Some(path.to_string_lossy().into_owned()))
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DocumentSaveError {
+    code: &'static str,
+    message: String,
+    path: String,
+}
+
+fn document_save_error(path: &std::path::Path, error: std::io::Error) -> DocumentSaveError {
+    let read_only = std::fs::metadata(path)
+        .map(|metadata| metadata.is_file() && metadata.permissions().readonly())
+        .unwrap_or(false);
+    let code = if cfg!(windows) && matches!(error.raw_os_error(), Some(32) | Some(33)) {
+        "file_in_use"
+    } else if error.kind() == std::io::ErrorKind::PermissionDenied && read_only {
+        "read_only"
+    } else if error.kind() == std::io::ErrorKind::PermissionDenied {
+        "permission_denied"
+    } else {
+        "io_error"
+    };
+    DocumentSaveError {
+        code,
+        message: error.to_string(),
+        path: path.to_string_lossy().into_owned(),
+    }
 }
 
 #[tauri::command]
@@ -158,4 +186,32 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn classifies_read_only_save_failure_without_changing_permissions() {
+        let path = std::env::temp_dir().join(format!("sangdoccraft-readonly-{}.sdc", std::process::id()));
+        std::fs::write(&path, b"original").unwrap();
+        let permissions = std::fs::metadata(&path).unwrap().permissions();
+        let mut read_only = permissions.clone();
+        read_only.set_readonly(true);
+        std::fs::set_permissions(&path, read_only).unwrap();
+        let error = document_save_error(&path, std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+        assert_eq!(error.code, "read_only");
+        assert!(std::fs::metadata(&path).unwrap().permissions().readonly());
+        assert_eq!(std::fs::read(&path).unwrap(), b"original");
+        std::fs::set_permissions(&path, permissions).unwrap();
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn preserves_unknown_errors() {
+        let error = document_save_error(std::path::Path::new("missing.sdc"), std::io::Error::from(std::io::ErrorKind::NotFound));
+        assert_eq!(error.code, "io_error");
+        assert!(!error.message.is_empty());
+    }
 }

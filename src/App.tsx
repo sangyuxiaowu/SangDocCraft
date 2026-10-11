@@ -203,7 +203,7 @@ export default function App() {
     }
   };
 
-  const { saveStatus, lastSavedAt, handleSaveDocument, handleExportSdc } = useDocumentPersistence({
+  const { saveStatus, saveError, lastSavedAt, handleSaveDocument, handleSaveAs, handleExportSdc } = useDocumentPersistence({
     documentId, documentCreatedAt, documentPath, documentSettings, isDocumentDirty,
     history, markdown, meta, theme, assets, setDocumentPath, setHistory,
     setIsDocumentDirty, setRecentDocuments, refreshUnsavedDrafts,
@@ -655,6 +655,7 @@ export default function App() {
         effectiveUiMode={effectiveUiMode}
         isDocumentDirty={isDocumentDirty}
         saveStatus={saveStatus}
+        saveError={saveError}
         lastSavedAt={lastSavedAt}
         onOpenWelcome={() => {
           void refreshUnsavedDrafts();
@@ -664,6 +665,7 @@ export default function App() {
         onNewDocument={handleNewDocument}
         onOpenDocument={() => void handleOpenDocument()}
         onSaveDocument={() => void handleSaveDocument()}
+        onSaveAs={isTauriEnvironment() ? () => void handleSaveAs() : undefined}
         onOpenHistory={() => setShowHistory(true)}
         onOpenAbout={() => setShowAboutModal(true)}
         onToggleAiAssistant={() => setIsAiFloatOpen(prev => !prev)}

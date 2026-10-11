@@ -3,7 +3,7 @@ import type { DocumentAsset, DocumentHistoryEntry, DocumentMeta, DocumentSetting
 import { modal } from '../utils/modalDialog';
 import { listChatSessions } from '../utils/imageRepository';
 import { collectImageReferences } from '../utils/imageReferences';
-import { downloadSangDocument, saveSangDocument } from '../utils/documentFileOperations';
+import { downloadSangDocument, getDocumentSaveErrorMessage, saveSangDocument } from '../utils/documentFileOperations';
 import { appendUniqueHistory, createHistoryEntry } from '../utils/documentHistory';
 import { deleteDraft, saveDraft, markDraftSaved, CURRENT_DRAFT_FORMAT_VERSION } from '../utils/draftStore';
 import { addRecentDocument, type RecentDocumentItem } from '../utils/recentDocumentsStore';
@@ -33,7 +33,9 @@ export function useDocumentPersistence({
   setIsDocumentDirty, setRecentDocuments, refreshUnsavedDrafts,
 }: DocumentPersistenceOptions) {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const saveDocumentHandlerRef = useRef<(saveAs?: boolean) => Promise<void>>(async () => {});
   const currentSaveSnapshotRef = useRef({ documentId, markdown, meta, theme, documentSettings, history, assets });
   currentSaveSnapshotRef.current = { documentId, markdown, meta, theme, documentSettings, history, assets };
   const getSaveSnapshot = (savedHistory = history) => ({ documentId, markdown, meta, theme, documentSettings, history: savedHistory, assets });
@@ -52,6 +54,7 @@ export function useDocumentPersistence({
       && current.assets === snapshot.assets;
   };
   const finishSave = (snapshot: ReturnType<typeof getSaveSnapshot>) => {
+    if (currentSaveSnapshotRef.current.documentId === snapshot.documentId) setSaveError(null);
     if (!isCurrentSave(snapshot)) {
       if (activeSaveSnapshotRef.current === snapshot && currentSaveSnapshotRef.current.documentId === snapshot.documentId) {
         setSaveStatus('unsaved');
@@ -65,6 +68,7 @@ export function useDocumentPersistence({
 
   useEffect(() => {
     setSaveStatus('saved');
+    setSaveError(null);
     setLastSavedAt(null);
   }, [documentId]);
 
@@ -86,7 +90,7 @@ export function useDocumentPersistence({
     };
   };
 
-  const handleSaveDocument = async () => {
+  const handleSaveDocument = async (saveAs = false) => {
     setSaveStatus('saving');
     let snapshot = getSaveSnapshot();
     activeSaveSnapshotRef.current = snapshot;
@@ -121,7 +125,7 @@ export function useDocumentPersistence({
         if (isCurrentSave(snapshot)) await refreshUnsavedDrafts();
         return;
       }
-      const savedPath = await queueSaveWrite(async () => saveSangDocument(await buildCurrentDocument(nextHistory), documentPath));
+      const savedPath = await queueSaveWrite(async () => saveSangDocument(await buildCurrentDocument(nextHistory), saveAs ? undefined : documentPath));
       if (!savedPath) {
         if (isCurrentSave(snapshot)) setSaveStatus(isDocumentDirty ? 'unsaved' : 'saved');
         return;
@@ -136,18 +140,23 @@ export function useDocumentPersistence({
       });
       setRecentDocuments(updated);
     } catch (error) {
-      if (!isCurrentSave(snapshot)) {
-        finishSave(snapshot);
-        return;
-      }
+      if (currentSaveSnapshotRef.current.documentId !== snapshot.documentId) return;
       setSaveStatus('unsaved');
-      await modal.alert({
+      const message = getDocumentSaveErrorMessage(error);
+      setSaveError(message);
+      const shouldSaveAs = await modal.confirm({
         title: '保存文档失败',
-        message: error instanceof Error ? error.message : '保存文档失败',
-        type: 'error',
+        message: `${message}\n\n当前修改尚未保存，仍保留在应用中。${documentPath ? `\n文件：${documentPath}` : ''}`,
+        confirmText: '另存为',
+        cancelText: '稍后处理',
+        variant: 'warning',
       });
+      if (shouldSaveAs && currentSaveSnapshotRef.current.documentId === snapshot.documentId) {
+        await saveDocumentHandlerRef.current(true);
+      }
     }
   };
+  saveDocumentHandlerRef.current = handleSaveDocument;
 
   const handleExportSdc = async () => {
     const snapshot = getSaveSnapshot();
@@ -182,8 +191,10 @@ export function useDocumentPersistence({
             if (isCurrentSave(snapshot)) void queueSaveWrite(() => deleteDraft(documentId));
           }
         }).catch((error) => {
-          if (isCurrentSave(snapshot)) setSaveStatus('unsaved');
-          else finishSave(snapshot);
+          if (currentSaveSnapshotRef.current.documentId === snapshot.documentId) {
+            setSaveError(getDocumentSaveErrorMessage(error));
+            setSaveStatus('unsaved');
+          }
           console.error('Auto-save failed:', error);
         });
       } else {
@@ -203,8 +214,10 @@ export function useDocumentPersistence({
           finishSave(snapshot);
           if (isCurrentSave(snapshot)) void refreshUnsavedDrafts();
         }).catch((error) => {
-          if (isCurrentSave(snapshot)) setSaveStatus('unsaved');
-          else finishSave(snapshot);
+          if (currentSaveSnapshotRef.current.documentId === snapshot.documentId) {
+            setSaveError(getDocumentSaveErrorMessage(error));
+            setSaveStatus('unsaved');
+          }
           console.error('Auto-save failed:', error);
         });
       }
@@ -221,7 +234,13 @@ export function useDocumentPersistence({
         const nextHistory = appendUniqueHistory(history, entry);
         setHistory(nextHistory);
         if (isTauriEnvironment() && documentPath && nextHistory !== history) {
-          void queueSaveWrite(async () => saveSangDocument(await buildCurrentDocument(nextHistory), documentPath));
+          void queueSaveWrite(async () => saveSangDocument(await buildCurrentDocument(nextHistory), documentPath)).catch((error) => {
+            if (currentSaveSnapshotRef.current.documentId === snapshot.documentId) {
+              setSaveError(getDocumentSaveErrorMessage(error));
+              setSaveStatus('unsaved');
+            }
+            console.error('History save failed:', error);
+          });
         } else if (nextHistory !== history) {
           void queueSaveWrite(() => saveDraft({
             formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
@@ -251,5 +270,5 @@ export function useDocumentPersistence({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [documentId, documentPath, documentCreatedAt, documentSettings, markdown, meta, theme, history, assets]);
 
-  return { saveStatus, lastSavedAt, handleSaveDocument, handleExportSdc };
+  return { saveStatus, saveError, lastSavedAt, handleSaveDocument, handleSaveAs: () => handleSaveDocument(true), handleExportSdc };
 }

@@ -16,7 +16,7 @@ vi.mock('./documentPackage', async (importOriginal) => ({
   packSangDocument,
 }));
 
-import { downloadSangDocument, saveSangDocument } from './documentFileOperations';
+import { downloadSangDocument, getDocumentSaveErrorMessage, saveSangDocument } from './documentFileOperations';
 import { getRegisteredThemes } from '../themes/themeRegistry';
 import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
 
@@ -37,6 +37,19 @@ function createDocument(): SangDocument {
 }
 
 describe('document file operations', () => {
+  it('preserves native string errors and unknown error details', () => {
+    expect(getDocumentSaveErrorMessage('拒绝访问。 (os error 5)')).toBe('拒绝访问。 (os error 5)');
+    expect(getDocumentSaveErrorMessage(new Error('disk full'))).toBe('disk full');
+    expect(getDocumentSaveErrorMessage({ code: 'io_error', message: 'disk full' })).toBe('disk full');
+    expect(getDocumentSaveErrorMessage(null)).toContain('另存为');
+  });
+
+  it('distinguishes read-only files, permission errors and file locks', () => {
+    expect(getDocumentSaveErrorMessage({ code: 'read_only', message: 'denied' })).toContain('文件为只读');
+    expect(getDocumentSaveErrorMessage({ code: 'permission_denied', message: 'denied' })).toContain('没有写入权限');
+    expect(getDocumentSaveErrorMessage({ code: 'file_in_use', message: 'denied' })).toContain('其他程序占用');
+  });
+
   beforeEach(() => {
     invoke.mockReset();
     isTauriEnvironment.mockReset();
