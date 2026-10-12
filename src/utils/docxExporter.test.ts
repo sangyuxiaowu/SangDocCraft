@@ -440,16 +440,34 @@ it('exports exact metadata references and Word chapter fields', async () => {
     });
     const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
     const xml = strFromU8(files['word/document.xml']);
-    const headers = Object.entries(files).filter(([name]) => /^word\/header\d+\.xml$/.test(name))
-      .map(([, bytes]) => strFromU8(bytes)).join('');
-    const footers = Object.entries(files).filter(([name]) => /^word\/footer\d+\.xml$/.test(name))
-      .map(([, bytes]) => strFromU8(bytes)).join('');
+    const styles = strFromU8(files['word/styles.xml']);
+    const headerParts = Object.entries(files).filter(([name]) => /^word\/header\d+\.xml$/.test(name))
+      .map(([, bytes]) => strFromU8(bytes));
+    const footerParts = Object.entries(files).filter(([name]) => /^word\/footer\d+\.xml$/.test(name))
+      .map(([, bytes]) => strFromU8(bytes));
+    const headers = headerParts.join('');
+    const footers = footerParts.join('');
     expect(xml).toContain('动态标题');
+    expect(xml).toContain('<w:pStyle w:val="Heading1"/>');
+    expect(xml).toContain('<w:pStyle w:val="Heading2"/>');
+    expect(styles).toContain('w:styleId="Heading1"');
+    expect(styles).toContain('w:styleId="Heading2"');
     expect(headers).toContain('STYLEREF');
-    expect(headers).toContain('Heading 1');
+    expect(headers).toContain('STYLEREF 1');
+    expect(headers).toContain('MERGEFORMAT');
+    expect(headers).toContain('<w:sz w:val="18"/>');
+    expect(headers).toMatch(/<w:color[^>]*w:val="94a3b8"/i);
+    expect(headers).toContain('第一章');
+    const styleRefFields = headers.match(/<w:fldSimple\b[\s\S]*?<\/w:fldSimple>/g) || [];
+    expect(styleRefFields.length).toBeGreaterThan(0);
+    expect(styleRefFields.every((field) => !/<w:t[^>]*\/>/.test(field))).toBe(true);
+    expect(headerParts.some((part) => part.includes('动态标题') && !part.includes('STYLEREF'))).toBe(true);
     expect(headers).toContain('文字@title');
     expect(headers).toContain('动态标题');
-    expect(footers).toContain('Heading 2');
+    expect(footers).toContain('STYLEREF 2');
+    expect(footers).toContain('MERGEFORMAT');
+    expect(footers).toContain('第二节');
+    expect(footerParts.some((part) => part.includes('目 录') && !part.includes('STYLEREF'))).toBe(true);
     expect(footers).not.toContain('>@h2<');
   } finally {
     vi.unstubAllGlobals();
@@ -531,8 +549,8 @@ it('falls back to the first-level Word field when no second-level heading exists
     const headers = Object.entries(files).filter(([name]) => /^word\/header\d+\.xml$/.test(name))
       .map(([, bytes]) => strFromU8(bytes)).join('');
     expect(headers).toContain('STYLEREF');
-    expect(headers).toContain('Heading 1');
-    expect(headers).not.toContain('Heading 2');
+    expect(headers).toContain('STYLEREF 1');
+    expect(headers).not.toContain('STYLEREF 2');
   } finally {
     vi.unstubAllGlobals();
   }

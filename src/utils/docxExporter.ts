@@ -15,6 +15,7 @@ import {
   WidthType,
   ShadingType,
   PageBreak,
+  SectionType,
   SimpleField,
   TableOfContents,
   ImageRun,
@@ -43,10 +44,20 @@ function cleanHex(hex: string): string {
   return hex.replace('#', '').trim();
 }
 
-function dynamicWordRuns(text: string, meta: DocumentMeta, font: { ascii: string; hAnsi: string; eastAsia: string }, headings: Set<number>, color = '64748B'): (TextRun | SimpleField)[] {
+class StyledStyleRefField extends SimpleField {
+  constructor(level: number, cachedText: string, font: { ascii: string; hAnsi: string; eastAsia: string }, color: string) {
+    super(`STYLEREF ${level} \\* MERGEFORMAT`);
+    this.root.push(new TextRun({ text: cachedText, size: 18, color, font }));
+  }
+}
+
+function dynamicWordRuns(text: string, meta: DocumentMeta, font: { ascii: string; hAnsi: string; eastAsia: string }, headings: Set<number>, headingTexts: Map<number, string>, color = '64748B', headingFallback?: { h1: string; h2: string }): (TextRun | SimpleField)[] {
   if (text === '@h1' || text === '@h2') {
+    if (headingFallback) {
+      return [new TextRun({ text: resolveDynamicText(text, meta, headingFallback), size: 18, color, font })];
+    }
     const level = text === '@h1' ? 1 : headings.has(2) ? 2 : 1;
-    return headings.has(level) ? [new SimpleField(`STYLEREF "Heading ${level}"`)] : [];
+    return headings.has(level) ? [new StyledStyleRefField(level, headingTexts.get(level) || ' ', font, color)] : [];
   }
   return [new TextRun({ text: resolveDynamicText(text, meta), size: 18, color, font })];
 }
@@ -106,8 +117,12 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
   const hasToc = toc.show && !hasInlineCover;
   const bodyText = markdownText;
   const headings = new Set<number>();
+  const headingTexts = new Map<number, string>();
   for (const token of marked.lexer(bodyText)) {
-    if (token.type === 'heading') headings.add(token.depth);
+    if (token.type === 'heading') {
+      headings.add(token.depth);
+      if (!headingTexts.has(token.depth)) headingTexts.set(token.depth, token.text);
+    }
   }
 
   const primaryHex = cleanHex(style.primaryColor);
@@ -398,6 +413,8 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
   }
 
   // 2. Table of Contents Page
+  const tocStartIndex = sectionsChildren.length;
+  let tocEndIndex = -1;
   if (hasToc) {
     const titleStyle = toc.titleStyle ?? 'underline';
     const titleFont = getTocTitleFont(toc);
@@ -432,6 +449,7 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
       })
     );
 
+    tocEndIndex = sectionsChildren.length;
     if (toc.pageBreakAfter) {
       sectionsChildren.push(
         new Paragraph({
@@ -850,8 +868,8 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
   }
 
   // 4. Headers and Footers Construction
-  const headerChildren: (Paragraph | Table)[] = [];
-  if (header.show) {
+  const buildHeaderChildren = async (headingFallback?: { h1: string; h2: string }): Promise<(Paragraph | Table)[]> => {
+    if (!header.show) return [];
     const headerTextLeft = header.leftText || '';
     const headerTextCenter = header.centerText || '';
     const headerTextRight = header.rightText ?? meta.title ?? '';
@@ -859,7 +877,7 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
     const headerLogoRun = header.logoUrl
       ? await createImageRun(header.logoUrl, '页眉标志', 100, header.logoHeight || 20)
       : null;
-    headerChildren.push(
+    return [
       new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
         borders: header.lineStyle !== 'none' ? {
@@ -882,16 +900,18 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
           borders: noTableBorders,
           children: [new Paragraph({ alignment: cell.alignment, children: [
             ...(cell.logoRun ? [cell.logoRun] : []),
-            ...dynamicWordRuns(cell.text, meta, docxFont, headings, textMutedHex),
+            ...dynamicWordRuns(cell.text, meta, docxFont, headings, headingTexts, textMutedHex, headingFallback),
           ] })],
         })),
         })],
-      })
-    );
-  }
+      })];
+  };
+  const headerChildren = await buildHeaderChildren();
+  const tocHeadingFallback = { h1: meta.title || '', h2: toc.title || '目 录' };
+  const tocHeaderChildren = await buildHeaderChildren(tocHeadingFallback);
 
-  const footerChildren: (Paragraph | Table)[] = [];
-  if (footer.show) {
+  const buildFooterChildren = (headingFallback?: { h1: string; h2: string }): (Paragraph | Table)[] => {
+    if (!footer.show) return [];
     const leftFooter = footer.leftText ?? meta.organization ?? '';
     const pageNumberRuns = (): TextRun[] => {
       const run = (text?: string, children?: (typeof PageNumber)[keyof typeof PageNumber][]) => new TextRun({ text, children, size: 18, color: textMutedHex, font: docxFont });
@@ -906,7 +926,7 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
       { text: footer.centerText || '', alignment: AlignmentType.CENTER, includePage: footer.pageNumberPosition === 'center' },
       { text: footer.rightText || '', alignment: AlignmentType.RIGHT, includePage: footer.pageNumberPosition === 'right' },
     ];
-    footerChildren.push(
+    return [
       new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
         borders: {
@@ -920,13 +940,14 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
         rows: [new TableRow({ children: footerCells.map((cell) => new TableCell({
           borders: noTableBorders,
           children: [new Paragraph({ alignment: cell.alignment, children: [
-            ...dynamicWordRuns(cell.text, meta, docxFont, headings, textMutedHex),
+            ...dynamicWordRuns(cell.text, meta, docxFont, headings, headingTexts, textMutedHex, headingFallback),
             ...(cell.includePage ? pageNumberRuns() : []),
           ] })],
         })) })],
-      })
-    );
-  }
+      })];
+  };
+  const footerChildren = buildFooterChildren();
+  const tocFooterChildren = buildFooterChildren(tocHeadingFallback);
 
   const tocStyles = getTocLevelStyles(toc).map((level, index) => ({
     id: `TOC${index + 1}`,
@@ -947,38 +968,69 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
     },
   }));
 
+  const pageProperties = {
+    page: {
+      margin: {
+        top: millimetersToTwips(pageMargins.top),
+        bottom: millimetersToTwips(pageMargins.bottom),
+        left: millimetersToTwips(pageMargins.left),
+        right: millimetersToTwips(pageMargins.right),
+      },
+    },
+  };
+  const splitTocSection = hasToc && toc.pageBreakAfter && tocEndIndex >= tocStartIndex;
+  const documentSections = splitTocSection
+    ? [
+      {
+        properties: {
+          ...pageProperties,
+          type: SectionType.NEXT_PAGE,
+          titlePage: cover.showCover && (header.hideOnCover || footer.hideOnCover),
+        },
+        headers: {
+          first: new Header({ children: header.hideOnCover ? [] : tocHeaderChildren }),
+          default: new Header({ children: tocHeaderChildren }),
+        },
+        footers: {
+          first: new Footer({ children: footer.hideOnCover ? [] : tocFooterChildren }),
+          default: new Footer({ children: tocFooterChildren }),
+        },
+        children: sectionsChildren.slice(0, tocEndIndex),
+      },
+      {
+        properties: pageProperties,
+        headers: {
+          first: new Header({ children: headerChildren }),
+          default: new Header({ children: headerChildren }),
+        },
+        footers: {
+          first: new Footer({ children: footerChildren }),
+          default: new Footer({ children: footerChildren }),
+        },
+        children: sectionsChildren.slice(tocEndIndex + 1),
+      },
+    ]
+    : [{
+      properties: {
+        ...pageProperties,
+        titlePage: cover.showCover && (header.hideOnCover || footer.hideOnCover),
+      },
+      headers: {
+        first: new Header({ children: header.hideOnCover ? [] : headerChildren }),
+        default: new Header({ children: headerChildren }),
+      },
+      footers: {
+        first: new Footer({ children: footer.hideOnCover ? [] : footerChildren }),
+        default: new Footer({ children: footerChildren }),
+      },
+      children: sectionsChildren,
+    }];
+
   // Create docx Document
   const doc = new Document({
     features: { updateFields: true },
     styles: { paragraphStyles: tocStyles },
-    sections: [
-      {
-        properties: {
-                    titlePage: cover.showCover && (header.hideOnCover || footer.hideOnCover),
-          page: {
-            margin: {
-                        top: millimetersToTwips(pageMargins.top),
-                        bottom: millimetersToTwips(pageMargins.bottom),
-                        left: millimetersToTwips(pageMargins.left),
-                        right: millimetersToTwips(pageMargins.right),
-            },
-          },
-        },
-        headers: {
-          first: new Header({ children: header.hideOnCover ? [] : headerChildren }),
-          default: new Header({
-            children: headerChildren,
-          }),
-        },
-        footers: {
-          first: new Footer({ children: footer.hideOnCover ? [] : footerChildren }),
-          default: new Footer({
-            children: footerChildren,
-          }),
-        },
-        children: sectionsChildren,
-      },
-    ],
+    sections: documentSections,
   });
 
   return Packer.toBlob(doc);
