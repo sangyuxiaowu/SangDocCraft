@@ -2,7 +2,7 @@
 name: sdc-authoring
 description: '制作带封面、目录、页眉页码、图表题注、A4 分页的印刷级正式文档，并导出为 Word DOCX、可打印的 HTML，或 SangDocCraft 的 .sdc。当用户需要把 Markdown 或素材整理成能打印、能交给甲方/客户/评审的正式版本时使用：标书与投标文件、可行性研究报告、立项/结项/验收报告、白皮书、产品手册、图书专著、论文、年报财报、合同协议、汇报材料、正式简历、会议纪要。典型说法：「做成 Word」「导出 DOCX」「排版成能打印的版本」「做成 PDF」「加封面和目录」「给甲方一版正式的」「导出 .sdc」「用 SangDocCraft 编辑」。若只需要一份 Markdown 草稿或做简单文本改写，不要用这个技能。Also use it to convert between Markdown, HTML, DOCX and SangDocCraft .sdc.'
 homepage: https://github.com/sangyuxiaowu/SangDocCraft/
-version: 1.2.0
+version: 1.2.1
 author: sangyuxiaowu
 metadata:
   openclaw:
