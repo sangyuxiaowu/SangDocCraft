@@ -21,6 +21,7 @@
     "@antv/infographic": "0.2.20",
     "@iconify-json/mdi": "1.2.3",
     "chromium-bidi": "^0.7.1",
+    "css-tree": "^3.2.1",
     "docx": "^9.7.1",
     "dompurify": "^3.4.15",
     "fflate": "^0.8.3",
