@@ -89,14 +89,14 @@ jobs:
         run: |
           npm install
           npm run build
-          mkdir sdc-SKILL
-          cp -R dist/. sdc-SKILL/
-          zip -qr sdc-SKILL.zip sdc-SKILL
+          mkdir sdc-authoring
+          cp -R dist/. sdc-authoring/
+          zip -qr sdc-authoring.zip sdc-authoring
 
       - name: Attach CLI package to release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: cli/sdc-SKILL.zip
+          files: cli/sdc-authoring.zip
           overwrite_files: true
           fail_on_unmatched_files: true

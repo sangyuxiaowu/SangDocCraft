@@ -40,6 +40,11 @@ SangDocCraft 提供了 SKILL 工具，帮助你接入 AI 辅助写作和文档�
 
 另外，在 Release 页面也可以找到 SKILL 的最新版本。
 
+```text
+下载这个SKILL压缩包并安装 https://github.com/sangyuxiaowu/SangDocCraft/releases/latest/download/sdc-authoring.zip
+```
+
+
 ## 功能特性
 
 - **实时 A4 预览**：提供双栏预览、专注编辑和 A4 全屏三种视图，支持拖动调整编辑区宽度、文档大纲和页码导航；双栏模式下双击 Markdown 内容可定位到对应预览位置。
