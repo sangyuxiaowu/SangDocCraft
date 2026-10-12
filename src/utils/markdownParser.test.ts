@@ -396,18 +396,23 @@ describe('Markdown pagination and numbering', () => {
     expect(continuation).not.toHaveBeenCalled();
   });
 
-  it('measures a table caption together with its table', () => {
+  it.each(['\n', '\n\n', '\n\n\n\n'])('measures and preserves a table caption separated by %j', (separator) => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       return this.querySelectorAll('p').length * 200
         + this.querySelectorAll('table').length * 380
         + this.querySelectorAll('.doc-table-caption').length * 400;
     });
-    const source = 'Intro\n\n<!-- caption: Delivery formats -->\n| Format | Purpose |\n| --- | --- |\n| HTML | Archive |\n\nFollowing';
+    const source = `Intro\n\n<!-- caption: Delivery formats -->${separator}| Format | Purpose |\n| --- | --- |\n| HTML | Archive |\n\nFollowing`;
     try {
       const pages = paginateContentByDom(source, { style: theme.style });
       expect(pages).toHaveLength(3);
       expect(pages[1]).toContain('<!-- caption: Delivery formats -->');
       expect(pages[1]).toContain('| HTML | Archive |');
+      const container = document.createElement('div');
+      container.innerHTML = postProcessRenderedHtml(marked.parse(pages[1]) as string, theme.style);
+      expect(container.querySelectorAll('table')).toHaveLength(1);
+      expect(container.querySelectorAll('.doc-table-caption')).toHaveLength(1);
+      expect(container.innerHTML).not.toContain('<!-- caption:');
       expect(pages[2]).toBe('Following');
     } finally {
       height.mockRestore();
@@ -582,12 +587,12 @@ describe('Markdown pagination and numbering', () => {
     }
   });
 
-  it('reserves caption height when splitting a long table', () => {
+  it.each(['\n', '\n\n', '\n\n\n\n'])('reserves caption height when splitting a long table separated by %j', (separator) => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       return this.querySelectorAll('tr').length * 200 + this.querySelectorAll('.doc-table-caption').length * 150;
     });
     try {
-      const source = '<!-- caption: Audit -->\n| ID | Value |\n| --- | --- |\n'
+      const source = `<!-- caption: Audit -->${separator}| ID | Value |\n| --- | --- |\n`
         + Array.from({ length: 8 }, (_, index) => `| ${index + 1} | Entry |`).join('\n');
       const pages = paginateContentByDom(source, { style: theme.style });
       expect(pages.length).toBeGreaterThan(1);
@@ -604,7 +609,7 @@ describe('Markdown pagination and numbering', () => {
     }
   });
 
-  it('keeps a bottom table caption on the final table page', () => {
+  it.each(['\n', '\n\n', '\n\n\n\n'])('keeps a bottom table caption separated by %j on the final table page', (separator) => {
     const style = {
       ...theme.style,
       tableCaptionConfig: { ...theme.style.tableCaptionConfig!, captionPosition: 'bottom' as const },
@@ -613,7 +618,7 @@ describe('Markdown pagination and numbering', () => {
       return this.querySelectorAll('tr').length * 200 + this.querySelectorAll('.doc-table-caption').length * 150;
     });
     try {
-      const source = '<!-- caption: Audit -->\n| ID | Value |\n| --- | --- |\n'
+      const source = `<!-- caption: Audit -->${separator}| ID | Value |\n| --- | --- |\n`
         + Array.from({ length: 8 }, (_, index) => `| ${index + 1} | Entry |`).join('\n');
       const pages = paginateContentByDom(source, { style });
       expect(pages.length).toBeGreaterThan(1);

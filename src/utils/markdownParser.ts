@@ -725,8 +725,9 @@ export function paginateContentByDom(
         const nextIndex = tokens[index + 1]?.type === 'space' ? index + 2 : index + 1;
         if (token.type === 'html' && /^<!--\s*(?:table-)?caption:[\s\S]*?-->$/i.test(token.raw.trim()) && tokens[nextIndex]?.type === 'table') {
           const table = tokens[nextIndex];
+          const captionRaw = `${token.raw.trimEnd()}\n`;
           index = nextIndex;
-          processToken({ ...table, raw: `${token.raw}${table.raw}`, tableRaw: table.raw, captionRaw: token.raw });
+          processToken({ ...table, raw: `${captionRaw}${table.raw}`, tableRaw: table.raw, captionRaw });
         } else if (token.type === 'html' && /^<!--\s*caption:[\s\S]*?-->$/i.test(token.raw.trim())
           && tokens[nextIndex]?.type === 'code' && (isMermaidLang(tokens[nextIndex].lang) || isInfographicLang(tokens[nextIndex].lang))) {
           const diagram = tokens[nextIndex];

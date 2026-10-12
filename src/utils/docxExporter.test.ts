@@ -36,6 +36,57 @@ vi.mock('./tauriHelper', async (importOriginal) => ({
 
 afterEach(() => vi.restoreAllMocks());
 
+it.each([
+  { captionPosition: 'top' as const, showCaption: true, autoNumber: true, numberPrefix: '表 ', expected: '表 1: Delivery' },
+  { captionPosition: 'bottom' as const, showCaption: true, autoNumber: true, numberPrefix: '表 ', expected: '表 1: Delivery' },
+  { captionPosition: 'top' as const, showCaption: false, autoNumber: true, numberPrefix: '表 ', expected: '' },
+  { captionPosition: 'top' as const, showCaption: true, autoNumber: false, numberPrefix: '表 ', expected: 'Delivery' },
+  { captionPosition: 'top' as const, showCaption: true, autoNumber: true, numberPrefix: '', expected: '1: Delivery' },
+])('exports table captions with settings %j', async (config) => {
+  let exportedBlob: Blob | undefined;
+  vi.stubGlobal('URL', {
+    createObjectURL: (blob: Blob) => { exportedBlob = blob; return 'blob:document'; },
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const base = PRESET_THEMES[0];
+  const table = '| Format | Purpose |\n| --- | --- |\n| HTML | Archive |';
+  try {
+    await exportToDocx(`<!-- caption: Table 9: Delivery -->\n\n${table}\n\n<!-- table-caption: Next -->\n\n\n${table}\n\n![Figure](a.png)`, DEFAULT_DOCUMENT_META, {
+      ...base,
+      cover: { ...base.cover, showCover: false },
+      toc: { ...base.toc, show: false },
+      style: {
+        ...base.style,
+        tableCaptionConfig: { ...base.style.tableCaptionConfig!, ...config, captionAlign: 'right' },
+        imageConfig: { ...base.style.imageConfig!, showCaption: true, autoNumber: true, numberPrefix: '图 ' },
+      },
+    });
+    const files = unzipSync(new Uint8Array(await exportedBlob!.arrayBuffer()));
+    const xml = strFromU8(files['word/document.xml']);
+    const documentXml = new DOMParser().parseFromString(xml, 'application/xml');
+    const body = documentXml.getElementsByTagName('w:body')[0];
+    const children = Array.from(body.children);
+    expect(body.getElementsByTagName('w:tbl')).toHaveLength(2);
+    expect(xml).not.toContain('caption:');
+    expect(xml).toContain('图 1: Figure');
+    if (config.showCaption) {
+      const captionIndex = children.findIndex((child) => child.textContent === config.expected);
+      const tableIndex = children.findIndex((child) => child.tagName === 'w:tbl');
+      expect(captionIndex).toBeGreaterThanOrEqual(0);
+      expect(captionIndex).toBe(tableIndex + (config.captionPosition === 'top' ? -1 : 1));
+      expect(children[captionIndex].getElementsByTagName('w:jc')[0]?.getAttribute('w:val')).toBe('right');
+      expect(xml).toContain(config.autoNumber ? `${config.numberPrefix}2: Next` : 'Next');
+      expect(xml).not.toContain('Table 9:');
+    } else {
+      expect(xml).not.toContain('Delivery');
+      expect(xml).not.toContain('Next');
+    }
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 it('writes custom page margins to Word section settings', async () => {
   let exportedBlob: Blob | undefined;
   vi.stubGlobal('URL', {

@@ -322,6 +322,26 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
       return paragraph ? [paragraph] : [];
     });
   };
+  let tableCaptionCount = 0;
+  const createTableCaption = (caption: string): Paragraph | null => {
+    const config = style.tableCaptionConfig;
+    if (config?.showCaption === false || !caption) return null;
+    const cleanCaption = caption.replace(/^(?:图|表|Figure|Table)\s*\d*[:：]?\s*/i, '').trim();
+    const captionText = config?.autoNumber === false
+      ? cleanCaption
+      : `${config?.numberPrefix ?? '表 '}${++tableCaptionCount}: ${cleanCaption}`;
+    const alignment = config?.captionAlign === 'left'
+      ? AlignmentType.LEFT
+      : config?.captionAlign === 'right'
+      ? AlignmentType.RIGHT
+      : AlignmentType.CENTER;
+    return new Paragraph({
+      alignment,
+      keepNext: config?.captionPosition !== 'bottom',
+      spacing: { before: 60, after: 160 },
+      children: [new TextRun({ text: captionText, size: 18, color: '64748B', font: docxFont })],
+    });
+  };
 
   // Section children array
   const sectionsChildren: (Paragraph | Table | TableOfContents)[] = [];
@@ -443,14 +463,19 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
   ]);
   const headingCounters = [0, 0, 0, 0];
   const mermaidCaptions = new Map<number, string>();
+  const tableCaptions = new Map<number, string>();
 
   for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
     const token = tokens[tokenIndex];
-    const captionMatch = token.type === 'html' ? token.raw.trim().match(/^<!--\s*caption:\s*([\s\S]*?)\s*-->$/i) : null;
+    const captionMatch = token.type === 'html' ? token.raw.trim().match(/^<!--\s*(table-)?caption:\s*([\s\S]*?)\s*-->$/i) : null;
     if (captionMatch) {
       const nextIndex = tokens[tokenIndex + 1]?.type === 'space' ? tokenIndex + 2 : tokenIndex + 1;
-      if (tokens[nextIndex]?.type === 'code' && (isMermaidLang(tokens[nextIndex].lang) || isInfographicLang(tokens[nextIndex].lang))) {
-        mermaidCaptions.set(nextIndex, captionMatch[1].trim());
+      if (tokens[nextIndex]?.type === 'table') {
+        tableCaptions.set(nextIndex, captionMatch[2].trim());
+        continue;
+      }
+      if (!captionMatch[1] && tokens[nextIndex]?.type === 'code' && (isMermaidLang(tokens[nextIndex].lang) || isInfographicLang(tokens[nextIndex].lang))) {
+        mermaidCaptions.set(nextIndex, captionMatch[2].trim());
         continue;
       }
     }
@@ -718,6 +743,9 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
       }
 
       case 'table': {
+        const captionParagraph = createTableCaption(tableCaptions.get(tokenIndex) || '');
+        const captionOnBottom = style.tableCaptionConfig?.captionPosition === 'bottom';
+        if (captionParagraph && !captionOnBottom) sectionsChildren.push(captionParagraph);
         const minimalTable = style.tableStyle === 'minimal';
         const borderedTable = style.tableStyle === 'bordered';
         const minimalHeaderBorders = {
@@ -794,6 +822,7 @@ export async function createDocxBlob(markdownText: string, meta: DocumentMeta, t
             rows: tableRows,
           })
         );
+        if (captionParagraph && captionOnBottom) sectionsChildren.push(captionParagraph);
         // Add spacing after table
         sectionsChildren.push(new Paragraph({ spacing: { after: 200 } }));
         break;
