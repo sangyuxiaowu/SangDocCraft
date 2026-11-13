@@ -89,14 +89,14 @@ SangDocCraft 提供了 SKILL 工具，帮助你接入 AI 辅助写作和文档�
 ### 环境要求
 
 - Node.js 18 或更高版本
-- npm 或兼容的包管理器
+- bun 或兼容的包管理器
 - 构建桌面应用时，需额外安装 [Rust](https://www.rust-lang.org/tools/install) 和对应平台的 [Tauri 系统依赖](https://v2.tauri.app/start/prerequisites/)
 
 ### Web 开发
 
 ```bash
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 开发服务器默认运行在 <http://localhost:3000>。
@@ -104,15 +104,15 @@ npm run dev
 构建并预览生产版本：
 
 ```bash
-npm run build
-npm run preview
+bun run build
+bun run preview
 ```
 
 ### PWA 更新与部署
 
 生产 Web 版本在启动、恢复联网、回到前台以及前台每小时检查一次更新。新版本下载完成后会提示确认；请先保存文档，再确认刷新。首次安装不会刷新页面，离线时继续使用已有缓存。开发服务器和 Tauri 版本不注册 Service Worker。
 
-- 每次更新静态资源后执行 `npm run build`，完整发布 `dist`，包括 `sw.js`、Workbox 文件、入口页面和 `assets`；不要只替换某个缓存中的同名文件。Service Worker 的预缓存版本由构建时的资源内容决定，不需要手动修改应用版本号。
+- 每次更新静态资源后执行 `bun run build`，完整发布 `dist`，包括 `sw.js`、Workbox 文件、入口页面和 `assets`；不要只替换某个缓存中的同名文件。Service Worker 的预缓存版本由构建时的资源内容决定，不需要手动修改应用版本号。
 - 可配置响应头时，入口 HTML、`sw.js` 和 `manifest.webmanifest` 建议使用 `Cache-Control: no-cache`；带内容哈希的 `assets` 可使用 `Cache-Control: public, max-age=31536000, immutable`。部署后同步刷新 CDN 中的入口页面和 Service Worker，不要让它们长期返回旧版本。
 - 尽量原子发布，并短期保留上一版本的哈希资源，避免仍打开旧页面的用户加载动态模块时遇到 404。
 - 从旧版 PWA 首次迁移时，若仍没有更新提示，先保存文档，关闭该站点的全部标签页和已安装 PWA 窗口，再联网打开。必要时只注销该站点的 Service Worker 并清理 Cache Storage；不要清除 IndexedDB 或整个站点数据，以免丢失本地文档。
@@ -120,14 +120,14 @@ npm run preview
 ### 桌面端开发
 
 ```bash
-npm install
-npm run dev:tauri
+bun install
+bun run dev:tauri
 ```
 
 构建桌面安装包：
 
 ```bash
-npm run build:tauri
+bun run build:tauri
 ```
 
 构建产物位于 `src-tauri/target/release/bundle/`。`prebuild:tauri` 会在构建前同步版本号，并使用 `docs/assets/logo.png` 重新生成桌面图标。
@@ -292,17 +292,17 @@ $$
 
 | 命令 | 说明 |
 | --- | --- |
-| `npm run dev` | 启动 Vite 开发服务器 |
-| `npm run build` | 构建 Web 生产版本 |
-| `npm run preview` | 本地预览 Web 构建产物 |
-| `npm run lint` | 执行 TypeScript 类型检查 |
-| `npm test` | 运行 Vitest 测试 |
-| `npm run clean` | 清理 Web 构建产物 |
-| `npm run dev:tauri` | 启动 Tauri 桌面开发模式 |
-| `npm run build:tauri` | 构建桌面安装包 |
-| `npm run prebuild:tauri` | 同步版本并生成桌面图标 |
-| `npm run tauri` | 直接调用 Tauri CLI，例如 `npm run tauri info` |
-| `npm run release` | 在 `main` 分支提交版本、创建标签并推送远程仓库 |
+| `bun run dev` | 启动 Vite 开发服务器 |
+| `bun run build` | 构建 Web 生产版本 |
+| `bun run preview` | 本地预览 Web 构建产物 |
+| `bun run lint` | 执行 TypeScript 类型检查 |
+| `bun test` | 运行 Vitest 测试 |
+| `bun run clean` | 清理 Web 构建产物 |
+| `bun run dev:tauri` | 启动 Tauri 桌面开发模式 |
+| `bun run build:tauri` | 构建桌面安装包 |
+| `bun run prebuild:tauri` | 同步版本并生成桌面图标 |
+| `bun run tauri` | 直接调用 Tauri CLI，例如 `bun run tauri info` |
+| `bun run release` | 在 `main` 分支提交版本、创建标签并推送远程仓库 |
 
 > [!WARNING]
 > `release` 会执行 Git 提交及推送操作，仅应在确认版本号和工作区状态后使用。
@@ -330,9 +330,9 @@ SangDocCraft/
 提交代码前建议运行：
 
 ```bash
-npm run lint
-npm test
-npm run build
+bun run lint
+bun test
+bun run build
 ```
 
 ## 赞赏支持
