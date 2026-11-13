@@ -3,7 +3,8 @@ import type { DocumentAsset, DocumentHistoryEntry, DocumentMeta, DocumentSetting
 import { modal } from '../utils/modalDialog';
 import { listChatSessions } from '../utils/imageRepository';
 import { collectImageReferences } from '../utils/imageReferences';
-import { downloadSangDocument, getDocumentSaveErrorMessage, saveSangDocument } from '../utils/documentFileOperations';
+import { downloadSangDocument, ensureFilePermission, getDocumentSaveErrorMessage, pickBrowserSaveFile, saveSangDocument, writeBrowserDocument } from '../utils/documentFileOperations';
+import { rememberBrowserFile, type BrowserDocumentFile } from '../utils/browserDocumentStore';
 import { appendUniqueHistory, createHistoryEntry } from '../utils/documentHistory';
 import { deleteDraft, saveDraft, markDraftSaved, CURRENT_DRAFT_FORMAT_VERSION } from '../utils/draftStore';
 import { addRecentDocument, type RecentDocumentItem } from '../utils/recentDocumentsStore';
@@ -13,6 +14,7 @@ interface DocumentPersistenceOptions {
   documentId: string;
   documentCreatedAt: string;
   documentPath?: string;
+  browserFile?: BrowserDocumentFile;
   documentSettings: DocumentSettings;
   isDocumentDirty: boolean;
   history: DocumentHistoryEntry[];
@@ -21,6 +23,7 @@ interface DocumentPersistenceOptions {
   theme: DocumentTheme;
   assets: DocumentAsset[];
   setDocumentPath: Dispatch<SetStateAction<string | undefined>>;
+  setBrowserFile: Dispatch<SetStateAction<BrowserDocumentFile | undefined>>;
   setHistory: Dispatch<SetStateAction<DocumentHistoryEntry[]>>;
   setIsDocumentDirty: Dispatch<SetStateAction<boolean>>;
   setRecentDocuments: Dispatch<SetStateAction<RecentDocumentItem[]>>;
@@ -28,8 +31,8 @@ interface DocumentPersistenceOptions {
 }
 
 export function useDocumentPersistence({
-  documentId, documentCreatedAt, documentPath, documentSettings, isDocumentDirty,
-  history, markdown, meta, theme, assets, setDocumentPath, setHistory,
+  documentId, documentCreatedAt, documentPath, browserFile, documentSettings, isDocumentDirty,
+  history, markdown, meta, theme, assets, setDocumentPath, setBrowserFile, setHistory,
   setIsDocumentDirty, setRecentDocuments, refreshUnsavedDrafts,
 }: DocumentPersistenceOptions) {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
@@ -95,6 +98,14 @@ export function useDocumentPersistence({
     let snapshot = getSaveSnapshot();
     activeSaveSnapshotRef.current = snapshot;
     try {
+      const browserHandle = !isTauriEnvironment()
+        ? saveAs ? await pickBrowserSaveFile(meta.title) : browserFile?.handle
+        : undefined;
+      if (!isTauriEnvironment() && saveAs && !browserHandle) {
+        setSaveStatus(isDocumentDirty ? 'unsaved' : 'saved');
+        return;
+      }
+      if (browserHandle) await ensureFilePermission(browserHandle, 'readwrite');
       let nextHistory = history;
       if (documentSettings.historyEnabled) {
         nextHistory = appendUniqueHistory(history, await createHistoryEntry(markdown, meta, theme, 'manual'));
@@ -105,6 +116,19 @@ export function useDocumentPersistence({
         setHistory(nextHistory);
         snapshot = getSaveSnapshot(nextHistory);
         activeSaveSnapshotRef.current = snapshot;
+      }
+      if (browserHandle) {
+        await queueSaveWrite(async () => writeBrowserDocument(await buildCurrentDocument(nextHistory), browserHandle));
+        const savedFile = await rememberBrowserFile(browserHandle);
+        if (currentSaveSnapshotRef.current.documentId !== snapshot.documentId) return;
+        setBrowserFile(savedFile);
+        finishSave(snapshot);
+        if (isCurrentSave(snapshot)) await queueSaveWrite(() => deleteDraft(documentId));
+        setRecentDocuments(addRecentDocument({
+          title: meta.title || '未命名文档', fileHandleId: savedFile.id, fileName: browserHandle.name,
+        }));
+        await refreshUnsavedDrafts();
+        return;
       }
       if (!isTauriEnvironment()) {
         // Web 模式：仅保存内容至本地数据库 (IndexedDB 草稿)，不触发文件下载（导出时才会下载）
@@ -163,7 +187,7 @@ export function useDocumentPersistence({
     try {
       const doc = await buildCurrentDocument();
       downloadSangDocument(doc);
-      if (!isTauriEnvironment() && isCurrentSave(snapshot)) {
+      if (!isTauriEnvironment() && !browserFile && isCurrentSave(snapshot)) {
         // Web 模式：已下载保存为 sdc，无需再保留为未保存草稿
         await queueSaveWrite(() => isCurrentSave(snapshot) ? markDraftSaved(documentId, true) : Promise.resolve());
         if (isCurrentSave(snapshot)) setIsDocumentDirty(false);
@@ -184,9 +208,16 @@ export function useDocumentPersistence({
       const snapshot = getSaveSnapshot();
       activeSaveSnapshotRef.current = snapshot;
       setSaveStatus('saving');
-      if (isTauriEnvironment() && documentPath) {
-        void queueSaveWrite(async () => saveSangDocument(await buildCurrentDocument(), documentPath)).then((savedPath) => {
-          if (savedPath) {
+      if ((isTauriEnvironment() && documentPath) || browserFile) {
+        void queueSaveWrite(async () => {
+          if (browserFile) {
+            await ensureFilePermission(browserFile.handle, 'readwrite', false);
+            await writeBrowserDocument(await buildCurrentDocument(), browserFile.handle);
+            return true;
+          }
+          return saveSangDocument(await buildCurrentDocument(), documentPath);
+        }).then((saved) => {
+          if (saved) {
             finishSave(snapshot);
             if (isCurrentSave(snapshot)) void queueSaveWrite(() => deleteDraft(documentId));
           }
@@ -223,7 +254,7 @@ export function useDocumentPersistence({
       }
     }, 1500);
     return () => window.clearTimeout(timer);
-  }, [documentId, documentCreatedAt, documentPath, documentSettings, markdown, meta, theme, history, assets, isDocumentDirty]);
+  }, [documentId, documentCreatedAt, documentPath, browserFile, documentSettings, markdown, meta, theme, history, assets, isDocumentDirty]);
 
   useEffect(() => {
     if (!documentSettings.historyEnabled) return;
@@ -233,8 +264,15 @@ export function useDocumentPersistence({
         if (!isCurrentSave(snapshot)) return;
         const nextHistory = appendUniqueHistory(history, entry);
         setHistory(nextHistory);
-        if (isTauriEnvironment() && documentPath && nextHistory !== history) {
-          void queueSaveWrite(async () => saveSangDocument(await buildCurrentDocument(nextHistory), documentPath)).catch((error) => {
+        if (((isTauriEnvironment() && documentPath) || browserFile) && nextHistory !== history) {
+          void queueSaveWrite(async () => {
+            if (browserFile) {
+              await ensureFilePermission(browserFile.handle, 'readwrite', false);
+              await writeBrowserDocument(await buildCurrentDocument(nextHistory), browserFile.handle);
+            } else {
+              await saveSangDocument(await buildCurrentDocument(nextHistory), documentPath);
+            }
+          }).catch((error) => {
             if (currentSaveSnapshotRef.current.documentId === snapshot.documentId) {
               setSaveError(getDocumentSaveErrorMessage(error));
               setSaveStatus('unsaved');
@@ -257,7 +295,7 @@ export function useDocumentPersistence({
       });
     }, documentSettings.historyIdleMinutes * 60_000);
     return () => window.clearTimeout(timer);
-  }, [documentSettings.historyEnabled, documentSettings.historyIdleMinutes, markdown, meta, theme]);
+  }, [documentSettings.historyEnabled, documentSettings.historyIdleMinutes, markdown, meta, theme, browserFile, documentPath]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -268,7 +306,7 @@ export function useDocumentPersistence({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [documentId, documentPath, documentCreatedAt, documentSettings, markdown, meta, theme, history, assets]);
+  }, [documentId, documentPath, browserFile, documentCreatedAt, documentSettings, markdown, meta, theme, history, assets]);
 
   return { saveStatus, saveError, lastSavedAt, handleSaveDocument, handleSaveAs: () => handleSaveDocument(true), handleExportSdc };
 }

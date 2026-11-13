@@ -1,7 +1,9 @@
 export interface RecentDocumentItem {
   id: string;
   title: string;
-  path: string;
+  path?: string;
+  fileHandleId?: string;
+  fileName?: string;
   lastOpenedAt: string;
   size?: number;
 }
@@ -24,16 +26,20 @@ export function getRecentDocuments(): RecentDocumentItem[] {
   }
 }
 
-export function addRecentDocument(entry: { title: string; path: string; size?: number }): RecentDocumentItem[] {
+export function addRecentDocument(entry: Pick<RecentDocumentItem, 'title' | 'path' | 'fileHandleId' | 'fileName' | 'size'>): RecentDocumentItem[] {
   try {
-    if (!entry.path) return getRecentDocuments();
+    if (!entry.path && !entry.fileHandleId) return getRecentDocuments();
     const existing = getRecentDocuments();
     // Filter out duplicates by path
-    const filtered = existing.filter((item) => item.path !== entry.path);
+    const matches = (item: RecentDocumentItem) => entry.path ? item.path === entry.path : item.fileHandleId === entry.fileHandleId;
+    const previous = existing.find(matches);
+    const filtered = existing.filter((item) => !matches(item));
     const newItem: RecentDocumentItem = {
-      id: Math.random().toString(36).slice(2),
+      id: previous?.id || crypto.randomUUID(),
       title: entry.title.trim() || '未命名文档',
       path: entry.path,
+      fileHandleId: entry.fileHandleId,
+      fileName: entry.fileName,
       lastOpenedAt: new Date().toISOString(),
       size: entry.size,
     };
@@ -46,10 +52,10 @@ export function addRecentDocument(entry: { title: string; path: string; size?: n
   }
 }
 
-export function removeRecentDocument(path: string): RecentDocumentItem[] {
+export function removeRecentDocument(id: string): RecentDocumentItem[] {
   try {
     const existing = getRecentDocuments();
-    const updated = existing.filter((item) => item.path !== path);
+    const updated = existing.filter((item) => item.id !== id);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     return updated;
   } catch (error) {

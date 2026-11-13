@@ -3,14 +3,36 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {loadEnv} from 'vite';
 import {defineConfig} from 'vitest/config';
-import {VitePWA} from 'vite-plugin-pwa';
+import {VitePWA, type ManifestOptions} from 'vite-plugin-pwa';
 import packageJson from './package.json' with { type: 'json' };
+
+type FileHandlingManifest = Partial<ManifestOptions> & {
+  launch_handler: { client_mode: 'navigate-new' };
+  file_handlers: Array<{
+    action: string;
+    accept: Record<string, string[]>;
+    icons: Array<{ src: string; sizes: string; type: string }>;
+    launch_type: 'multiple-clients';
+  }>;
+};
 
 export default defineConfig(({ mode }) => {
   const isTauriMode = mode === 'tauri';
   const env = loadEnv(mode, '.', '');
   let base = env.VITE_BASE || '/';
   if (!base.endsWith('/')) base += '/';
+  const fileHandling: Pick<FileHandlingManifest, 'file_handlers' | 'launch_handler'> = {
+    launch_handler: { client_mode: 'navigate-new' },
+    file_handlers: [{
+      action: base,
+      accept: {
+        'application/vnd.sangdoccraft.document+zip': ['.sdc'],
+        'application/octet-stream': ['.sdc'],
+      },
+      icons: [{ src: `${base}sangdoc-192.png`, sizes: '192x192', type: 'image/png' }],
+      launch_type: 'multiple-clients',
+    }],
+  };
 
   return {
     base,
@@ -63,7 +85,8 @@ export default defineConfig(({ mode }) => {
               purpose: 'any',
             },
           ],
-        },
+          ...fileHandling,
+        } satisfies FileHandlingManifest,
       }),
     ],
     define: {

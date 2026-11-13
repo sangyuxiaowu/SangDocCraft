@@ -21,8 +21,10 @@ import { clearDocumentAssetUrls } from './utils/assetUrlRegistry';
 import { isTauriEnvironment, resolveImageSrc, updateTauriWindowTitle } from './utils/tauriHelper';
 import { putChatSession, putDocumentAsset, putLibraryAsset } from './utils/imageRepository';
 import { collectImageReferences } from './utils/imageReferences';
-import { openSangDocument, openSangDocumentByPath, readSangDocumentFile, readStartupDocument } from './utils/documentFileOperations';
-import type { SangDocument } from './types';
+import { openSangDocument, openSangDocumentByPath, readBrowserDocument, readSangDocumentFile, readStartupDocument, supportsBrowserFilePicker, supportsBrowserSavePicker, type OpenedDocument } from './utils/documentFileOperations';
+import { getBrowserFile, takeDocumentTransfer, type BrowserDocumentFile, type DocumentFileHandle } from './utils/browserDocumentStore';
+import { getDocumentWindowRequest, openDocumentWindow, reserveDocumentWindow, sendDocumentToWindow, type DocumentWindowRequest } from './utils/documentWindows';
+import { acquireDocumentSession } from './utils/documentSession';
 import { 
   deleteDraftWithAssets, 
   getDraft,
@@ -33,7 +35,7 @@ import {
 } from './utils/draftStore';
 import { getRecentDocuments, addRecentDocument, removeRecentDocument, clearRecentDocuments, type RecentDocumentItem } from './utils/recentDocumentsStore';
 import { WelcomeDashboard } from './components/WelcomeDashboard';
-import { resolveDocumentTemplate, type DocumentTemplateItem } from './data/documentTemplates';
+import { DOCUMENT_TEMPLATES, resolveDocumentTemplate, type DocumentTemplateItem } from './data/documentTemplates';
 import { DEFAULT_DOCUMENT_META } from './data/defaultDocumentMeta';
 import { formatApplicationTitle, resolveDocumentTitle } from './utils/applicationTitle';
 import { loadAiConfig, loadAiConfigWithSecrets, saveAiConfig } from './lib/aiConfig';
@@ -49,6 +51,7 @@ export default function App() {
   const [documentId, setDocumentId] = useState<string>(() => crypto.randomUUID());
   const [documentCreatedAt, setDocumentCreatedAt] = useState(() => new Date().toISOString());
   const [documentPath, setDocumentPath] = useState<string>();
+  const [browserFile, setBrowserFile] = useState<BrowserDocumentFile>();
   const [documentSettings, setDocumentSettings] = useState({ historyEnabled: false, historyIdleMinutes: 10 });
   const [isDocumentDirty, setIsDocumentDirty] = useState(false);
   const [history, setHistory] = useState<DocumentHistoryEntry[]>([]);
@@ -151,6 +154,37 @@ export default function App() {
   const configPanelRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<EditorHandle>(null);
   const documentFileInputRef = useRef<HTMLInputElement>(null);
+  const hasPwaFileLaunchRef = useRef(false);
+  const initializedRef = useRef(false);
+  const hasActiveDocumentRef = useRef(false);
+  const pendingFileWindowRef = useRef<ReturnType<typeof reserveDocumentWindow> | undefined>(undefined);
+  const releaseDocumentSessionRef = useRef<(() => void) | undefined>(undefined);
+
+  useEffect(() => {
+    const input = documentFileInputRef.current;
+    const cancel = () => {
+      pendingFileWindowRef.current?.close();
+      pendingFileWindowRef.current = undefined;
+    };
+    input?.addEventListener('cancel', cancel);
+    return () => input?.removeEventListener('cancel', cancel);
+  }, []);
+
+  const protectDocumentSession = async (id: string) => {
+    const release = await acquireDocumentSession(id);
+    releaseDocumentSessionRef.current?.();
+    releaseDocumentSessionRef.current = release;
+  };
+
+  useEffect(() => {
+    const release = () => releaseDocumentSessionRef.current?.();
+    const handlePageHide = (event: PageTransitionEvent) => { if (!event.persisted) release(); };
+    window.addEventListener('pagehide', handlePageHide);
+    return () => {
+      release();
+      window.removeEventListener('pagehide', handlePageHide);
+    };
+  }, []);
 
   const refreshAssets = async (targetDocumentId = documentId) => {
     const loadedAssets = [
@@ -179,7 +213,7 @@ export default function App() {
     } else {
       const docTitle = resolveDocumentTitle({
         themeTitle: meta.title,
-        documentPath,
+        documentPath: documentPath || browserFile?.handle.name,
         markdown,
       });
       title = formatApplicationTitle(docTitle, false);
@@ -192,7 +226,7 @@ export default function App() {
         console.error('Update Tauri window title failed:', error);
       });
     }
-  }, [isWelcomeOpen, meta.title, documentPath, markdown]);
+  }, [isWelcomeOpen, meta.title, documentPath, browserFile, markdown]);
 
   const refreshUnsavedDrafts = async () => {
     try {
@@ -204,8 +238,8 @@ export default function App() {
   };
 
   const { saveStatus, saveError, lastSavedAt, handleSaveDocument, handleSaveAs, handleExportSdc } = useDocumentPersistence({
-    documentId, documentCreatedAt, documentPath, documentSettings, isDocumentDirty,
-    history, markdown, meta, theme, assets, setDocumentPath, setHistory,
+    documentId, documentCreatedAt, documentPath, browserFile, documentSettings, isDocumentDirty,
+    history, markdown, meta, theme, assets, setDocumentPath, setBrowserFile, setHistory,
     setIsDocumentDirty, setRecentDocuments, refreshUnsavedDrafts,
   });
 
@@ -217,7 +251,8 @@ export default function App() {
     }
   };
 
-  const applyOpenedDocument = async (opened: { document: SangDocument; path?: string }) => {
+  const applyOpenedDocument = async (opened: OpenedDocument) => {
+    await protectDocumentSession(opened.document.id);
     // 释放当前前端内存中的 Object URL 引用，绝不清空其它草稿文档在 IndexedDB 中的图片资产
     clearDocumentAssetUrls();
     for (const asset of opened.document.assets) {
@@ -229,6 +264,7 @@ export default function App() {
     setDocumentId(opened.document.id);
     setDocumentCreatedAt(opened.document.createdAt);
     setDocumentPath(opened.path);
+    setBrowserFile(opened.browserFile);
     setDocumentSettings(opened.document.settings);
     setHistory(opened.document.history);
     setMarkdown(opened.document.markdown);
@@ -236,11 +272,14 @@ export default function App() {
     setTheme(opened.document.theme);
     setIsDocumentDirty(false);
     setHasActiveDocument(true);
+    hasActiveDocumentRef.current = true;
     setIsWelcomeOpen(false);
-    if (opened.path) {
+    if (opened.path || opened.browserFile) {
       const updated = addRecentDocument({
         title: opened.document.title || opened.document.meta.title || '未命名文档',
         path: opened.path,
+        fileHandleId: opened.browserFile?.id,
+        fileName: opened.browserFile?.handle.name,
       });
       setRecentDocuments(updated);
     }
@@ -248,8 +287,27 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
     void (async () => {
       try {
+        const request = getDocumentWindowRequest();
+        if (request) {
+          if (request.kind === 'transfer') await applyOpenedDocument(await takeDocumentTransfer(request.id));
+          else if (request.kind === 'template') {
+            const template = DOCUMENT_TEMPLATES.find(item => item.id === request.id);
+            if (!template) throw new Error('未找到指定模板。');
+            await handleSelectTemplate(template);
+          } else if (request.kind === 'draft') {
+            await restoreDraft(request.id);
+          } else {
+            const item = getRecentDocuments().find(item => item.id === request.id);
+            if (!item) throw new Error('最近文档记录已失效，请重新选择文件。');
+            await loadRecentDocument(item);
+          }
+          window.history.replaceState(null, '', window.location.pathname);
+          return;
+        }
         const opened = await readStartupDocument();
         if (opened) {
           await applyOpenedDocument(opened);
@@ -259,11 +317,67 @@ export default function App() {
         await refreshUnsavedDrafts();
         refreshRecentDocs();
         // Welcome Dashboard is open by default on startup
-        setIsWelcomeOpen(true);
+        if (!hasPwaFileLaunchRef.current && !hasActiveDocumentRef.current) setIsWelcomeOpen(true);
       } catch (error) {
         console.error('Startup initialization failed:', error);
+        await refreshUnsavedDrafts();
+        refreshRecentDocs();
+        await modal.alert({ title: '打开文档失败', message: error instanceof Error ? error.message : '打开文档失败', type: 'error' });
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    const navWindow = window as Window & {
+      launchQueue?: {
+        setConsumer: (
+          consumer: (launchParams: {
+            files?: DocumentFileHandle[];
+          }) => void | Promise<void>
+        ) => void;
+      };
+    };
+
+    if (!navWindow.launchQueue || typeof navWindow.launchQueue.setConsumer !== 'function') return;
+
+    let pendingLaunch = Promise.resolve();
+    navWindow.launchQueue.setConsumer(({ files }) => {
+      if (!files?.length) return;
+      hasPwaFileLaunchRef.current = true;
+      pendingLaunch = pendingLaunch.then(async () => {
+        for (const handle of files) {
+          let target: ReturnType<typeof reserveDocumentWindow> | undefined;
+          try {
+            if (hasActiveDocumentRef.current) target = reserveDocumentWindow();
+            const opened = await readBrowserDocument(handle);
+            if (target) await sendDocumentToWindow(opened, target);
+            else await applyOpenedDocument(opened);
+          } catch (error) {
+            target?.close();
+            console.error('PWA launchQueue document load error:', error);
+            await modal.alert({
+              title: '打开文档失败',
+              message: error instanceof Error ? error.message : '打开文档失败',
+              type: 'error',
+            });
+          }
+        }
+      });
+      return pendingLaunch;
+    });
+  }, []);
+
+  useEffect(() => {
+    const refresh = () => {
+      void refreshUnsavedDrafts();
+      refreshRecentDocs();
+    };
+    window.addEventListener('focus', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('storage', refresh);
+    };
   }, []);
 
   // 当前主题缓存只保存稳定 ID，不持久化会随版本演进的完整主题结构。
@@ -372,15 +486,9 @@ export default function App() {
   };
 
   const handleSelectTemplate = async (template: DocumentTemplateItem) => {
-    if (isDocumentDirty) {
-      const ok = await modal.confirm({
-        title: '新建确认',
-        message: '当前工作区有未保存的修改，选用新模板将覆盖当前内容。是否继续？',
-        confirmText: '确认新建',
-        cancelText: '取消',
-        variant: 'danger',
-      });
-      if (!ok) return;
+    if (hasActiveDocumentRef.current) {
+      await openSeparateDocument({ kind: 'template', id: template.id });
+      return;
     }
 
     // 释放当前内存中的 Object URL 引用，绝不清理其它草稿在 IndexedDB 中的图片资产
@@ -393,10 +501,16 @@ export default function App() {
     const resolved = resolveDocumentTemplate(template, matchedTheme);
 
     const nextId = crypto.randomUUID();
+    try { await protectDocumentSession(nextId); }
+    catch (error) {
+      await modal.alert({ title: '新建文档失败', message: error instanceof Error ? error.message : '新建文档失败', type: 'error' });
+      return;
+    }
     const now = new Date().toISOString();
     setDocumentId(nextId);
     setDocumentCreatedAt(now);
     setDocumentPath(undefined);
+    setBrowserFile(undefined);
     setDocumentSettings({ historyEnabled: false, historyIdleMinutes: 10 });
     setHistory([]);
     setMarkdown(template.markdown);
@@ -404,6 +518,7 @@ export default function App() {
     setTheme(resolved.theme);
     setIsDocumentDirty(false);
     setHasActiveDocument(true);
+    hasActiveDocumentRef.current = true;
     setIsWelcomeOpen(false);
 
     const libraryAssets = await listLibraryAssets();
@@ -412,22 +527,24 @@ export default function App() {
   };
 
   const handleRestoreDraft = async (summary: DocumentDraftSummary) => {
-    if (isDocumentDirty && summary.documentId !== documentId) {
-      const ok = await modal.confirm({
-        title: '恢复草稿确认',
-        message: '当前文档有未保存的修改，恢复其他草稿将覆盖当前工作区。是否继续？',
-        confirmText: '恢复草稿',
-        cancelText: '取消',
-        variant: 'primary',
-      });
-      if (!ok) return;
-    }
-
-    const draft = await getDraft(summary.documentId);
-    if (!draft) {
-      await refreshUnsavedDrafts();
+    if (hasActiveDocumentRef.current) {
+      if (summary.documentId === documentId) setIsWelcomeOpen(false);
+      else await openSeparateDocument({ kind: 'draft', id: summary.documentId });
       return;
     }
+    try { await restoreDraft(summary.documentId); }
+    catch (error) {
+      await modal.alert({ title: '恢复草稿失败', message: error instanceof Error ? error.message : '恢复草稿失败', type: 'error' });
+    }
+  };
+
+  const restoreDraft = async (id: string) => {
+    const draft = await getDraft(id);
+    if (!draft) {
+      await refreshUnsavedDrafts();
+      throw new Error('草稿已不存在，请刷新列表后重试。');
+    }
+    await protectDocumentSession(draft.documentId);
 
     // 释放旧文档内存引用，加载目标草稿在 IndexedDB 中的图片资产
     clearDocumentAssetUrls();
@@ -435,6 +552,7 @@ export default function App() {
     setDocumentId(draft.documentId);
     setDocumentCreatedAt(draft.createdAt);
     setDocumentPath(isTauriEnvironment() ? draft.path : undefined);
+    setBrowserFile(undefined);
     setDocumentSettings(draft.settings);
     setHistory(draft.history);
     setMarkdown(draft.markdown);
@@ -442,6 +560,7 @@ export default function App() {
     setTheme(draft.theme);
     setIsDocumentDirty(false);
     setHasActiveDocument(true);
+    hasActiveDocumentRef.current = true;
     setIsWelcomeOpen(false);
     await refreshAssets(draft.documentId);
   };
@@ -455,67 +574,64 @@ export default function App() {
       variant: 'danger',
     });
     if (!ok) return;
-    await deleteDraftWithAssets(targetDocId);
-    await refreshUnsavedDrafts();
-    await runStorageGC(hasActiveDocument ? documentId : undefined);
+    try {
+      await deleteDraftWithAssets(targetDocId);
+      await refreshUnsavedDrafts();
+      await runStorageGC(hasActiveDocument ? documentId : undefined);
+    } catch (error) {
+      await modal.alert({ title: '删除草稿失败', message: error instanceof Error ? error.message : '删除草稿失败', type: 'error' });
+    }
   };
 
   const handleClearAllDrafts = async () => {
     const ok = await modal.confirm({
       title: '清空所有草稿',
-      message: '确定清空所有未保存的草稿吗？所有草稿及其关联图片资产将被彻底清理，此操作不可逆。',
+      message: '确定清空未在任何窗口编辑的草稿吗？这些草稿及其关联图片资产将被彻底清理，此操作不可逆。正在编辑的草稿会保留。',
       confirmText: '全部清空',
       cancelText: '取消',
       variant: 'danger',
     });
     if (!ok) return;
-    await clearAllDraftsWithAssets(hasActiveDocument ? documentId : undefined);
-    await refreshUnsavedDrafts();
-    await runStorageGC(hasActiveDocument ? documentId : undefined);
-  };
-
-  const handleOpenRecentPath = async (filePath: string) => {
-    if (isDocumentDirty) {
-      const ok = await modal.confirm({
-        title: '打开文档确认',
-        message: '当前文档有未保存的修改，打开历史文档将覆盖当前工作区。是否继续？',
-        confirmText: '确认打开',
-        cancelText: '取消',
-        variant: 'primary',
-      });
-      if (!ok) return;
-    }
     try {
-      const opened = await openSangDocumentByPath(filePath);
-      if (opened) {
-        await applyOpenedDocument(opened);
-        const updated = addRecentDocument({
-          title: opened.document.title || opened.document.meta.title || '未命名文档',
-          path: filePath,
-        });
-        setRecentDocuments(updated);
-        setHasActiveDocument(true);
-        setIsWelcomeOpen(false);
-      } else {
-        await modal.alert({
-          title: '文件不存在',
-          message: `未找到指定路径的文件：\n${filePath}\n该文件可能已被移动、重命名或删除。`,
-          type: 'error',
-        });
-        const updated = removeRecentDocument(filePath);
-        setRecentDocuments(updated);
-      }
-    } catch (err) {
-      await modal.alert({
-        title: '打开失败',
-        message: err instanceof Error ? err.message : '打开本地文档失败',
-        type: 'error',
-      });
+      await clearAllDraftsWithAssets(hasActiveDocument ? documentId : undefined);
+      await refreshUnsavedDrafts();
+      await runStorageGC(hasActiveDocument ? documentId : undefined);
+    } catch (error) {
+      await modal.alert({ title: '清空草稿失败', message: error instanceof Error ? error.message : '清空草稿失败', type: 'error' });
     }
   };
 
-  const handleRemoveRecent = (filePath: string) => {
-    const updated = removeRecentDocument(filePath);
+  const openSeparateDocument = async (request: DocumentWindowRequest) => {
+    try {
+      await openDocumentWindow(request);
+    } catch (error) {
+      await modal.alert({ title: '打开文档失败', message: error instanceof Error ? error.message : '打开新窗口失败', type: 'error' });
+    }
+  };
+
+  const loadRecentDocument = async (item: RecentDocumentItem) => {
+    const opened = item.fileHandleId
+      ? await readBrowserDocument((await getBrowserFile(item.fileHandleId)).handle)
+      : item.path ? await openSangDocumentByPath(item.path) : undefined;
+    if (!opened) throw new Error(`文件不存在或无法访问，请重新选择文件。\n${item.path || item.fileName || item.title}`);
+    await applyOpenedDocument(opened);
+  };
+
+  const handleOpenRecent = async (item: RecentDocumentItem) => {
+    if (hasActiveDocumentRef.current) {
+      if ((item.path && item.path === documentPath) || (item.fileHandleId && item.fileHandleId === browserFile?.id)) {
+        setIsWelcomeOpen(false);
+      } else await openSeparateDocument({ kind: 'recent', id: item.id });
+      return;
+    }
+    try { await loadRecentDocument(item); }
+    catch (error) {
+      await modal.alert({ title: '打开文档失败', message: error instanceof Error ? error.message : '打开本地文档失败', type: 'error' });
+    }
+  };
+
+  const handleRemoveRecent = (id: string) => {
+    const updated = removeRecentDocument(id);
     setRecentDocuments(updated);
   };
 
@@ -533,26 +649,21 @@ export default function App() {
   };
 
   const handleOpenDocument = async () => {
-    if (isDocumentDirty) {
-      const ok = await modal.confirm({
-        title: '打开文档确认',
-        message: '当前文档尚未保存，确定打开其他文档吗？未保存的修改将会丢失。',
-        confirmText: '确认打开',
-        cancelText: '取消',
-        variant: 'danger',
-      });
-      if (!ok) return;
-    }
+    let target: ReturnType<typeof reserveDocumentWindow> | undefined;
     try {
+      if (hasActiveDocumentRef.current) target = reserveDocumentWindow();
+      if (!isTauriEnvironment() && !supportsBrowserFilePicker()) {
+        pendingFileWindowRef.current = target;
+        documentFileInputRef.current?.click();
+        return;
+      }
       const opened = await openSangDocument();
       if (opened) {
-        await applyOpenedDocument(opened);
-        setHasActiveDocument(true);
-        setIsWelcomeOpen(false);
-      } else if (!(window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) {
-        documentFileInputRef.current?.click();
-      }
+        if (target) await sendDocumentToWindow(opened, target);
+        else await applyOpenedDocument(opened);
+      } else target?.close();
     } catch (error) {
+      target?.close();
       await modal.alert({
         title: '打开文档失败',
         message: error instanceof Error ? error.message : '打开文档失败',
@@ -657,6 +768,7 @@ export default function App() {
         saveStatus={saveStatus}
         saveError={saveError}
         lastSavedAt={lastSavedAt}
+        saveTarget={documentPath || browserFile ? '本地文件' : '浏览器草稿'}
         onOpenWelcome={() => {
           void refreshUnsavedDrafts();
           refreshRecentDocs();
@@ -665,7 +777,7 @@ export default function App() {
         onNewDocument={handleNewDocument}
         onOpenDocument={() => void handleOpenDocument()}
         onSaveDocument={() => void handleSaveDocument()}
-        onSaveAs={isTauriEnvironment() ? () => void handleSaveAs() : undefined}
+        onSaveAs={isTauriEnvironment() || supportsBrowserSavePicker() ? () => void handleSaveAs() : undefined}
         onOpenHistory={() => setShowHistory(true)}
         onOpenAbout={() => setShowAboutModal(true)}
         onToggleAiAssistant={() => setIsAiFloatOpen(prev => !prev)}
@@ -713,7 +825,7 @@ export default function App() {
               uiMode={uiMode}
               documentId={documentId}
               onAssetsChanged={() => refreshAssets()}
-              saveStatus={saveStatus === 'saving' ? 'saving' : isDocumentDirty ? 'unsaved' : 'saved'}
+              saveStatus={saveStatus === 'saving' ? 'saving' : isDocumentDirty || saveError ? 'unsaved' : 'saved'}
               lastSavedAt={lastSavedAt}
               reviewSession={diffReviewSession}
               onAcceptHunk={handleAcceptHunk}
@@ -842,17 +954,20 @@ export default function App() {
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0];
+          const target = pendingFileWindowRef.current;
+          pendingFileWindowRef.current = undefined;
           if (file) {
             void readSangDocumentFile(file)
-              .then(applyOpenedDocument)
+              .then(opened => target ? sendDocumentToWindow(opened, target) : applyOpenedDocument(opened))
               .catch((error) => {
+                target?.close();
                 void modal.alert({
                   title: '打开文档失败',
                   message: error instanceof Error ? error.message : '打开文档失败',
                   type: 'error',
                 });
               });
-          }
+          } else target?.close();
           event.target.value = '';
         }}
       />
@@ -909,6 +1024,12 @@ export default function App() {
         isOpen={isWelcomeOpen}
         onClose={() => setIsWelcomeOpen(false)}
         canClose={hasActiveDocument}
+        currentDocument={hasActiveDocument ? {
+          title: resolveDocumentTitle({ themeTitle: meta.title, documentPath: documentPath || browserFile?.handle.name, markdown }),
+          isSaving: saveStatus === 'saving',
+          hasUnsavedChanges: isDocumentDirty || saveStatus === 'unsaved',
+          saveError,
+        } : undefined}
         isDark={isDark}
         themeMode={themeMode}
         onThemeModeChange={setThemeMode}
@@ -921,7 +1042,7 @@ export default function App() {
         onDeleteDraft={handleDeleteDraft}
         onClearAllDrafts={handleClearAllDrafts}
         recentDocuments={recentDocuments}
-        onOpenRecentPath={handleOpenRecentPath}
+        onOpenRecent={handleOpenRecent}
         onRemoveRecent={handleRemoveRecent}
         onClearRecent={handleClearRecent}
       />

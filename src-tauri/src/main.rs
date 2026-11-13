@@ -96,7 +96,10 @@ fn document_save_error(path: &std::path::Path, error: std::io::Error) -> Documen
 }
 
 #[tauri::command]
-fn take_startup_document() -> Result<Option<NativeDocumentFile>, String> {
+fn take_startup_document(window: tauri::Window) -> Result<Option<NativeDocumentFile>, String> {
+    if window.label() != "main" {
+        return Ok(None);
+    }
     let path = std::env::args_os().skip(1).map(std::path::PathBuf::from).find(|path| {
         path.extension().is_some_and(|extension| extension.eq_ignore_ascii_case("sdc")) && path.is_file()
     });
@@ -171,6 +174,26 @@ fn set_window_title(window: tauri::Window, title: String) -> Result<(), String> 
     window.set_title(&title).map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+async fn open_document_window(app: tauri::AppHandle, query: String) -> Result<(), String> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT_WINDOW: AtomicU64 = AtomicU64::new(1);
+    if !query.starts_with("?document=") || query.contains('#') {
+        return Err("Invalid document window request".into());
+    }
+    let label = format!("document-{}", NEXT_WINDOW.fetch_add(1, Ordering::Relaxed));
+    tauri::WebviewWindowBuilder::new(
+        &app,
+        label,
+        tauri::WebviewUrl::App(format!("index.html{query}").into()),
+    )
+    .title("SangDocCraft")
+    .inner_size(1400.0, 900.0)
+    .build()
+    .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -183,6 +206,7 @@ fn main() {
             save_sdc_document,
             set_window_title,
             take_startup_document,
+            open_document_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

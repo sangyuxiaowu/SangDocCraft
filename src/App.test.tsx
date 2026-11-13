@@ -1,17 +1,27 @@
 // @vitest-environment jsdom
 
-import { act } from 'react';
+import { act, type ComponentProps } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DOCUMENT_TEMPLATES } from './data/documentTemplates';
 import { createDiffHunks } from './utils/diffUtils';
-import type { DocumentAsset, DocumentTheme } from './types';
+import type { DocumentAsset, DocumentTheme, SangDocument } from './types';
 import type { AiToolContext } from './utils/aiAssistantService';
 import App from './App';
+import { DEFAULT_DOCUMENT_META } from './data/defaultDocumentMeta';
+import { getRegisteredThemes } from './themes/themeRegistry';
+import type { WelcomeDashboard } from './components/WelcomeDashboard';
+import type { HeaderBar } from './components/HeaderBar';
 
-const { saveDraft, saveSangDocument, listChatSessions, listLibraryAssets, isTauriEnvironment, confirm } = vi.hoisted(() => ({
+const { saveDraft, saveSangDocument, readBrowserDocument, writeBrowserDocument, ensureFilePermission, rememberBrowserFile, openDocumentWindow, sendDocumentToWindow, listChatSessions, listLibraryAssets, isTauriEnvironment, confirm } = vi.hoisted(() => ({
   saveDraft: vi.fn(),
   saveSangDocument: vi.fn(),
+  readBrowserDocument: vi.fn(),
+  writeBrowserDocument: vi.fn(),
+  ensureFilePermission: vi.fn(),
+  rememberBrowserFile: vi.fn(),
+  openDocumentWindow: vi.fn(),
+  sendDocumentToWindow: vi.fn(),
   listChatSessions: vi.fn(),
   listLibraryAssets: vi.fn(),
   isTauriEnvironment: vi.fn(() => false),
@@ -27,8 +37,19 @@ vi.mock('./utils/draftStore', async (importOriginal) => ({
 }));
 vi.mock('./utils/documentFileOperations', () => ({
   readStartupDocument: async () => undefined,
+  readBrowserDocument,
+  writeBrowserDocument,
+  ensureFilePermission,
+  supportsBrowserSavePicker: () => false,
   saveSangDocument,
   getDocumentSaveErrorMessage: (error: unknown) => typeof error === 'string' ? error : '文件为只读',
+}));
+vi.mock('./utils/browserDocumentStore', () => ({ rememberBrowserFile }));
+vi.mock('./utils/documentWindows', () => ({
+  getDocumentWindowRequest: () => undefined,
+  openDocumentWindow,
+  reserveDocumentWindow: () => ({ close: vi.fn(), open: vi.fn() }),
+  sendDocumentToWindow,
 }));
 vi.mock('./utils/tauriHelper', async (importOriginal) => ({
   ...await importOriginal<typeof import('./utils/tauriHelper')>(),
@@ -40,13 +61,17 @@ vi.mock('./lib/aiConfig', () => ({
   loadAiConfigWithSecrets: async () => ({ endpoints: [], activeSelection: {} }),
 }));
 vi.mock('./utils/imageRepository', () => ({
+  clearDocumentChatSessions: async () => {},
   listDocumentAssets: async () => [],
   listLibraryAssets,
   listChatSessions,
+  putChatSession: async () => {},
+  putDocumentAsset: async () => {},
+  putLibraryAsset: async () => {},
 }));
 vi.mock('./components/HeaderBar', () => ({
-  HeaderBar: ({ onSaveDocument, onSaveAs, saveError }: { onSaveDocument: () => void; onSaveAs?: () => void; saveError?: string }) => (
-    <><button onClick={onSaveDocument}>保存</button><button onClick={onSaveAs}>另存为</button><span data-testid="save-error">{saveError}</span></>
+  HeaderBar: ({ onSaveDocument, onSaveAs, onOpenWelcome, saveError }: ComponentProps<typeof HeaderBar>) => (
+    <><button onClick={onSaveDocument}>保存</button><button onClick={onSaveAs}>另存为</button><button onClick={onOpenWelcome}>返回欢迎页</button><span data-testid="save-error">{saveError}</span></>
   ),
 }));
 vi.mock('./utils/modalDialog', () => ({ modal: { confirm, alert: async () => {} } }));
@@ -72,8 +97,17 @@ vi.mock('./components/styleConfig/Panel', () => ({ StyleConfigPanel: ({ theme, o
   <button onClick={() => onChange({ ...theme, cover: { ...theme.cover, logoUrl: '@library/img-12eecd3f64fb38a4998a013b' } })}>设置封面图片</button>
 ) }));
 vi.mock('./components/WelcomeDashboard', () => ({
-  WelcomeDashboard: ({ onSelectTemplate }: { onSelectTemplate: (template: typeof DOCUMENT_TEMPLATES[number]) => void }) => (
-    <button onClick={() => onSelectTemplate(DOCUMENT_TEMPLATES[0])}>新建</button>
+  WelcomeDashboard: ({ onSelectTemplate, isOpen, currentDocument, onClose }: ComponentProps<typeof WelcomeDashboard>) => (
+    <>
+      <button onClick={() => onSelectTemplate(DOCUMENT_TEMPLATES[0])}>新建</button>
+      {isOpen && currentDocument && (
+        <section aria-label="当前打开的文档">
+          {currentDocument.title}
+          {currentDocument.hasUnsavedChanges && <span>有未保存修改</span>}
+          <button onClick={onClose}>继续编辑</button>
+        </section>
+      )}
+    </>
   ),
 }));
 vi.mock('./components/ai/AiAssistantFloat', () => ({
@@ -105,6 +139,11 @@ describe('document saving', () => {
     isTauriEnvironment.mockReturnValue(false);
     listChatSessions.mockResolvedValue([]);
     listLibraryAssets.mockResolvedValue([]);
+    readBrowserDocument.mockReset();
+    writeBrowserDocument.mockReset().mockResolvedValue(undefined);
+    ensureFilePermission.mockReset().mockResolvedValue(undefined);
+    openDocumentWindow.mockReset().mockResolvedValue(undefined);
+    sendDocumentToWindow.mockReset().mockResolvedValue(undefined);
     saveSangDocument.mockResolvedValue('document.sdc');
     saveDraft.mockImplementation(() => new Promise<void>((resolve) => pendingSaves.push(resolve)));
     container = document.createElement('div');
@@ -157,6 +196,73 @@ describe('document saving', () => {
     }
   });
 
+  it('opens an .sdc file delivered through the PWA launch queue', async () => {
+    let consumeLaunch!: (params: { files?: Array<{ getFile: () => Promise<File> }> }) => Promise<void>;
+    const file = new File(['sdc'], 'launched.sdc');
+    const sangDocument: SangDocument = {
+      id: 'pwa-document',
+      title: 'PWA 文档',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      modifiedAt: '2026-01-01T00:00:00.000Z',
+      markdown: '# 从 PWA 打开',
+      meta: { ...DEFAULT_DOCUMENT_META, title: 'PWA 文档' },
+      theme: getRegisteredThemes()[0],
+      settings: { historyEnabled: false, historyIdleMinutes: 10 },
+      history: [],
+      chatSessions: [],
+      assets: [],
+    };
+    const handle = { name: file.name, getFile: async () => file };
+    const browserFile = { id: 'local-file', handle };
+    rememberBrowserFile.mockResolvedValue(browserFile);
+    readBrowserDocument.mockResolvedValue({ document: sangDocument, browserFile });
+    Object.defineProperty(window, 'launchQueue', {
+      configurable: true,
+      value: { setConsumer: (consumer: typeof consumeLaunch) => { consumeLaunch = consumer; } },
+    });
+
+    try {
+      await act(async () => { root.render(<App />); });
+      await act(async () => {
+        await consumeLaunch({ files: [handle] });
+      });
+
+      expect(readBrowserDocument).toHaveBeenCalledWith(handle);
+      expect(container.querySelector('[data-testid="body"]')?.textContent).toBe('# 从 PWA 打开');
+
+      await act(async () => { click('第一次编辑'); });
+      await act(async () => { click('保存'); });
+      expect(writeBrowserDocument).toHaveBeenLastCalledWith(expect.objectContaining({ markdown: 'first' }), handle);
+      expect(saveDraft).not.toHaveBeenCalled();
+
+      await act(async () => { click('第二次编辑'); });
+      await act(async () => { vi.advanceTimersByTime(1500); });
+      expect(ensureFilePermission).toHaveBeenLastCalledWith(handle, 'readwrite', false);
+      expect(writeBrowserDocument).toHaveBeenLastCalledWith(expect.objectContaining({ markdown: 'second' }), handle);
+
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        writeBrowserDocument.mockRejectedValueOnce('没有写入权限');
+        await act(async () => { click('第一次编辑'); });
+        await act(async () => { vi.advanceTimersByTime(1500); });
+        expect(container.querySelector('output')?.textContent).toBe('unsaved');
+        expect(container.querySelector('[data-testid="save-error"]')?.textContent).toBe('没有写入权限');
+        expect(saveDraft).not.toHaveBeenCalled();
+      } finally {
+        consoleError.mockRestore();
+      }
+
+      await act(async () => {
+        await consumeLaunch({ files: [handle, handle] });
+      });
+      expect(sendDocumentToWindow).toHaveBeenCalledTimes(2);
+      expect(container.querySelector('[data-testid="body"]')?.textContent).toBe('first');
+      expect(confirm).not.toHaveBeenCalled();
+    } finally {
+      delete (window as Window & { launchQueue?: unknown }).launchQueue;
+    }
+  });
+
   it('writes newer revisions after the older write finishes', async () => {
     await act(async () => { root.render(<App />); });
     await act(async () => { click('新建'); });
@@ -185,16 +291,34 @@ describe('document saving', () => {
     expect(container.querySelector('output')?.textContent).toBe('unsaved');
   });
 
-  it('does not change the active document when the previous document finishes saving', async () => {
+  it('opens a new document in another window without replacing unsaved edits or cancelling their save', async () => {
     await act(async () => { root.render(<App />); });
     await act(async () => { click('新建'); });
     await act(async () => { click('第一次编辑'); });
     await act(async () => { click('保存'); });
 
     await act(async () => { click('新建'); });
+    expect(openDocumentWindow).toHaveBeenCalledWith({ kind: 'template', id: DOCUMENT_TEMPLATES[0].id });
+    expect(container.querySelector('[data-testid="body"]')?.textContent).toBe('first');
+    expect(confirm).not.toHaveBeenCalled();
     await act(async () => { click('第二次编辑'); });
     await act(async () => { pendingSaves[0](); });
     expect(container.querySelector('output')?.textContent).toBe('unsaved');
+  });
+
+  it('shows the active document on the welcome page and resumes its existing unsaved editor', async () => {
+    await act(async () => { root.render(<App />); });
+    expect(container.querySelector('[aria-label="当前打开的文档"]')).toBeNull();
+    await act(async () => { click('新建'); });
+    await act(async () => { click('第一次编辑'); });
+    await act(async () => { click('返回欢迎页'); });
+    expect(container.querySelector('[aria-label="当前打开的文档"]')?.textContent).toContain('有未保存修改');
+    expect(saveDraft).not.toHaveBeenCalled();
+    await act(async () => { click('继续编辑'); });
+    expect(container.querySelector('[aria-label="当前打开的文档"]')).toBeNull();
+    expect(container.querySelector('[data-testid="body"]')?.textContent).toBe('first');
+    expect(container.querySelector('output')?.textContent).toBe('unsaved');
+    expect(openDocumentWindow).not.toHaveBeenCalled();
   });
 
   it('keeps the new file path when editing during the first desktop save', async () => {

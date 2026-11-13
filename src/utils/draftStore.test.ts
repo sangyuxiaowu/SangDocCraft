@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRegisteredThemes } from '../themes/themeRegistry';
 import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
 import { createDocumentAsset } from './documentPackage';
@@ -17,6 +17,12 @@ import {
   runStorageGC,
   saveDraft,
 } from './draftStore';
+
+const { getActiveDocumentIds } = vi.hoisted(() => ({ getActiveDocumentIds: vi.fn() }));
+vi.mock('./documentSession', async importOriginal => ({
+  ...await importOriginal<typeof import('./documentSession')>(),
+  getActiveDocumentIds,
+}));
 
 describe('draftStore and multi-document asset management', () => {
   const theme = getRegisteredThemes()[0];
@@ -36,7 +42,26 @@ describe('draftStore and multi-document asset management', () => {
   };
 
   beforeEach(async () => {
+    getActiveDocumentIds.mockReset().mockResolvedValue(new Set());
     await clearAllDrafts();
+  });
+
+  it('protects another window from garbage collection and bulk or individual draft deletion', async () => {
+    getActiveDocumentIds.mockResolvedValue(new Set(['other-window']));
+    const asset = await createDocumentAsset(new Uint8Array([7]), { fileName: 'active.png', mediaType: 'image/png' });
+    await putDocumentAsset('other-window', asset);
+    await runStorageGC('this-window');
+    expect(await listDocumentAssets('other-window')).toHaveLength(1);
+
+    await putStoredDraft({
+      formatVersion: CURRENT_DRAFT_FORMAT_VERSION, documentId: 'other-window',
+      createdAt: '2026-01-01', updatedAt: '2026-01-01', markdown: '# Other',
+      meta, theme, settings: { historyEnabled: false, historyIdleMinutes: 10 }, history: [],
+    });
+    await clearAllDraftsWithAssets('this-window');
+    expect(await getDraft('other-window')).toBeDefined();
+    await expect(deleteDraftWithAssets('other-window')).rejects.toThrow('正在编辑');
+    expect(await listDocumentAssets('other-window')).toHaveLength(1);
   });
 
   it('supports multiple independent drafts without overwriting each other', async () => {

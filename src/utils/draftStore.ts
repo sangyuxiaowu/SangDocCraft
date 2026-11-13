@@ -2,6 +2,7 @@ import type { DocumentHistoryEntry, DocumentMeta, DocumentSettings, DocumentThem
 import { PRESET_THEMES } from '../data/presetThemes';
 import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
 import { CURRENT_DOCUMENT_FORMAT_VERSION, migrateDocumentData } from './documentMigrations';
+import { getActiveDocumentIds, withDocumentStorageLock } from './documentSession';
 import {
   clearDocumentAssets,
   cleanupOrphanDocumentAssets,
@@ -183,26 +184,33 @@ export async function clearAllDrafts(): Promise<void> {
  * 彻底删除草稿以及其归属的所有图片资产与对话记录，不留任何孤立垃圾
  */
 export async function deleteDraftWithAssets(documentId: string): Promise<void> {
-  await deleteDraft(documentId);
-  await clearDocumentAssets(documentId);
-  await clearDocumentChatSessions(documentId);
+  return withDocumentStorageLock(async () => {
+    const activeIds = await getActiveDocumentIds();
+    if (!activeIds) throw new Error('此浏览器不支持跨窗口编辑保护，无法安全删除草稿。请使用支持 Web Locks 的浏览器。');
+    if (activeIds.has(documentId)) throw new Error('无法删除正在编辑的草稿，请关闭其编辑窗口后重试。');
+    await deleteDraft(documentId);
+    await clearDocumentAssets(documentId);
+    await clearDocumentChatSessions(documentId);
+  });
 }
 
 /**
  * 清空草稿及关联图片与对话（可选择保留当前正在编辑的 activeDocumentId）
  */
 export async function clearAllDraftsWithAssets(preserveDocumentId?: string): Promise<void> {
-  const drafts = await getStoredDrafts();
-  for (const draft of drafts) {
-    if (draft.documentId !== preserveDocumentId) {
-      await deleteDraft(draft.documentId);
-      await clearDocumentAssets(draft.documentId);
-      await clearDocumentChatSessions(draft.documentId);
+  return withDocumentStorageLock(async () => {
+    const activeIds = await getActiveDocumentIds();
+    if (!activeIds) throw new Error('此浏览器不支持跨窗口编辑保护，无法安全清理草稿。请使用支持 Web Locks 的浏览器。');
+    if (preserveDocumentId) activeIds.add(preserveDocumentId);
+    const drafts = await getStoredDrafts();
+    for (const draft of drafts) {
+      if (!activeIds.has(draft.documentId)) {
+        await deleteDraft(draft.documentId);
+        await clearDocumentAssets(draft.documentId);
+        await clearDocumentChatSessions(draft.documentId);
+      }
     }
-  }
-  if (!preserveDocumentId) {
-    await clearAllDrafts();
-  }
+  });
 }
 
 /**
@@ -211,16 +219,18 @@ export async function clearAllDraftsWithAssets(preserveDocumentId?: string): Pro
  * 清理图片库与对话库中所有属于未知/已删文档的孤立残留数据
  */
 export async function runStorageGC(activeDocumentId?: string): Promise<number> {
-  const drafts = await getStoredDrafts();
-  const validIds = new Set<string>(drafts.map((d) => d.documentId));
-  if (activeDocumentId) {
-    validIds.add(activeDocumentId);
-  }
-  const [cleanedAssets, cleanedChats] = await Promise.all([
-    cleanupOrphanDocumentAssets(validIds),
-    cleanupOrphanChatSessions(validIds),
-  ]);
-  return cleanedAssets + cleanedChats;
+  return withDocumentStorageLock(async () => {
+    const activeIds = await getActiveDocumentIds();
+    if (!activeIds) return 0;
+    const drafts = await getStoredDrafts();
+    const validIds = new Set<string>([...activeIds, ...drafts.map((d) => d.documentId)]);
+    if (activeDocumentId) validIds.add(activeDocumentId);
+    const [cleanedAssets, cleanedChats] = await Promise.all([
+      cleanupOrphanDocumentAssets(validIds),
+      cleanupOrphanChatSessions(validIds),
+    ]);
+    return cleanedAssets + cleanedChats;
+  });
 }
 
 export async function getLatestDraft(): Promise<DocumentDraft | undefined> {

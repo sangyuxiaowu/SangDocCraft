@@ -40,6 +40,7 @@ interface HeaderBarProps {
   saveStatus?: 'saved' | 'saving' | 'unsaved';
   saveError?: string | null;
   lastSavedAt?: string | null;
+  saveTarget?: string;
   onOpenWelcome: () => void;
   onNewDocument: () => void;
   onOpenDocument: () => void;
@@ -68,6 +69,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   saveStatus,
   saveError,
   lastSavedAt,
+  saveTarget = '浏览器草稿',
   onOpenWelcome,
   onNewDocument,
   onOpenDocument,
@@ -310,7 +312,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <button 
               onClick={onSaveDocument} 
               className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition ${
-                saveError ? `保存失败：${saveError}` : isDocumentDirty
+                saveError || isDocumentDirty
                   ? isDark
                     ? 'bg-amber-500/10 border-amber-500/40 text-amber-400 hover:bg-amber-500/20'
                     : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
@@ -319,10 +321,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
               }`} 
               title={
-                isDocumentDirty 
+                saveError ? `保存失败：${saveError}` : isDocumentDirty
                   ? "文档有未保存变更 (Ctrl+S 保存)" 
                   : lastSavedAt
-                  ? `已保存至本地草稿 (${lastSavedAt})`
+                  ? `已保存至${saveTarget} (${lastSavedAt})`
                   : "保存文档 (Ctrl+S)"
               }
             >

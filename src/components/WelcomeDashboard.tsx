@@ -9,17 +9,11 @@ import {
   GraduationCap, 
   ClipboardList, 
   FileText, 
-  Clock, 
-  Trash2, 
-  ArrowRight, 
-  Check, 
   X, 
   Sun, 
   Moon, 
   Info,
   Laptop,
-  FileCode,
-  HardDrive,
   ExternalLink,
   ChevronRight,
   Heart,
@@ -30,6 +24,7 @@ import { DOCUMENT_TEMPLATE_CATEGORIES, DOCUMENT_TEMPLATES, type DocumentTemplate
 import type { DocumentDraftSummary } from '../utils/draftStore';
 import type { RecentDocumentItem } from '../utils/recentDocumentsStore';
 import type { ThemeMode } from '../types';
+import { RecentDocumentList } from './RecentDocumentList';
 
 const WELCOME_REWARD_STORAGE_KEY = 'sangdoccraft_welcome_reward_dismissed';
 const DOCUMENT_TEMPLATE_FILTERS: ReadonlyArray<{
@@ -44,6 +39,12 @@ interface WelcomeDashboardProps {
   isOpen: boolean;
   onClose?: () => void;
   canClose: boolean; // 是否可以关闭（例如已有文档正在编辑中）
+  currentDocument?: {
+    title: string;
+    isSaving: boolean;
+    hasUnsavedChanges: boolean;
+    saveError?: string | null;
+  };
   isDark: boolean;
   themeMode: ThemeMode;
   onThemeModeChange: (mode: ThemeMode) => void;
@@ -52,15 +53,14 @@ interface WelcomeDashboardProps {
   onSelectTemplate: (template: DocumentTemplateItem) => void;
   onOpenLocalFile: () => void;
   onOpenAbout: () => void;
-  // Web Mode: Unsaved Drafts
+  // Drafts and local files share the recent document list.
   drafts: DocumentDraftSummary[];
   onRestoreDraft: (draft: DocumentDraftSummary) => void;
   onDeleteDraft: (documentId: string) => void;
   onClearAllDrafts: () => void;
-  // Tauri Mode: Recent Documents
   recentDocuments: RecentDocumentItem[];
-  onOpenRecentPath: (path: string) => void;
-  onRemoveRecent: (path: string) => void;
+  onOpenRecent: (item: RecentDocumentItem) => void;
+  onRemoveRecent: (id: string) => void;
   onClearRecent: () => void;
 }
 
@@ -68,6 +68,7 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
   isOpen,
   onClose,
   canClose,
+  currentDocument,
   isDark,
   themeMode,
   onThemeModeChange,
@@ -80,7 +81,7 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
   onDeleteDraft,
   onClearAllDrafts,
   recentDocuments,
-  onOpenRecentPath,
+  onOpenRecent,
   onRemoveRecent,
   onClearRecent,
 }) => {
@@ -137,26 +138,6 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
       case 'graduation-cap': return <GraduationCap className="w-5 h-5 text-emerald-500" />;
       case 'clipboard-list': return <ClipboardList className="w-5 h-5 text-teal-500" />;
       default: return <FileText className="w-5 h-5 text-blue-500" />;
-    }
-  };
-
-  const formatRelativeTime = (isoString: string) => {
-    try {
-      const date = new Date(isoString);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffMinutes = Math.floor(diffMs / (1000 * 60));
-      const diffHours = Math.floor(diffMinutes / 60);
-      const diffDays = Math.floor(diffHours / 24);
-
-      if (diffMinutes < 1) return '刚刚';
-      if (diffMinutes < 60) return `${diffMinutes} 分钟前`;
-      if (diffHours < 24) return `${diffHours} 小时前`;
-      if (diffDays === 1) return '昨天 ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      if (diffDays < 7) return `${diffDays} 天前`;
-      return date.toLocaleDateString();
-    } catch {
-      return isoString;
     }
   };
 
@@ -460,196 +441,47 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
           </div>
         </section>
 
-        {/* ================= Section 2: Recent Documents or Unsaved Projects ================= */}
-        <section className={`rounded-2xl border p-6 flex flex-col gap-4 ${
-          isDark ? 'bg-zinc-900/40 border-zinc-800' : 'bg-white border-slate-200 shadow-xs'
-        }`}>
-          
-          {/* Section Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-blue-500" />
-                <h2 className="text-base font-bold tracking-tight">
-                  {isTauri ? '最近打开的文档' : '本地草稿文档'}
-                </h2>
-                <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
-                  isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-100 text-slate-600'
-                }`}>
-                  {isTauri ? `${recentDocuments.length} 个历史记录` : `${drafts.length} 个本地草稿`}
-                </span>
+        {canClose && currentDocument && onClose && (
+          <section aria-label="当前打开的文档" className={`rounded-2xl border p-5 flex flex-col sm:flex-row sm:items-center gap-4 ${
+            isDark ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50/60 border-blue-100'
+          }`}>
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+                <FileText className="w-5 h-5" aria-hidden="true" />
               </div>
-              {isTauri && (
-                <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
-                  本地 .sdc 历史文件，点击即可在桌面上快速读取与继续编辑。
-                </p>
-              )}
-            </div>
-
-            {/* Clear All Button */}
-            {((isTauri && recentDocuments.length > 0) || (!isTauri && drafts.length > 0)) && (
-              <button
-                type="button"
-                onClick={isTauri ? onClearRecent : onClearAllDrafts}
-                className={`text-xs px-3 py-1.5 rounded-xl border transition flex items-center gap-1 self-start sm:self-auto ${
-                  isDark 
-                    ? 'border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-red-400' 
-                    : 'border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-red-600'
-                }`}
-                title={isTauri ? '清空所有最近打开历史' : '清空所有未保存草稿'}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>{isTauri ? '清空历史' : '清空草稿'}</span>
-              </button>
-            )}
-          </div>
-
-          {/* List or Empty State */}
-          {isTauri ? (
-            /* Tauri Mode: Recent Document Files */
-            recentDocuments.length === 0 ? (
-              <div className={`py-12 px-4 rounded-xl border border-dashed text-center flex flex-col items-center justify-center gap-2.5 ${
-                isDark ? 'border-zinc-800 text-zinc-500' : 'border-slate-200 text-slate-400'
-              }`}>
-                <HardDrive className="w-8 h-8 opacity-40" />
-                <div className="text-xs font-medium">暂无最近打开的本地 .sdc 文档</div>
-                <button
-                  type="button"
-                  onClick={onOpenLocalFile}
-                  className="mt-1 px-3 py-1.5 rounded-lg bg-blue-600/10 text-blue-500 hover:bg-blue-600/20 text-xs font-semibold transition"
-                >
-                  浏览并打开本地文档
-                </button>
-              </div>
-            ) : (
-              <div className="divide-y divide-zinc-800/40 dark:divide-zinc-800/60">
-                {recentDocuments.map((item) => (
-                  <div
-                    key={item.id || item.path}
-                    className={`group py-3 px-3.5 rounded-xl flex items-center justify-between gap-4 transition cursor-pointer ${
-                      isDark ? 'hover:bg-zinc-800/50' : 'hover:bg-slate-50'
-                    }`}
-                    onClick={() => onOpenRecentPath(item.path)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        onOpenRecentPath(item.path);
-                      }
-                    }}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center shrink-0">
-                        <FileCode className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold truncate group-hover:text-blue-500 transition-colors">
-                          {item.title}
-                        </div>
-                        <div 
-                          className={`text-[11px] font-mono truncate ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}
-                          title={item.path}
-                        >
-                          {item.path}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className={`text-[11px] ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>
-                        {formatRelativeTime(item.lastOpenedAt)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRemoveRecent(item.path);
-                        }}
-                        className={`p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition ${
-                          isDark ? 'hover:bg-zinc-700 text-zinc-400 hover:text-red-400' : 'hover:bg-slate-200 text-slate-400 hover:text-red-600'
-                        }`}
-                        title="从历史记录中移除"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )
-          ) : (
-            /* Web Mode: Unsaved Drafts */
-            drafts.length === 0 ? (
-              <div className={`py-10 px-4 rounded-xl border border-dashed text-center flex flex-col items-center justify-center gap-2 ${
-                isDark ? 'border-zinc-800 text-zinc-500' : 'border-slate-200 text-slate-400'
-              }`}>
-                <Check className="w-7 h-7 text-emerald-500 opacity-80" />
-                <div className="text-xs font-medium">当前没有本地草稿</div>
-                <div className="text-[11px] opacity-70">
-                  所有项目已导出为 .sdc 文件或已清空。您可以直接从上方选择模板开始创建。
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                  <h2 className="font-semibold text-blue-500">当前打开</h2>
+                  {(currentDocument.isSaving || currentDocument.hasUnsavedChanges || currentDocument.saveError) && (
+                    <span className={currentDocument.saveError || (currentDocument.hasUnsavedChanges && !currentDocument.isSaving)
+                      ? isDark ? 'text-amber-400' : 'text-amber-600' : 'text-blue-500'}>
+                      {currentDocument.saveError ? '保存失败' : currentDocument.isSaving ? '正在保存…' : '有未保存修改'}
+                    </span>
+                  )}
                 </div>
+                <div className="text-sm font-bold truncate mt-1" title={currentDocument.title}>{currentDocument.title}</div>
+                <p className={`text-xs mt-1 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+                  {currentDocument.saveError || '文档仍在当前窗口中打开，返回欢迎页不会关闭文档。'}
+                </p>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {drafts.map((draft) => {
-                  return (
-                    <div
-                      key={draft.documentId}
-                      className={`group p-4 rounded-xl border flex flex-col justify-between gap-3 transition ${
-                        isDark 
-                          ? 'bg-zinc-800/40 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/70' 
-                          : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/80 shadow-2xs'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <h4 className="text-xs font-bold tracking-tight truncate group-hover:text-blue-500 transition-colors">
-                            {draft.title}
-                          </h4>
-                          <div className={`text-[11px] mt-1 flex items-center gap-2 ${
-                            isDark ? 'text-zinc-500' : 'text-slate-400'
-                          }`}>
-                            <span>修改于 {formatRelativeTime(draft.updatedAt)}</span>
-                            <span>•</span>
-                            <span>{draft.themeName}</span>
-                          </div>
-                        </div>
+            </div>
+            <button type="button" onClick={onClose} className="self-start sm:self-auto shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition">
+              继续编辑<ChevronRight className="w-4 h-4" aria-hidden="true" />
+            </button>
+          </section>
+        )}
 
-                        <button
-                          type="button"
-                          onClick={() => onDeleteDraft(draft.documentId)}
-                          className={`p-1.5 rounded-lg transition shrink-0 ${
-                            isDark ? 'hover:bg-zinc-700 text-zinc-500 hover:text-red-400' : 'hover:bg-slate-200 text-slate-400 hover:text-red-600'
-                          }`}
-                          title="放弃此未保存草稿"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      {/* Content stats & action */}
-                      <div className="flex items-center justify-between pt-2 border-t border-zinc-800/40 dark:border-zinc-800/60">
-                        <span className={`text-[11px] ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>
-                          约 {draft.charCount} 字 / {draft.lineCount} 行
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() => onRestoreDraft(draft)}
-                          className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition"
-                        >
-                          <span>继续编辑</span>
-                          <ArrowRight className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )
-          )}
-        </section>
+        <RecentDocumentList
+          isDark={isDark}
+          drafts={drafts}
+          recentDocuments={recentDocuments}
+          onRestoreDraft={onRestoreDraft}
+          onDeleteDraft={onDeleteDraft}
+          onClearAllDrafts={onClearAllDrafts}
+          onOpenRecent={onOpenRecent}
+          onRemoveRecent={onRemoveRecent}
+          onClearRecent={onClearRecent}
+        />
 
       </main>
 

@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type { SangDocument } from '../types';
 import { packSangDocument, SANG_DOCUMENT_MIME_TYPE, unpackSangDocument } from './documentPackage';
 import { isTauriEnvironment } from './tauriHelper';
+import { rememberBrowserFile, type BrowserDocumentFile, type DocumentFileHandle } from './browserDocumentStore';
 
 interface NativeDocumentFile {
   path: string;
@@ -11,6 +12,58 @@ interface NativeDocumentFile {
 export interface OpenedDocument {
   document: SangDocument;
   path?: string;
+  browserFile?: BrowserDocumentFile;
+}
+
+interface FilePickerOptions {
+  types: Array<{ description: string; accept: Record<string, string[]> }>;
+  suggestedName?: string;
+  multiple?: boolean;
+}
+
+const browserWindow = () => window as Window & {
+  showOpenFilePicker?: (options: FilePickerOptions) => Promise<DocumentFileHandle[]>;
+  showSaveFilePicker?: (options: FilePickerOptions) => Promise<DocumentFileHandle>;
+};
+const fileTypes = [{ description: 'SangDocCraft 文档', accept: { [SANG_DOCUMENT_MIME_TYPE]: ['.sdc'] } }];
+export const supportsBrowserFilePicker = () => typeof browserWindow().showOpenFilePicker === 'function';
+export const supportsBrowserSavePicker = () => typeof browserWindow().showSaveFilePicker === 'function';
+
+export async function ensureFilePermission(handle: DocumentFileHandle, mode: 'read' | 'readwrite', request = true): Promise<void> {
+  const options = { mode };
+  if (await handle.queryPermission(options) === 'granted') return;
+  if (request && await handle.requestPermission(options) === 'granted') return;
+  throw new Error(mode === 'readwrite'
+    ? '尚未获得原文件写入权限，请点击保存授权，或另存为新文件。'
+    : '尚未获得本地文件读取权限，请重新选择文件授权。');
+}
+
+export async function readBrowserDocument(handle: DocumentFileHandle): Promise<OpenedDocument> {
+  await ensureFilePermission(handle, 'read');
+  const opened = await readSangDocumentFile(await handle.getFile());
+  return { ...opened, browserFile: await rememberBrowserFile(handle) };
+}
+
+export async function pickBrowserSaveFile(title: string): Promise<DocumentFileHandle | undefined> {
+  const picker = browserWindow().showSaveFilePicker;
+  if (!picker) throw new Error('此浏览器不支持直接保存本地文件，请使用“导出 .sdc”。');
+  try {
+    return await picker({ types: fileTypes, suggestedName: getSuggestedFileName({ title }) });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return undefined;
+    throw error;
+  }
+}
+
+export async function writeBrowserDocument(document: SangDocument, handle: DocumentFileHandle): Promise<void> {
+  const stream = await handle.createWritable();
+  try {
+    await stream.write(new Blob([new Uint8Array(packSangDocument(document))], { type: SANG_DOCUMENT_MIME_TYPE }));
+    await stream.close();
+  } catch (error) {
+    try { await stream.abort(); } catch (abortError) { console.error('Abort file write failed:', abortError); }
+    throw error;
+  }
 }
 
 export function getDocumentSaveErrorMessage(error: unknown): string {
@@ -35,7 +88,17 @@ export async function readSangDocumentFile(file: File): Promise<OpenedDocument> 
 }
 
 export async function openSangDocument(): Promise<OpenedDocument | undefined> {
-  if (!isTauriEnvironment()) return undefined;
+  if (!isTauriEnvironment()) {
+    const picker = browserWindow().showOpenFilePicker;
+    if (!picker) return undefined;
+    try {
+      const [handle] = await picker({ types: fileTypes, multiple: false });
+      return await readBrowserDocument(handle);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return undefined;
+      throw error;
+    }
+  }
   const file = await invoke<NativeDocumentFile | null>('open_sdc_document');
   if (!file) return undefined;
   return { document: await unpackSangDocument(Uint8Array.from(file.bytes)), path: file.path };
@@ -55,7 +118,7 @@ export async function readStartupDocument(): Promise<OpenedDocument | undefined>
   return { document: await unpackSangDocument(Uint8Array.from(file.bytes)), path: file.path };
 }
 
-function getSuggestedFileName(document: SangDocument): string {
+function getSuggestedFileName(document: Pick<SangDocument, 'title'>): string {
   return `${document.title.replace(/[<>:"/\\|?*]+/g, '-').trim() || '未命名文档'}.sdc`;
 }
 
