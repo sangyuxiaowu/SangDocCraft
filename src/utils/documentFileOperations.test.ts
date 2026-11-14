@@ -16,7 +16,7 @@ vi.mock('./documentPackage', async (importOriginal) => ({
   packSangDocument,
 }));
 
-import { downloadSangDocument, ensureFilePermission, getDocumentSaveErrorMessage, openSangDocument, pickBrowserSaveFile, saveSangDocument, writeBrowserDocument } from './documentFileOperations';
+import { downloadSangDocument, ensureFilePermission, getDocumentSaveErrorMessage, openSangDocument, pickBrowserDocumentFile, pickBrowserSaveFile, saveSangDocument, writeBrowserDocument } from './documentFileOperations';
 import type { DocumentFileHandle } from './browserDocumentStore';
 import { getRegisteredThemes } from '../themes/themeRegistry';
 import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
@@ -82,11 +82,28 @@ describe('document file operations', () => {
     vi.stubGlobal('showOpenFilePicker', picker);
     vi.stubGlobal('showSaveFilePicker', picker);
     try {
+      await expect(pickBrowserDocumentFile()).resolves.toBeUndefined();
       await expect(openSangDocument()).resolves.toBeUndefined();
       await expect(pickBrowserSaveFile('test')).resolves.toBeUndefined();
       picker.mockRejectedValue(new DOMException('denied', 'NotAllowedError'));
+      await expect(pickBrowserDocumentFile()).rejects.toThrow('denied');
       await expect(openSangDocument()).rejects.toThrow('denied');
       await expect(pickBrowserSaveFile('test')).rejects.toThrow('denied');
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it('returns the selected handle before any file reads or permission queries', async () => {
+    const handle = createHandle();
+    let selectFile!: (handles: DocumentFileHandle[]) => void;
+    const picker = vi.fn(() => new Promise<DocumentFileHandle[]>((resolve) => { selectFile = resolve; }));
+    vi.stubGlobal('showOpenFilePicker', picker);
+    try {
+      const selection = pickBrowserDocumentFile();
+      expect(picker).toHaveBeenCalledOnce();
+      selectFile([handle]);
+      await expect(selection).resolves.toBe(handle);
+      expect(handle.queryPermission).not.toHaveBeenCalled();
+      expect(handle.getFile).not.toHaveBeenCalled();
     } finally { vi.unstubAllGlobals(); }
   });
 

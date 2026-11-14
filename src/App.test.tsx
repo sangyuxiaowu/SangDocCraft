@@ -12,20 +12,26 @@ import { DEFAULT_DOCUMENT_META } from './data/defaultDocumentMeta';
 import { getRegisteredThemes } from './themes/themeRegistry';
 import type { WelcomeDashboard } from './components/WelcomeDashboard';
 import type { HeaderBar } from './components/HeaderBar';
+import type { DocumentFileHandle } from './utils/browserDocumentStore';
 
-const { saveDraft, saveSangDocument, readBrowserDocument, writeBrowserDocument, ensureFilePermission, rememberBrowserFile, openDocumentWindow, sendDocumentToWindow, listChatSessions, listLibraryAssets, isTauriEnvironment, confirm } = vi.hoisted(() => ({
+const { saveDraft, saveSangDocument, openSangDocument, pickBrowserDocumentFile, supportsBrowserFilePicker, readBrowserDocument, writeBrowserDocument, ensureFilePermission, rememberBrowserFile, openDocumentWindow, reserveDocumentWindow, sendDocumentToWindow, listChatSessions, listLibraryAssets, isTauriEnvironment, confirm, alert } = vi.hoisted(() => ({
   saveDraft: vi.fn(),
   saveSangDocument: vi.fn(),
+  openSangDocument: vi.fn<typeof import('./utils/documentFileOperations').openSangDocument>(),
+  pickBrowserDocumentFile: vi.fn<() => Promise<DocumentFileHandle | undefined>>(),
+  supportsBrowserFilePicker: vi.fn(() => true),
   readBrowserDocument: vi.fn(),
   writeBrowserDocument: vi.fn(),
   ensureFilePermission: vi.fn(),
   rememberBrowserFile: vi.fn(),
   openDocumentWindow: vi.fn(),
+  reserveDocumentWindow: vi.fn(),
   sendDocumentToWindow: vi.fn(),
   listChatSessions: vi.fn(),
   listLibraryAssets: vi.fn(),
   isTauriEnvironment: vi.fn(() => false),
   confirm: vi.fn(async () => false),
+  alert: vi.fn(async () => {}),
 }));
 
 vi.mock('./utils/draftStore', async (importOriginal) => ({
@@ -37,6 +43,9 @@ vi.mock('./utils/draftStore', async (importOriginal) => ({
 }));
 vi.mock('./utils/documentFileOperations', () => ({
   readStartupDocument: async () => undefined,
+  openSangDocument,
+  pickBrowserDocumentFile,
+  supportsBrowserFilePicker,
   readBrowserDocument,
   writeBrowserDocument,
   ensureFilePermission,
@@ -48,7 +57,7 @@ vi.mock('./utils/browserDocumentStore', () => ({ rememberBrowserFile }));
 vi.mock('./utils/documentWindows', () => ({
   getDocumentWindowRequest: () => undefined,
   openDocumentWindow,
-  reserveDocumentWindow: () => ({ close: vi.fn(), open: vi.fn() }),
+  reserveDocumentWindow,
   sendDocumentToWindow,
 }));
 vi.mock('./utils/tauriHelper', async (importOriginal) => ({
@@ -74,7 +83,7 @@ vi.mock('./components/HeaderBar', () => ({
     <><button onClick={onSaveDocument}>保存</button><button onClick={onSaveAs}>另存为</button><button onClick={onOpenWelcome}>返回欢迎页</button><span data-testid="save-error">{saveError}</span></>
   ),
 }));
-vi.mock('./utils/modalDialog', () => ({ modal: { confirm, alert: async () => {} } }));
+vi.mock('./utils/modalDialog', () => ({ modal: { confirm, alert } }));
 vi.mock('./components/Editor', () => ({
   Editor: ({ value, onChange, saveStatus, reviewSession, onRejectAllHunks, onApplyResolution }: {
     value: string;
@@ -97,9 +106,10 @@ vi.mock('./components/styleConfig/Panel', () => ({ StyleConfigPanel: ({ theme, o
   <button onClick={() => onChange({ ...theme, cover: { ...theme.cover, logoUrl: '@library/img-12eecd3f64fb38a4998a013b' } })}>设置封面图片</button>
 ) }));
 vi.mock('./components/WelcomeDashboard', () => ({
-  WelcomeDashboard: ({ onSelectTemplate, isOpen, currentDocument, onClose }: ComponentProps<typeof WelcomeDashboard>) => (
+  WelcomeDashboard: ({ onSelectTemplate, onOpenLocalFile, isOpen, currentDocument, onClose }: ComponentProps<typeof WelcomeDashboard>) => (
     <>
       <button onClick={() => onSelectTemplate(DOCUMENT_TEMPLATES[0])}>新建</button>
+      {isOpen && <button onClick={onOpenLocalFile}>打开 .sdc 文档</button>}
       {isOpen && currentDocument && (
         <section aria-label="当前打开的文档">
           {currentDocument.title}
@@ -130,6 +140,16 @@ describe('document saving', () => {
   let container: HTMLDivElement;
   let root: ReturnType<typeof createRoot>;
   const pendingSaves: Array<() => void> = [];
+  const pickedHandle: DocumentFileHandle = {
+    name: 'picked.sdc', getFile: vi.fn(), isSameEntry: vi.fn(),
+    queryPermission: vi.fn(), requestPermission: vi.fn(), createWritable: vi.fn(),
+  };
+  const pickedDocument: SangDocument = {
+    id: 'picked-document', title: 'Picked document',
+    createdAt: '2026-01-01T00:00:00.000Z', modifiedAt: '2026-01-01T00:00:00.000Z',
+    markdown: '# Picked document', meta: DEFAULT_DOCUMENT_META, theme: getRegisteredThemes()[0],
+    settings: { historyEnabled: false, historyIdleMinutes: 10 }, history: [], chatSessions: [], assets: [],
+  };
   const click = (text: string) => [...container.querySelectorAll('button')].find((button) => button.textContent === text)!.click();
 
   beforeEach(() => {
@@ -140,6 +160,10 @@ describe('document saving', () => {
     listChatSessions.mockResolvedValue([]);
     listLibraryAssets.mockResolvedValue([]);
     readBrowserDocument.mockReset();
+    openSangDocument.mockReset().mockResolvedValue(undefined);
+    pickBrowserDocumentFile.mockReset().mockResolvedValue(undefined);
+    supportsBrowserFilePicker.mockReturnValue(true);
+    reserveDocumentWindow.mockReset().mockImplementation(() => ({ close: vi.fn(), open: vi.fn() }));
     writeBrowserDocument.mockReset().mockResolvedValue(undefined);
     ensureFilePermission.mockReset().mockResolvedValue(undefined);
     openDocumentWindow.mockReset().mockResolvedValue(undefined);
@@ -319,6 +343,109 @@ describe('document saving', () => {
     expect(container.querySelector('[data-testid="body"]')?.textContent).toBe('first');
     expect(container.querySelector('output')?.textContent).toBe('unsaved');
     expect(openDocumentWindow).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])('waits for selection before opening one window and reading the file (edited: %s)', async (edited) => {
+    const opened = { document: pickedDocument };
+    const target = { close: vi.fn(), open: vi.fn() };
+    let userActivation = false;
+    let finishPick!: (handle: DocumentFileHandle) => void;
+    let finishOpen!: (value: typeof opened) => void;
+    reserveDocumentWindow.mockImplementation(() => {
+      expect(userActivation).toBe(true);
+      expect(readBrowserDocument).not.toHaveBeenCalled();
+      userActivation = false;
+      return target;
+    });
+    pickBrowserDocumentFile.mockImplementation(() => {
+      if (!userActivation) return Promise.reject(new DOMException('Must be handling a user gesture', 'SecurityError'));
+      return new Promise((resolve) => { finishPick = resolve; });
+    });
+    readBrowserDocument.mockImplementation(() => new Promise((resolve) => { finishOpen = resolve; }));
+
+    await act(async () => { root.render(<App />); });
+    await act(async () => { click('新建'); });
+    if (edited) await act(async () => { click('第一次编辑'); });
+    const previousBody = container.querySelector('[data-testid="body"]')?.textContent;
+    await act(async () => { click('返回欢迎页'); });
+    await act(async () => {
+      userActivation = true;
+      click('打开 .sdc 文档');
+      userActivation = false;
+      expect(pickBrowserDocumentFile).toHaveBeenCalledOnce();
+      expect(reserveDocumentWindow).not.toHaveBeenCalled();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(6000);
+      click('打开 .sdc 文档');
+    });
+    expect(pickBrowserDocumentFile).toHaveBeenCalledOnce();
+    expect(reserveDocumentWindow).not.toHaveBeenCalled();
+    await act(async () => {
+      userActivation = true;
+      finishPick(pickedHandle);
+    });
+    expect(reserveDocumentWindow).toHaveBeenCalledOnce();
+    expect(readBrowserDocument).toHaveBeenCalledWith(pickedHandle);
+    expect(alert).not.toHaveBeenCalled();
+    expect(sendDocumentToWindow).not.toHaveBeenCalled();
+    await act(async () => { click('打开 .sdc 文档'); });
+    expect(pickBrowserDocumentFile).toHaveBeenCalledOnce();
+    await act(async () => { finishOpen(opened); });
+    expect(sendDocumentToWindow).toHaveBeenCalledWith(opened, target);
+    expect(container.querySelector('[data-testid="body"]')?.textContent).toBe(previousBody);
+    expect(target.close).not.toHaveBeenCalled();
+  });
+
+  it.each(['cancel', 'failure'])('creates no window on picker %s and allows retry', async (outcome) => {
+    if (outcome === 'failure') pickBrowserDocumentFile.mockRejectedValueOnce(new Error('Cannot select document'));
+    await act(async () => { root.render(<App />); });
+    await act(async () => { click('新建'); });
+    await act(async () => { click('返回欢迎页'); });
+    await act(async () => { click('打开 .sdc 文档'); });
+    expect(reserveDocumentWindow).not.toHaveBeenCalled();
+    expect(readBrowserDocument).not.toHaveBeenCalled();
+    expect(sendDocumentToWindow).not.toHaveBeenCalled();
+    if (outcome === 'failure') {
+      expect(alert).toHaveBeenCalledWith(expect.objectContaining({ message: 'Cannot select document', type: 'error' }));
+    } else expect(alert).not.toHaveBeenCalled();
+    await act(async () => { click('打开 .sdc 文档'); });
+    expect(pickBrowserDocumentFile).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['popup', 'read'])('preserves current edits and reports %s failure after selection', async (failure) => {
+    const target = { close: vi.fn(), open: vi.fn() };
+    pickBrowserDocumentFile.mockResolvedValue(pickedHandle);
+    reserveDocumentWindow.mockImplementation(() => {
+      if (failure === 'popup') throw new Error('Popup blocked');
+      return target;
+    });
+    readBrowserDocument.mockRejectedValue(new Error('Cannot read document'));
+    await act(async () => { root.render(<App />); });
+    await act(async () => { click('新建'); });
+    await act(async () => { click('第一次编辑'); });
+    await act(async () => { click('返回欢迎页'); });
+    await act(async () => { click('打开 .sdc 文档'); });
+    expect(alert).toHaveBeenCalledWith(expect.objectContaining({ message: failure === 'popup' ? 'Popup blocked' : 'Cannot read document' }));
+    if (failure === 'popup') expect(readBrowserDocument).not.toHaveBeenCalled();
+    else expect(target.close).toHaveBeenCalledOnce();
+    expect(alert).toHaveBeenCalledOnce();
+    expect(sendDocumentToWindow).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-testid="body"]')?.textContent).toBe('first');
+  });
+
+  it.each([false, true])('opens the first file in the current workspace (native: %s)', async (native) => {
+    isTauriEnvironment.mockReturnValue(native);
+    pickBrowserDocumentFile.mockResolvedValue(pickedHandle);
+    readBrowserDocument.mockResolvedValue({ document: pickedDocument });
+    openSangDocument.mockResolvedValue({ document: pickedDocument });
+    await act(async () => { root.render(<App />); });
+    await act(async () => { click('打开 .sdc 文档'); });
+    expect(container.querySelector('[data-testid="body"]')?.textContent).toBe(pickedDocument.markdown);
+    expect(reserveDocumentWindow).not.toHaveBeenCalled();
+    expect(sendDocumentToWindow).not.toHaveBeenCalled();
+    expect(pickBrowserDocumentFile).toHaveBeenCalledTimes(native ? 0 : 1);
+    expect(openSangDocument).toHaveBeenCalledTimes(native ? 1 : 0);
   });
 
   it('keeps the new file path when editing during the first desktop save', async () => {

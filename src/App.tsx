@@ -21,7 +21,7 @@ import { clearDocumentAssetUrls } from './utils/assetUrlRegistry';
 import { isTauriEnvironment, resolveImageSrc, updateTauriWindowTitle } from './utils/tauriHelper';
 import { putChatSession, putDocumentAsset, putLibraryAsset } from './utils/imageRepository';
 import { collectImageReferences } from './utils/imageReferences';
-import { openSangDocument, openSangDocumentByPath, readBrowserDocument, readSangDocumentFile, readStartupDocument, supportsBrowserFilePicker, supportsBrowserSavePicker, type OpenedDocument } from './utils/documentFileOperations';
+import { openSangDocument, openSangDocumentByPath, pickBrowserDocumentFile, readBrowserDocument, readSangDocumentFile, readStartupDocument, supportsBrowserFilePicker, supportsBrowserSavePicker, type OpenedDocument } from './utils/documentFileOperations';
 import { getBrowserFile, takeDocumentTransfer, type BrowserDocumentFile, type DocumentFileHandle } from './utils/browserDocumentStore';
 import { getDocumentWindowRequest, openDocumentWindow, reserveDocumentWindow, sendDocumentToWindow, type DocumentWindowRequest } from './utils/documentWindows';
 import { acquireDocumentSession } from './utils/documentSession';
@@ -154,6 +154,7 @@ export default function App() {
   const configPanelRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<EditorHandle>(null);
   const documentFileInputRef = useRef<HTMLInputElement>(null);
+  const isOpeningDocumentRef = useRef(false);
   const hasPwaFileLaunchRef = useRef(false);
   const initializedRef = useRef(false);
   const hasActiveDocumentRef = useRef(false);
@@ -649,15 +650,27 @@ export default function App() {
   };
 
   const handleOpenDocument = async () => {
+    if (isOpeningDocumentRef.current) return;
     let target: ReturnType<typeof reserveDocumentWindow> | undefined;
     try {
-      if (hasActiveDocumentRef.current) target = reserveDocumentWindow();
       if (!isTauriEnvironment() && !supportsBrowserFilePicker()) {
+        if (hasActiveDocumentRef.current) target = reserveDocumentWindow();
         pendingFileWindowRef.current = target;
         documentFileInputRef.current?.click();
         return;
       }
-      const opened = await openSangDocument();
+      isOpeningDocumentRef.current = true;
+      let opened: OpenedDocument | undefined;
+      if (isTauriEnvironment()) {
+        opened = await openSangDocument();
+        if (opened && hasActiveDocumentRef.current) target = reserveDocumentWindow();
+      } else {
+        const handle = await pickBrowserDocumentFile();
+        if (!handle) return;
+        // 选中文件会重新激活页面；此时创建窗口，既不抢选择器焦点，也不等待读取后失去激活。
+        if (hasActiveDocumentRef.current) target = reserveDocumentWindow();
+        opened = await readBrowserDocument(handle);
+      }
       if (opened) {
         if (target) await sendDocumentToWindow(opened, target);
         else await applyOpenedDocument(opened);
@@ -669,6 +682,8 @@ export default function App() {
         message: error instanceof Error ? error.message : '打开文档失败',
         type: 'error',
       });
+    } finally {
+      isOpeningDocumentRef.current = false;
     }
   };
 

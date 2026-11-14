@@ -44,6 +44,18 @@ export async function readBrowserDocument(handle: DocumentFileHandle): Promise<O
   return { ...opened, browserFile: await rememberBrowserFile(handle) };
 }
 
+export async function pickBrowserDocumentFile(): Promise<DocumentFileHandle | undefined> {
+  const picker = browserWindow().showOpenFilePicker;
+  if (!picker) throw new Error('此浏览器不支持文件选择器，请使用普通文件上传。');
+  try {
+    const [handle] = await picker({ types: fileTypes, multiple: false });
+    return handle;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return undefined;
+    throw error;
+  }
+}
+
 export async function pickBrowserSaveFile(title: string): Promise<DocumentFileHandle | undefined> {
   const picker = browserWindow().showSaveFilePicker;
   if (!picker) throw new Error('此浏览器不支持直接保存本地文件，请使用“导出 .sdc”。');
@@ -89,15 +101,9 @@ export async function readSangDocumentFile(file: File): Promise<OpenedDocument> 
 
 export async function openSangDocument(): Promise<OpenedDocument | undefined> {
   if (!isTauriEnvironment()) {
-    const picker = browserWindow().showOpenFilePicker;
-    if (!picker) return undefined;
-    try {
-      const [handle] = await picker({ types: fileTypes, multiple: false });
-      return await readBrowserDocument(handle);
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return undefined;
-      throw error;
-    }
+    if (!supportsBrowserFilePicker()) return undefined;
+    const handle = await pickBrowserDocumentFile();
+    return handle ? readBrowserDocument(handle) : undefined;
   }
   const file = await invoke<NativeDocumentFile | null>('open_sdc_document');
   if (!file) return undefined;
