@@ -220,8 +220,9 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
   const [overflowPageNumbers, setOverflowPageNumbers] = useState<number[]>([]);
   const [mermaidHeights, setMermaidHeights] = useState<Record<string, number>>({});
   const [infographicHeights, setInfographicHeights] = useState<Record<string, number>>({});
-  const [, setMathEpoch] = useState(0);
-  const [, setImageEpoch] = useState(0);
+  const [mathEpoch, setMathEpoch] = useState(0);
+  const [imageEpoch, setImageEpoch] = useState(0);
+  const [fontEpoch, setFontEpoch] = useState(0);
   const [isOutlineOpen, setIsOutlineOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageInput, setPageInput] = useState<string>('1');
@@ -446,7 +447,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
   const coverListItems = resolveCoverList(cover.coverlist ?? [], meta);
   const inlineCoverHeight = useMemo(() => hasInlineCover
     ? measureInlineCoverHeight(coverTemplate.renderHtml({ meta, cover, style, coverListItems: resolveCoverList(cover.coverlist ?? [], meta) }), style, coverTemplate.inlinePageHeight)
-    : 0, [hasInlineCover, coverTemplate, meta, cover, style]);
+    : 0, [hasInlineCover, coverTemplate, meta, cover, style, fontEpoch]);
   const contentPagination = useMemo(() => {
     const paragraphContinuations = new Set<number>();
     const pages = paginateContentByDom(markdown, {
@@ -469,7 +470,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
       onParagraphContinuation: pageIndex => paragraphContinuations.add(pageIndex),
     });
     return { pages, paragraphContinuations };
-  }, [markdown, fontStack, header.show, header.hideOnCover, footer.show, footer.hideOnCover, hasInlineCover, inlineCoverHeight, style, pageMargins, mermaidHeights, infographicHeights]);
+  }, [markdown, fontStack, header.show, header.hideOnCover, footer.show, footer.hideOnCover, hasInlineCover, inlineCoverHeight, style, pageMargins, mermaidHeights, infographicHeights, mathEpoch, imageEpoch, fontEpoch, theme]);
   const rawContentPages = contentPagination.pages;
 
   // Build TOC page numbers from the same pages rendered below.
@@ -487,7 +488,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
         coverPageCount: hasStandaloneCover ? 1 : 0,
         contentPageCount: rawContentPages.length,
       })
-    : [], [toc, hasToc, tocHeadings, style, header.show, footer.show, fontStack, hasStandaloneCover, rawContentPages.length]);
+    : [], [toc, hasToc, tocHeadings, style, header.show, footer.show, fontStack, hasStandaloneCover, rawContentPages.length, fontEpoch]);
   const tocPageCount = tocChunks.length;
   const firstContentPageNum = (hasStandaloneCover ? 1 : 0) + (hasToc ? tocPageCount : 0) + 1;
 
@@ -647,6 +648,21 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
   }, [markdown]);
 
   useEffect(() => {
+    const fonts = document.fonts;
+    if (!fonts) return;
+    let cancelled = false;
+    const onReady = () => {
+      if (!cancelled) setFontEpoch((epoch) => epoch + 1);
+    };
+    fonts.addEventListener('loadingdone', onReady);
+    void fonts.ready.then(onReady);
+    return () => {
+      cancelled = true;
+      fonts.removeEventListener('loadingdone', onReady);
+    };
+  }, [style]);
+
+  useEffect(() => {
     const images = Array.from(containerRef.current?.querySelectorAll<HTMLImageElement>('.markdown-rendered-body img') ?? []);
     if (images.length === 0) return;
     const onLoad = (image: HTMLImageElement) => {
@@ -661,14 +677,11 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
       return { image, listener };
     });
     const loaded = images.filter((image) => image.complete && image.naturalWidth > 0);
-    const frame = loaded.length > 0
-      ? requestAnimationFrame(() => loaded.forEach(onLoad))
-      : 0;
+    loaded.forEach(onLoad);
     return () => {
       listeners.forEach(({ image, listener }) => image.removeEventListener('load', listener));
-      cancelAnimationFrame(frame);
     };
-  }, [markdown, theme]);
+  }, [contentPagination, theme]);
 
   // Build Pages Array
   const pages: PageItem[] = [];

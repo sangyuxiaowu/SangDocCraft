@@ -12,6 +12,7 @@ import { DEFAULT_DOCUMENT_META } from './data/defaultDocumentMeta';
 import { getRegisteredThemes } from './themes/themeRegistry';
 import type { WelcomeDashboard } from './components/WelcomeDashboard';
 import type { HeaderBar } from './components/HeaderBar';
+import type { ImageManager } from './components/ImageManager';
 import type { DocumentFileHandle } from './utils/browserDocumentStore';
 import { CURRENT_DRAFT_FORMAT_VERSION } from './utils/draftStore';
 
@@ -139,7 +140,9 @@ vi.mock('./components/ai/AiAssistantFloat', () => ({
 vi.mock('./components/ai/AiSettingsModal', () => ({ AiSettingsModal: () => null }));
 vi.mock('./components/ModalDialogContainer', () => ({ ModalDialogContainer: () => null }));
 vi.mock('./components/DocumentHistoryModal', () => ({ DocumentHistoryModal: () => null }));
-vi.mock('./components/ImageManager', () => ({ ImageManager: () => null }));
+vi.mock('./components/ImageManager', () => ({ ImageManager: ({ onAssetsChanged }: ComponentProps<typeof ImageManager>) => (
+  <button onClick={() => { void onAssetsChanged(); }}>图片资源已更新</button>
+) }));
 vi.mock('./components/JsonThemeModal', () => ({ JsonThemeModal: () => null }));
 vi.mock('./components/AboutModal', () => ({ AboutModal: () => null }));
 vi.mock('./components/PrintPdfModal', () => ({ PrintPdfModal: () => null }));
@@ -210,6 +213,39 @@ describe('document saving', () => {
     expect(pendingSaves).toHaveLength(2);
     await act(async () => { pendingSaves[1](); });
     expect(container.querySelector('output')?.textContent).toBe('saved');
+  });
+
+  it('auto-saves replaced image bytes to a Tauri file without editing markdown or clicking save', async () => {
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:http://localhost/saved-image');
+    try {
+      isTauriEnvironment.mockReturnValue(true);
+      const originalAsset: DocumentAsset = {
+        id: 'saved-image', scope: 'library', fileName: 'image.png', description: '',
+        mediaType: 'image/png', byteLength: 4, sha256: 'original', data: new Uint8Array([1, 2, 3, 4]),
+      };
+      const compressedAsset: DocumentAsset = {
+        ...originalAsset, fileName: 'image.webp', mediaType: 'image/webp',
+        byteLength: 2, sha256: 'compressed', data: new Uint8Array([5, 6]),
+      };
+      const document = { ...pickedDocument, markdown: '![](@library/saved-image)' };
+      openSangDocument.mockResolvedValue({ document, path: 'image-document.sdc' });
+      listLibraryAssets.mockResolvedValue([originalAsset]);
+      await act(async () => { root.render(<App />); });
+      await act(async () => { click('打开 .sdc 文档'); });
+      await act(async () => { vi.advanceTimersByTime(1500); });
+      expect(saveSangDocument).not.toHaveBeenCalled();
+
+      listLibraryAssets.mockResolvedValue([compressedAsset]);
+      await act(async () => { click('图片资源已更新'); });
+      expect(container.querySelector('output')?.textContent).toBe('unsaved');
+      await act(async () => { vi.advanceTimersByTime(1500); });
+      expect(saveSangDocument).toHaveBeenCalledWith(expect.objectContaining({
+        markdown: document.markdown, assets: [compressedAsset],
+      }), 'image-document.sdc');
+      expect(container.querySelector('output')?.textContent).toBe('saved');
+    } finally {
+      createObjectURL.mockRestore();
+    }
   });
 
   it('resolves a cover logo when library assets arrive after the document', async () => {

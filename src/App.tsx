@@ -879,7 +879,7 @@ export default function App() {
               assets={assets}
               uiMode={uiMode}
               documentId={documentId}
-              onAssetsChanged={() => refreshAssets()}
+              onAssetsChanged={async () => { await refreshAssets(); setIsDocumentDirty(true); }}
               saveStatus={saveStatus === 'saving' ? 'saving' : isDocumentDirty || saveError ? 'unsaved' : 'saved'}
               lastSavedAt={lastSavedAt}
               reviewSession={diffReviewSession}
@@ -1023,7 +1023,7 @@ export default function App() {
         theme={theme}
         isDark={isDark}
         onClose={() => setShowImageManager(false)}
-        onAssetsChanged={refreshAssets}
+        onAssetsChanged={async () => { await refreshAssets(); setIsDocumentDirty(true); }}
         onInsert={(imageMarkdown) => editorRef.current?.insertAtSelection(`\n\n${imageMarkdown}\n\n`)}
         onDocumentContentChange={(nextMarkdown, nextTheme) => {
           setMarkdown(nextMarkdown);

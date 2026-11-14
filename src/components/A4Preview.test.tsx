@@ -2,8 +2,114 @@
 
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getFigureViewportRect, getMarkdownPositionForPreviewLocation, getMarkdownPositionForPreviewPage, getOverflowPageNumbers, getPreviewPageLocation, RenderedMarkdownPage } from './A4Preview';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { A4Preview, getFigureViewportRect, getMarkdownPositionForPreviewLocation, getMarkdownPositionForPreviewPage, getOverflowPageNumbers, getPreviewPageLocation, RenderedMarkdownPage } from './A4Preview';
+import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
+import { getRegisteredThemes } from '../themes/themeRegistry';
+import * as markdownParser from '../utils/markdownParser';
+import * as mathRenderer from '../utils/mathRenderer';
+import { registerAssetUrl, unregisterAssetUrl } from '../utils/assetUrlRegistry';
+
+describe('A4Preview asynchronous pagination', () => {
+  let container: HTMLDivElement;
+  let root: ReturnType<typeof createRoot>;
+  let theme: ReturnType<typeof getRegisteredThemes>[number];
+
+  beforeEach(() => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+    vi.stubGlobal('ResizeObserver', class {
+      observe() {}
+      disconnect() {}
+    });
+    vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1));
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+    vi.spyOn(markdownParser, 'paginateContentByDom').mockImplementation((markdown) => [markdown]);
+    theme = structuredClone(getRegisteredThemes()[0]);
+    theme.cover.showCover = false;
+    theme.toc.show = false;
+    theme.pageLayout = { margins: { top: 20, right: 15, bottom: 20, left: 15 }, showSafeMarginGuides: false };
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    unregisterAssetUrl('@images/pagination-test');
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  const loadImage = (image: HTMLImageElement, width = 600, height = 400) => {
+    Object.defineProperties(image, {
+      naturalWidth: { value: width }, naturalHeight: { value: height }, complete: { value: true },
+    });
+    image.dispatchEvent(new Event('load'));
+  };
+
+  it('remeasures after each image loads, including nodes replaced by an earlier pagination', async () => {
+    const markdown = '![](https://example.test/pagination-first.png)\n\n![](https://example.test/pagination-second.png)';
+    await act(async () => root.render(<A4Preview markdown={markdown} meta={DEFAULT_DOCUMENT_META} theme={theme} />));
+    const firstPass = vi.mocked(markdownParser.paginateContentByDom).mock.calls.length;
+    await act(async () => loadImage(container.querySelector('img.doc-image')!));
+    expect(markdownParser.paginateContentByDom).toHaveBeenCalledTimes(firstPass + 1);
+    await act(async () => loadImage(container.querySelectorAll<HTMLImageElement>('img.doc-image')[1]));
+    expect(markdownParser.paginateContentByDom).toHaveBeenCalledTimes(firstPass + 2);
+  });
+
+  it('remeasures an already loaded image without waiting for an animation frame', async () => {
+    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true);
+    vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(800);
+    vi.spyOn(HTMLImageElement.prototype, 'naturalHeight', 'get').mockReturnValue(500);
+    await act(async () => root.render(<A4Preview markdown="![](https://example.test/pagination-cached.png)" meta={DEFAULT_DOCUMENT_META} theme={theme} />));
+    expect(markdownParser.paginateContentByDom).toHaveBeenCalledTimes(2);
+  });
+
+  it('replaces the rendered URL and remeasures when an asset changes without changing markdown or style', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValueOnce('blob:pagination-original').mockReturnValueOnce('blob:pagination-compressed');
+    const asset = {
+      id: 'pagination-test', scope: 'document' as const, fileName: 'image.png', description: '',
+      mediaType: 'image/png', byteLength: 1, sha256: '', data: new Uint8Array([1]),
+    };
+    registerAssetUrl(asset);
+    const markdown = '![](@images/pagination-test)';
+    await act(async () => root.render(<A4Preview markdown={markdown} meta={DEFAULT_DOCUMENT_META} theme={theme} />));
+    const firstPass = vi.mocked(markdownParser.paginateContentByDom).mock.calls.length;
+    registerAssetUrl({ ...asset, mediaType: 'image/webp', data: new Uint8Array([2]) });
+    await act(async () => root.render(<A4Preview markdown={markdown} meta={DEFAULT_DOCUMENT_META} theme={{ ...theme }} />));
+    expect(container.querySelector('img.doc-image')?.getAttribute('src')).toBe('blob:pagination-compressed');
+    expect(markdownParser.paginateContentByDom).toHaveBeenCalledTimes(firstPass + 1);
+    await act(async () => loadImage(container.querySelector('img.doc-image')!, 300, 200));
+    expect(markdownParser.paginateContentByDom).toHaveBeenCalledTimes(firstPass + 2);
+  });
+
+  it('remeasures when fonts become ready and when later fonts finish loading', async () => {
+    let finishFonts!: () => void;
+    const fonts = Object.assign(new EventTarget(), { ready: new Promise<void>((resolve) => { finishFonts = resolve; }) });
+    Object.defineProperty(document, 'fonts', { configurable: true, value: fonts });
+    try {
+      await act(async () => root.render(<A4Preview markdown="Text" meta={DEFAULT_DOCUMENT_META} theme={theme} />));
+      expect(markdownParser.paginateContentByDom).toHaveBeenCalledTimes(1);
+      await act(async () => finishFonts());
+      expect(markdownParser.paginateContentByDom).toHaveBeenCalledTimes(2);
+      await act(async () => fonts.dispatchEvent(new Event('loadingdone')));
+      expect(markdownParser.paginateContentByDom).toHaveBeenCalledTimes(3);
+    } finally {
+      Reflect.deleteProperty(document, 'fonts');
+    }
+  });
+
+  it('remeasures when the math renderer becomes ready without a markdown edit', async () => {
+    let finishMath!: () => void;
+    vi.spyOn(mathRenderer, 'onMathReady').mockImplementation((callback) => { finishMath = callback; return () => {}; });
+    vi.spyOn(mathRenderer, 'ensureMathLoaded').mockResolvedValue();
+    await act(async () => root.render(<A4Preview markdown="$x$" meta={DEFAULT_DOCUMENT_META} theme={theme} />));
+    const firstPass = vi.mocked(markdownParser.paginateContentByDom).mock.calls.length;
+    await act(async () => finishMath());
+    expect(markdownParser.paginateContentByDom).toHaveBeenCalledTimes(firstPass + 1);
+  });
+});
 
 describe('getFigureViewportRect', () => {
   it.each([
