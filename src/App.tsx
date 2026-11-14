@@ -10,6 +10,7 @@ import { JsonThemeModal } from './components/JsonThemeModal';
 import { AboutModal } from './components/AboutModal';
 import { PrintPdfModal } from './components/PrintPdfModal';
 import { ModalDialogContainer } from './components/ModalDialogContainer';
+import { DocumentLoadingScreen } from './components/DocumentLoadingScreen';
 import { modal } from './utils/modalDialog';
 import { DocumentAsset, DocumentHistoryEntry, DocumentMeta, DocumentTheme, ThemeMode, ViewMode } from './types';
 import { getRegisteredThemes } from './themes/themeRegistry';
@@ -23,8 +24,8 @@ import { putChatSession, putDocumentAsset, putLibraryAsset } from './utils/image
 import { collectImageReferences } from './utils/imageReferences';
 import { openSangDocument, openSangDocumentByPath, pickBrowserDocumentFile, readBrowserDocument, readSangDocumentFile, readStartupDocument, supportsBrowserFilePicker, supportsBrowserSavePicker, type OpenedDocument } from './utils/documentFileOperations';
 import { getBrowserFile, takeDocumentTransfer, type BrowserDocumentFile, type DocumentFileHandle } from './utils/browserDocumentStore';
-import { getDocumentWindowRequest, openDocumentWindow, reserveDocumentWindow, sendDocumentToWindow, type DocumentWindowRequest } from './utils/documentWindows';
-import { acquireDocumentSession } from './utils/documentSession';
+import { getDocumentWindowRequest, openDocumentWindow, sendDocumentToWindow, type DocumentWindowRequest } from './utils/documentWindows';
+import { acquireDocumentSession, assertDocumentSessionAvailable } from './utils/documentSession';
 import { 
   deleteDraftWithAssets, 
   getDraft,
@@ -68,6 +69,8 @@ export default function App() {
 
   // Welcome Dashboard State
   const [isWelcomeOpen, setIsWelcomeOpen] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [isLoadingDocument, setIsLoadingDocument] = useState(false);
   const [hasActiveDocument, setHasActiveDocument] = useState(false);
   const [unsavedDrafts, setUnsavedDrafts] = useState<DocumentDraftSummary[]>([]);
   const [recentDocuments, setRecentDocuments] = useState<RecentDocumentItem[]>([]);
@@ -158,18 +161,7 @@ export default function App() {
   const hasPwaFileLaunchRef = useRef(false);
   const initializedRef = useRef(false);
   const hasActiveDocumentRef = useRef(false);
-  const pendingFileWindowRef = useRef<ReturnType<typeof reserveDocumentWindow> | undefined>(undefined);
   const releaseDocumentSessionRef = useRef<(() => void) | undefined>(undefined);
-
-  useEffect(() => {
-    const input = documentFileInputRef.current;
-    const cancel = () => {
-      pendingFileWindowRef.current?.close();
-      pendingFileWindowRef.current = undefined;
-    };
-    input?.addEventListener('cancel', cancel);
-    return () => input?.removeEventListener('cancel', cancel);
-  }, []);
 
   const protectDocumentSession = async (id: string) => {
     const release = await acquireDocumentSession(id);
@@ -321,9 +313,14 @@ export default function App() {
         if (!hasPwaFileLaunchRef.current && !hasActiveDocumentRef.current) setIsWelcomeOpen(true);
       } catch (error) {
         console.error('Startup initialization failed:', error);
+        window.history.replaceState(null, '', window.location.pathname);
+        setIsWelcomeOpen(true);
+        setIsInitializing(false);
         await refreshUnsavedDrafts();
         refreshRecentDocs();
         await modal.alert({ title: '打开文档失败', message: error instanceof Error ? error.message : '打开文档失败', type: 'error' });
+      } finally {
+        setIsInitializing(false);
       }
     })();
   }, []);
@@ -347,20 +344,21 @@ export default function App() {
       hasPwaFileLaunchRef.current = true;
       pendingLaunch = pendingLaunch.then(async () => {
         for (const handle of files) {
-          let target: ReturnType<typeof reserveDocumentWindow> | undefined;
+          setIsLoadingDocument(true);
           try {
-            if (hasActiveDocumentRef.current) target = reserveDocumentWindow();
             const opened = await readBrowserDocument(handle);
-            if (target) await sendDocumentToWindow(opened, target);
+            if (hasActiveDocumentRef.current) await sendDocumentToWindow(opened);
             else await applyOpenedDocument(opened);
           } catch (error) {
-            target?.close();
+            setIsLoadingDocument(false);
             console.error('PWA launchQueue document load error:', error);
             await modal.alert({
               title: '打开文档失败',
               message: error instanceof Error ? error.message : '打开文档失败',
               type: 'error',
             });
+          } finally {
+            setIsLoadingDocument(false);
           }
         }
       });
@@ -603,31 +601,55 @@ export default function App() {
   };
 
   const openSeparateDocument = async (request: DocumentWindowRequest) => {
+    if (isOpeningDocumentRef.current) return;
+    isOpeningDocumentRef.current = true;
+    setIsLoadingDocument(true);
     try {
+      if (request.kind === 'draft') {
+        await assertDocumentSessionAvailable(request.id);
+        const draft = await getDraft(request.id);
+        if (!draft) throw new Error('草稿已不存在，请刷新列表后重试。');
+      }
       await openDocumentWindow(request);
     } catch (error) {
+      setIsLoadingDocument(false);
       await modal.alert({ title: '打开文档失败', message: error instanceof Error ? error.message : '打开新窗口失败', type: 'error' });
+    } finally {
+      isOpeningDocumentRef.current = false;
+      setIsLoadingDocument(false);
     }
   };
 
-  const loadRecentDocument = async (item: RecentDocumentItem) => {
+  const readRecentDocument = async (item: RecentDocumentItem) => {
     const opened = item.fileHandleId
       ? await readBrowserDocument((await getBrowserFile(item.fileHandleId)).handle)
       : item.path ? await openSangDocumentByPath(item.path) : undefined;
     if (!opened) throw new Error(`文件不存在或无法访问，请重新选择文件。\n${item.path || item.fileName || item.title}`);
-    await applyOpenedDocument(opened);
+    return opened;
+  };
+
+  const loadRecentDocument = async (item: RecentDocumentItem) => {
+    await applyOpenedDocument(await readRecentDocument(item));
   };
 
   const handleOpenRecent = async (item: RecentDocumentItem) => {
-    if (hasActiveDocumentRef.current) {
-      if ((item.path && item.path === documentPath) || (item.fileHandleId && item.fileHandleId === browserFile?.id)) {
-        setIsWelcomeOpen(false);
-      } else await openSeparateDocument({ kind: 'recent', id: item.id });
+    if (isOpeningDocumentRef.current) return;
+    if (hasActiveDocumentRef.current && ((item.path && item.path === documentPath) || (item.fileHandleId && item.fileHandleId === browserFile?.id))) {
+      setIsWelcomeOpen(false);
       return;
     }
-    try { await loadRecentDocument(item); }
-    catch (error) {
+    isOpeningDocumentRef.current = true;
+    setIsLoadingDocument(true);
+    try {
+      const opened = await readRecentDocument(item);
+      if (hasActiveDocumentRef.current) await sendDocumentToWindow(opened);
+      else await applyOpenedDocument(opened);
+    } catch (error) {
+      setIsLoadingDocument(false);
       await modal.alert({ title: '打开文档失败', message: error instanceof Error ? error.message : '打开本地文档失败', type: 'error' });
+    } finally {
+      isOpeningDocumentRef.current = false;
+      setIsLoadingDocument(false);
     }
   };
 
@@ -651,11 +673,8 @@ export default function App() {
 
   const handleOpenDocument = async () => {
     if (isOpeningDocumentRef.current) return;
-    let target: ReturnType<typeof reserveDocumentWindow> | undefined;
     try {
       if (!isTauriEnvironment() && !supportsBrowserFilePicker()) {
-        if (hasActiveDocumentRef.current) target = reserveDocumentWindow();
-        pendingFileWindowRef.current = target;
         documentFileInputRef.current?.click();
         return;
       }
@@ -663,20 +682,19 @@ export default function App() {
       let opened: OpenedDocument | undefined;
       if (isTauriEnvironment()) {
         opened = await openSangDocument();
-        if (opened && hasActiveDocumentRef.current) target = reserveDocumentWindow();
       } else {
         const handle = await pickBrowserDocumentFile();
         if (!handle) return;
-        // 选中文件会重新激活页面；此时创建窗口，既不抢选择器焦点，也不等待读取后失去激活。
-        if (hasActiveDocumentRef.current) target = reserveDocumentWindow();
+        setIsLoadingDocument(true);
         opened = await readBrowserDocument(handle);
       }
       if (opened) {
-        if (target) await sendDocumentToWindow(opened, target);
+        setIsLoadingDocument(true);
+        if (hasActiveDocumentRef.current) await sendDocumentToWindow(opened);
         else await applyOpenedDocument(opened);
-      } else target?.close();
+      }
     } catch (error) {
-      target?.close();
+      setIsLoadingDocument(false);
       await modal.alert({
         title: '打开文档失败',
         message: error instanceof Error ? error.message : '打开文档失败',
@@ -684,6 +702,24 @@ export default function App() {
       });
     } finally {
       isOpeningDocumentRef.current = false;
+      setIsLoadingDocument(false);
+    }
+  };
+
+  const handleImportDocumentFile = async (file: File) => {
+    if (isOpeningDocumentRef.current) return;
+    isOpeningDocumentRef.current = true;
+    setIsLoadingDocument(true);
+    try {
+      const opened = await readSangDocumentFile(file);
+      if (hasActiveDocumentRef.current) await sendDocumentToWindow(opened);
+      else await applyOpenedDocument(opened);
+    } catch (error) {
+      setIsLoadingDocument(false);
+      await modal.alert({ title: '打开文档失败', message: error instanceof Error ? error.message : '打开文档失败', type: 'error' });
+    } finally {
+      isOpeningDocumentRef.current = false;
+      setIsLoadingDocument(false);
     }
   };
 
@@ -759,6 +795,10 @@ export default function App() {
     onStartDiffReview: startDiffReview,
     onCancelDiffReview: handleCancelReview
   };
+
+  if (isInitializing) {
+    return <><DocumentLoadingScreen isDark={isDark} /><ModalDialogContainer isDark={isDark} /></>;
+  }
 
   return (
     <div className={`flex flex-col h-screen w-screen overflow-hidden font-sans transition-colors duration-200 ${
@@ -969,20 +1009,7 @@ export default function App() {
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0];
-          const target = pendingFileWindowRef.current;
-          pendingFileWindowRef.current = undefined;
-          if (file) {
-            void readSangDocumentFile(file)
-              .then(opened => target ? sendDocumentToWindow(opened, target) : applyOpenedDocument(opened))
-              .catch((error) => {
-                target?.close();
-                void modal.alert({
-                  title: '打开文档失败',
-                  message: error instanceof Error ? error.message : '打开文档失败',
-                  type: 'error',
-                });
-              });
-          } else target?.close();
+          if (file) void handleImportDocumentFile(file);
           event.target.value = '';
         }}
       />
@@ -1036,7 +1063,7 @@ export default function App() {
 
       {/* Word-style Welcome Dashboard / Template Center */}
       <WelcomeDashboard
-        isOpen={isWelcomeOpen}
+        isOpen={isWelcomeOpen && !isLoadingDocument}
         onClose={() => setIsWelcomeOpen(false)}
         canClose={hasActiveDocument}
         currentDocument={hasActiveDocument ? {
@@ -1063,6 +1090,7 @@ export default function App() {
       />
 
       {/* Modal Dialog System (replaces native alert and confirm) */}
+      {isLoadingDocument && <DocumentLoadingScreen isDark={isDark} />}
       <ModalDialogContainer isDark={isDark} />
 
       {/* Global Draggable & Expandable AI Assistant Float */}

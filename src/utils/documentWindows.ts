@@ -2,6 +2,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { isTauriEnvironment } from './tauriHelper';
 import { deleteDocumentTransfer, storeDocumentTransfer } from './browserDocumentStore';
 import type { OpenedDocument } from './documentFileOperations';
+import { assertDocumentSessionAvailable } from './documentSession';
+import { modal } from './modalDialog';
 
 export type DocumentWindowRequest =
   | { kind: 'template'; id: string }
@@ -44,19 +46,35 @@ export function reserveDocumentWindow() {
   };
 }
 
-export async function openDocumentWindow(request: DocumentWindowRequest): Promise<void> {
+export async function openDocumentWindow(request: DocumentWindowRequest): Promise<boolean> {
+  // 异步校验可能超过用户激活的有效期；用明确的点击继续，而不是先弹出空白页。
+  if (!isTauriEnvironment() && navigator.userActivation?.isActive === false) {
+    const confirmed = await modal.confirm({
+      title: '文档已准备就绪',
+      message: '点击“继续打开”，在新窗口中编辑文档。当前文档会保留。',
+      confirmText: '继续打开',
+      cancelText: '取消',
+    });
+    if (!confirmed) return false;
+  }
   const target = reserveDocumentWindow();
-  try { await target.open(request); }
+  try {
+    await target.open(request);
+    return true;
+  }
   catch (error) { target.close(); throw error; }
 }
 
-export async function sendDocumentToWindow(opened: OpenedDocument, target: ReturnType<typeof reserveDocumentWindow>): Promise<void> {
+export async function sendDocumentToWindow(opened: OpenedDocument): Promise<void> {
+  await assertDocumentSessionAvailable(opened.document.id);
   const id = await storeDocumentTransfer(opened);
-  try { await target.open({ kind: 'transfer', id }); }
-  catch (error) {
-    target.close();
-    try { await deleteDocumentTransfer(id); }
-    catch (cleanupError) { console.error('Document transfer cleanup failed:', cleanupError); }
-    throw error;
+  let didOpen = false;
+  try {
+    didOpen = await openDocumentWindow({ kind: 'transfer', id });
+  } finally {
+    if (!didOpen) {
+      try { await deleteDocumentTransfer(id); }
+      catch (cleanupError) { console.error('Document transfer cleanup failed:', cleanupError); }
+    }
   }
 }

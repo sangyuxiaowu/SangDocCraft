@@ -3,20 +3,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SangDocument } from '../types';
 
-const { invoke, isTauriEnvironment, packSangDocument } = vi.hoisted(() => ({
+const { invoke, isTauriEnvironment, packSangDocument, readDocumentPackage } = vi.hoisted(() => ({
   invoke: vi.fn(),
   isTauriEnvironment: vi.fn(),
   packSangDocument: vi.fn(() => new Uint8Array([1, 2, 3])),
+  readDocumentPackage: vi.fn(),
 }));
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke }));
 vi.mock('./tauriHelper', () => ({ isTauriEnvironment }));
+vi.mock('./documentPackageReader', () => ({ readDocumentPackage }));
 vi.mock('./documentPackage', async (importOriginal) => ({
   ...await importOriginal<typeof import('./documentPackage')>(),
   packSangDocument,
 }));
 
-import { downloadSangDocument, ensureFilePermission, getDocumentSaveErrorMessage, openSangDocument, pickBrowserDocumentFile, pickBrowserSaveFile, saveSangDocument, writeBrowserDocument } from './documentFileOperations';
+import { downloadSangDocument, ensureFilePermission, getDocumentSaveErrorMessage, openSangDocument, openSangDocumentByPath, pickBrowserDocumentFile, pickBrowserSaveFile, readSangDocumentFile, readStartupDocument, saveSangDocument, writeBrowserDocument } from './documentFileOperations';
 import type { DocumentFileHandle } from './browserDocumentStore';
 import { getRegisteredThemes } from '../themes/themeRegistry';
 import { DEFAULT_DOCUMENT_META } from '../data/defaultDocumentMeta';
@@ -124,6 +126,24 @@ describe('document file operations', () => {
     invoke.mockReset();
     isTauriEnvironment.mockReset();
     packSangDocument.mockClear();
+    readDocumentPackage.mockReset().mockResolvedValue(createDocument());
+  });
+
+  it('sends uploaded file bytes to the off-thread reader', async () => {
+    const bytes = new Uint8Array([1, 2, 3]);
+    const file = Object.assign(new File([bytes], 'uploaded.sdc'), { arrayBuffer: async () => bytes.buffer });
+    const opened = await readSangDocumentFile(file);
+    expect(readDocumentPackage).toHaveBeenCalledWith(bytes);
+    expect(opened.document).toEqual(createDocument());
+  });
+
+  it.each(['picker', 'path', 'startup'])('uses off-thread decoding for desktop %s opens', async (entry) => {
+    isTauriEnvironment.mockReturnValue(true);
+    invoke.mockResolvedValue({ path: 'local.sdc', bytes: [1, 2, 3] });
+    const opened = entry === 'picker' ? await openSangDocument()
+      : entry === 'path' ? await openSangDocumentByPath('local.sdc') : await readStartupDocument();
+    expect(readDocumentPackage).toHaveBeenCalledWith(new Uint8Array([1, 2, 3]));
+    expect(opened).toEqual({ path: 'local.sdc', document: createDocument() });
   });
 
   it('does not download or invoke native save in a web environment', async () => {

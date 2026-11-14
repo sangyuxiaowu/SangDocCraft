@@ -1,4 +1,5 @@
 const LOCK_PREFIX = 'sangdoccraft-document:';
+const DOCUMENT_IN_USE_MESSAGE = '此文档已在另一个窗口中编辑，请返回该窗口，或关闭它后重新打开。';
 
 export async function withDocumentStorageLock<T>(action: () => Promise<T>): Promise<T> {
   if (typeof navigator === 'undefined' || !navigator.locks) return action();
@@ -10,12 +11,16 @@ export async function acquireDocumentSession(documentId: string): Promise<() => 
   return withDocumentStorageLock(() => new Promise<() => void>((resolve, reject) => {
     void navigator.locks.request(`${LOCK_PREFIX}${documentId}`, { ifAvailable: true }, lock => {
       if (!lock) {
-        reject(new Error('此文档已在另一个窗口中编辑，请返回该窗口，或关闭它后重新打开。'));
+        reject(new Error(DOCUMENT_IN_USE_MESSAGE));
         return;
       }
       return new Promise<void>(release => resolve(release));
     }).catch(reject);
   }));
+}
+
+export async function assertDocumentSessionAvailable(documentId: string): Promise<void> {
+  if ((await getActiveDocumentIds())?.has(documentId)) throw new Error(DOCUMENT_IN_USE_MESSAGE);
 }
 
 export async function getActiveDocumentIds(): Promise<Set<string> | undefined> {

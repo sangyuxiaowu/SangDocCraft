@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { SangDocument } from '../types';
-import { packSangDocument, SANG_DOCUMENT_MIME_TYPE, unpackSangDocument } from './documentPackage';
+import { packSangDocument, SANG_DOCUMENT_MIME_TYPE } from './documentPackage';
+import { readDocumentPackage } from './documentPackageReader';
 import { isTauriEnvironment } from './tauriHelper';
 import { rememberBrowserFile, type BrowserDocumentFile, type DocumentFileHandle } from './browserDocumentStore';
 
@@ -96,7 +97,7 @@ export function getDocumentSaveErrorMessage(error: unknown): string {
 }
 
 export async function readSangDocumentFile(file: File): Promise<OpenedDocument> {
-  return { document: await unpackSangDocument(new Uint8Array(await file.arrayBuffer())) };
+  return { document: await readDocumentPackage(new Uint8Array(await file.arrayBuffer())) };
 }
 
 export async function openSangDocument(): Promise<OpenedDocument | undefined> {
@@ -107,21 +108,21 @@ export async function openSangDocument(): Promise<OpenedDocument | undefined> {
   }
   const file = await invoke<NativeDocumentFile | null>('open_sdc_document');
   if (!file) return undefined;
-  return { document: await unpackSangDocument(Uint8Array.from(file.bytes)), path: file.path };
+  return { document: await readDocumentPackage(Uint8Array.from(file.bytes)), path: file.path };
 }
 
 export async function openSangDocumentByPath(path: string): Promise<OpenedDocument | undefined> {
   if (!isTauriEnvironment() || !path) return undefined;
   const file = await invoke<NativeDocumentFile | null>('open_sdc_document_by_path', { path });
   if (!file) return undefined;
-  return { document: await unpackSangDocument(Uint8Array.from(file.bytes)), path: file.path };
+  return { document: await readDocumentPackage(Uint8Array.from(file.bytes)), path: file.path };
 }
 
 export async function readStartupDocument(): Promise<OpenedDocument | undefined> {
   if (!isTauriEnvironment()) return undefined;
   const file = await invoke<NativeDocumentFile | null>('take_startup_document');
   if (!file) return undefined;
-  return { document: await unpackSangDocument(Uint8Array.from(file.bytes)), path: file.path };
+  return { document: await readDocumentPackage(Uint8Array.from(file.bytes)), path: file.path };
 }
 
 function getSuggestedFileName(document: Pick<SangDocument, 'title'>): string {
