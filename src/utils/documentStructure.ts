@@ -96,6 +96,44 @@ export function styleObjectToCss(style: TocStyleObject): string {
     .join(';') + ';';
 }
 
+function chineseNumber(value: number): string {
+  const numerals = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+  const units = ['', '十', '百', '千'];
+  const groupUnits = ['', '万', '亿', '万亿'];
+  if (value === 0) return numerals[0];
+
+  let result = '';
+  let groupIndex = 0;
+  let needsZero = false;
+  while (value > 0) {
+    let group = value % 10000;
+    if (group === 0) {
+      needsZero = result !== '';
+    } else {
+      let groupText = '';
+      let unitIndex = 0;
+      let groupNeedsZero = false;
+      const originalGroup = group;
+      while (group > 0) {
+        const digit = group % 10;
+        if (digit === 0) {
+          groupNeedsZero = groupText !== '';
+        } else {
+          groupText = numerals[digit] + units[unitIndex] + (groupNeedsZero ? numerals[0] : '') + groupText;
+          groupNeedsZero = false;
+        }
+        group = Math.floor(group / 10);
+        unitIndex += 1;
+      }
+      result = groupText + groupUnits[groupIndex] + (needsZero && result ? numerals[0] : '') + result;
+      needsZero = originalGroup < 1000;
+    }
+    value = Math.floor(value / 10000);
+    groupIndex += 1;
+  }
+  return result.replace(/^一十/, '十');
+}
+
 export function getHeadingText(
   text: string,
   level: number,
@@ -122,8 +160,6 @@ export function getHeadingText(
     return text ? `${prefix} ${text}` : prefix;
   }
 
-  const chineseNumerals = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
-  const chineseNumber = (value: number) => value <= 10 ? chineseNumerals[value] : String(value);
   if (numbering === 'mixed') {
     if (level === 1) return `${chineseNumber(counters[0])}、 ${text}`;
     return `${counters.slice(0, level).join('.')}. ${text}`;

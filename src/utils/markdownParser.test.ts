@@ -721,6 +721,22 @@ describe('Markdown pagination and numbering', () => {
     expect(getHeadingText('Next child', 2, counters, 'mixed')).toBe('2.1. Next child');
   });
 
+  it('continues Chinese heading numbers beyond ten', () => {
+    const cases: Array<[number, string]> = [
+      [10, '十'], [11, '十一'], [20, '二十'], [21, '二十一'],
+      [99, '九十九'], [100, '一百'], [101, '一百零一'], [110, '一百一十'],
+      [1001, '一千零一'], [10000, '一万'], [10001, '一万零一'], [10010, '一万零一十'],
+      [100000, '十万'], [100000001, '一亿零一'], [100100000, '一亿零一十万'],
+      [123456789, '一亿二千三百四十五万六千七百八十九'],
+    ];
+    for (const [value, expected] of cases) {
+      expect(getHeadingText('标题', 1, [value - 1, 0, 0, 0], 'mixed')).toBe(`${expected}、 标题`);
+      expect(getHeadingText('标题', 1, [value - 1, 0, 0, 0], 'chinese')).toBe(`${expected}、 标题`);
+      expect(getHeadingText('标题', 2, [1, value - 1, 0, 0], 'chinese')).toBe(`（${expected}） 标题`);
+    }
+    expect(getHeadingText('子标题', 2, [11, 0, 0, 0], 'mixed')).toBe('11.1. 子标题');
+  });
+
   it('splits long TOC items by measured height instead of a fixed count', () => {
     const { toc, style } = theme;
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {

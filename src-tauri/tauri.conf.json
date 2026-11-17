@@ -5,7 +5,7 @@
   "identifier": "com.sangyuxiaowu.sangdoccraft",
   "build": {
     "beforeDevCommand": "bun run dev",
-    "beforeBuildCommand": "bun run prebuild:tauri && npx vite build --mode=tauri",
+    "beforeBuildCommand": "bun run prebuild:tauri && bun run build --mode=tauri",
     "devUrl": "http://localhost:3000",
     "frontendDist": "../dist"
   },
