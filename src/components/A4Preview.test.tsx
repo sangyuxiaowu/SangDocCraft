@@ -74,14 +74,67 @@ describe('A4Preview asynchronous pagination', () => {
     };
     registerAssetUrl(asset);
     const markdown = '![](@images/pagination-test)';
-    await act(async () => root.render(<A4Preview markdown={markdown} meta={DEFAULT_DOCUMENT_META} theme={theme} />));
+    await act(async () => root.render(<A4Preview markdown={markdown} meta={DEFAULT_DOCUMENT_META} theme={theme} assetRevision={asset} />));
     const firstPass = vi.mocked(markdownParser.paginateContentByDom).mock.calls.length;
-    registerAssetUrl({ ...asset, mediaType: 'image/webp', data: new Uint8Array([2]) });
-    await act(async () => root.render(<A4Preview markdown={markdown} meta={DEFAULT_DOCUMENT_META} theme={{ ...theme }} />));
+    const compressed = { ...asset, mediaType: 'image/webp', data: new Uint8Array([2]) };
+    registerAssetUrl(compressed);
+    await act(async () => root.render(<A4Preview markdown={markdown} meta={DEFAULT_DOCUMENT_META} theme={theme} assetRevision={compressed} />));
     expect(container.querySelector('img.doc-image')?.getAttribute('src')).toBe('blob:pagination-compressed');
     expect(markdownParser.paginateContentByDom).toHaveBeenCalledTimes(firstPass + 1);
     await act(async () => loadImage(container.querySelector('img.doc-image')!, 300, 200));
     expect(markdownParser.paginateContentByDom).toHaveBeenCalledTimes(firstPass + 2);
+  });
+
+  it('does not repaginate for cover metadata or header and footer text changes', async () => {
+    theme.pageLayout = undefined;
+    await act(async () => root.render(<A4Preview markdown="正文" meta={DEFAULT_DOCUMENT_META} theme={theme} />));
+    const firstPass = vi.mocked(markdownParser.paginateContentByDom).mock.calls.length;
+    await act(async () => root.render(<A4Preview markdown="正文" meta={{ ...DEFAULT_DOCUMENT_META, title: '新标题' }} theme={{
+      ...theme,
+      cover: { ...theme.cover, coverlist: [{ label: '项目', value: '新封面' }] },
+      header: { ...theme.header, leftText: '新页眉' },
+      footer: { ...theme.footer, leftText: '新页脚' },
+    }} />));
+    expect(markdownParser.paginateContentByDom).toHaveBeenCalledTimes(firstPass);
+    expect(container.textContent).toContain('新页眉');
+  });
+
+  it('does not navigate from a preview that is behind the editor', async () => {
+    const markdown = '# 标题\n\n正文';
+    const getLatestMarkdown = vi.fn(() => `${markdown}新内容`);
+    const onNavigateToEditor = vi.fn();
+    await act(async () => root.render(<A4Preview markdown={markdown} meta={DEFAULT_DOCUMENT_META} theme={theme}
+      getLatestMarkdown={getLatestMarkdown} onNavigateToEditor={onNavigateToEditor} />));
+    const sheet = container.querySelector<HTMLElement>('[data-content-page-index]')!;
+    await act(async () => sheet.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
+    expect(onNavigateToEditor).not.toHaveBeenCalled();
+    getLatestMarkdown.mockReturnValue(markdown);
+    await act(async () => sheet.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
+    expect(onNavigateToEditor).toHaveBeenCalledOnce();
+  });
+
+  it('does not apply figure edits from a preview that is behind the editor', async () => {
+    const markdown = '![图片](https://example.test/figure.png)';
+    const getLatestMarkdown = vi.fn(() => markdown);
+    const onMarkdownChange = vi.fn();
+    const elementFromPoint = Object.getOwnPropertyDescriptor(document, 'elementFromPoint');
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => container.querySelector('img.doc-image') });
+    try {
+      await act(async () => root.render(<A4Preview markdown={markdown} meta={DEFAULT_DOCUMENT_META} theme={theme}
+        getLatestMarkdown={getLatestMarkdown} onMarkdownChange={onMarkdownChange} />));
+      await act(async () => container.querySelector<HTMLImageElement>('img.doc-image')!.click());
+      const alignButton = container.querySelector<HTMLButtonElement>('[aria-label="居中对齐"]')!;
+      expect(alignButton).not.toBeNull();
+      getLatestMarkdown.mockReturnValue(`${markdown}\n新内容`);
+      await act(async () => alignButton.click());
+      expect(onMarkdownChange).not.toHaveBeenCalled();
+      getLatestMarkdown.mockReturnValue(markdown);
+      await act(async () => alignButton.click());
+      expect(onMarkdownChange).toHaveBeenCalledOnce();
+    } finally {
+      if (elementFromPoint) Object.defineProperty(document, 'elementFromPoint', elementFromPoint);
+      else Reflect.deleteProperty(document, 'elementFromPoint');
+    }
   });
 
   it('remeasures when fonts become ready and when later fonts finish loading', async () => {

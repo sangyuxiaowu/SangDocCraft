@@ -106,7 +106,7 @@ vi.mock('./components/Editor', () => ({
     </>
   ),
 }));
-vi.mock('./components/A4Preview', () => ({ A4Preview: ({ theme }: { theme: DocumentTheme }) => <output data-testid="cover-logo">{theme.cover.logoUrl}</output> }));
+vi.mock('./components/A4Preview', () => ({ A4Preview: ({ theme, markdown }: { theme: DocumentTheme; markdown: string }) => <><output data-testid="cover-logo">{theme.cover.logoUrl}</output><output data-testid="preview-body">{markdown}</output></> }));
 vi.mock('./components/styleConfig/Panel', () => ({ StyleConfigPanel: ({ theme, onChange }: { theme: DocumentTheme; onChange: (theme: DocumentTheme) => void }) => (
   <button onClick={() => onChange({ ...theme, cover: { ...theme.cover, logoUrl: '@library/img-12eecd3f64fb38a4998a013b' } })}>设置封面图片</button>
 ) }));
@@ -216,6 +216,20 @@ describe('document saving', () => {
     expect(container.querySelector('output')?.textContent).toBe('saved');
   });
 
+  it('coalesces rapid edits and renders the latest preview after typing stops', async () => {
+    await act(async () => { root.render(<App />); });
+    await act(async () => { click('新建'); });
+    const initialPreview = container.querySelector('[data-testid="preview-body"]')?.textContent;
+    await act(async () => { click('第一次编辑'); });
+    await act(async () => { vi.advanceTimersByTime(200); });
+    await act(async () => { click('第二次编辑'); });
+    await act(async () => { vi.advanceTimersByTime(399); });
+    expect(container.querySelector('[data-testid="body"]')?.textContent).toBe('second');
+    expect(container.querySelector('[data-testid="preview-body"]')?.textContent).toBe(initialPreview);
+    await act(async () => { vi.advanceTimersByTime(1); });
+    expect(container.querySelector('[data-testid="preview-body"]')?.textContent).toBe('second');
+  });
+
   it('auto-saves replaced image bytes to a Tauri file without editing markdown or clicking save', async () => {
     const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:http://localhost/saved-image');
     try {
@@ -257,12 +271,14 @@ describe('document saving', () => {
       await act(async () => { root.render(<App />); });
       await act(async () => { click('新建'); });
       await act(async () => { click('设置封面图片'); });
+      await act(async () => { vi.advanceTimersByTime(400); });
       expect(container.querySelector('[data-testid="cover-logo"]')?.textContent).toBe('@library/img-12eecd3f64fb38a4998a013b');
 
       await act(async () => { finishAssets([{
         id: 'img-12eecd3f64fb38a4998a013b', scope: 'library', fileName: 'logo.png', description: '',
         mediaType: 'image/png', byteLength: 1, sha256: '', data: new Uint8Array([0]),
       }]); });
+      await act(async () => { vi.advanceTimersByTime(400); });
       expect(container.querySelector('[data-testid="cover-logo"]')?.textContent).toBe('blob:http://localhost/cover-logo');
     } finally {
       createObjectURL.mockRestore();

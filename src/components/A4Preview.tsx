@@ -44,6 +44,7 @@ interface A4PreviewProps {
   markdown: string;
   meta: DocumentMeta;
   theme: DocumentTheme;
+  assetRevision?: unknown;
   uiMode?: 'dark' | 'light';
   viewMode?: ViewMode;
   navigationTarget?: PreviewNavigationTarget;
@@ -52,6 +53,7 @@ interface A4PreviewProps {
   onScrollPositionChange?: (position: number) => void;
   onOverflowPageNumbersChange?: (pageNumbers: number[]) => void;
   onMarkdownChange?: (markdown: string) => void;
+  getLatestMarkdown?: () => string;
   isConfigPanelOpen?: boolean;
 }
 
@@ -69,6 +71,7 @@ export interface PreviewPageLocation {
 const PAGE_BREAK_PATTERN = /<!--\s*pagebreak\s*-->/gi;
 const A4_PAGE_HEIGHT_PX = 1124;
 const PAGE_OVERFLOW_TOLERANCE_PX = 1.5;
+const DEFAULT_PAGE_MARGINS = { top: 20, right: 15, bottom: 20, left: 15 };
 
 export function getFigureViewportRect(element: HTMLElement, zoom: number): DOMRect {
   const native = element.getBoundingClientRect();
@@ -202,11 +205,12 @@ export const RenderedMarkdownPage = React.memo(function RenderedMarkdownPage({
   );
 });
 
-export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, meta, theme, uiMode = 'dark', viewMode = 'split', navigationTarget, onNavigateToEditor, scrollSyncEnabled = false, onScrollPositionChange, onOverflowPageNumbersChange, onMarkdownChange, isConfigPanelOpen }) => {
+export const A4Preview: React.FC<A4PreviewProps> = React.memo(function A4Preview({ markdown: sourceMarkdown, meta, theme, assetRevision, uiMode = 'dark', viewMode = 'split', navigationTarget, onNavigateToEditor, scrollSyncEnabled = false, onScrollPositionChange, onOverflowPageNumbersChange, onMarkdownChange, getLatestMarkdown, isConfigPanelOpen }) {
   const markdown = useDeferredValue(sourceMarkdown);
   const previewIsStale = markdown !== sourceMarkdown;
+  const isPreviewStale = () => previewIsStale || (getLatestMarkdown !== undefined && getLatestMarkdown() !== markdown);
   const { header, footer, toc, style, pageLayout } = theme;
-  const pageMargins = pageLayout?.margins ?? { top: 20, right: 15, bottom: 20, left: 15 };
+  const pageMargins = pageLayout?.margins ?? DEFAULT_PAGE_MARGINS;
   const cover = theme.cover;
   const coverTemplate = getCoverTemplate(cover.coverStyle);
   const hasStandaloneCover = cover.showCover && coverTemplate.standalone !== false;
@@ -292,13 +296,13 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
   }, [selectedFigureIndex, markdown, zoom, mermaidHeights, infographicHeights]);
 
   const applyFigureChange = (change: Parameters<typeof updatePreviewFigure>[2]) => {
-    if (!selectedFigure || !onMarkdownChange) return;
+    if (!selectedFigure || !onMarkdownChange || isPreviewStale()) return;
     const next = updatePreviewFigure(markdown, selectedFigure, change);
     if (next !== markdown) onMarkdownChange(next);
   };
 
   const handleFigureClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!onMarkdownChange || previewIsStale) return;
+    if (!onMarkdownChange || isPreviewStale()) return;
     const target = event.target as Element;
     const element = target.closest<HTMLElement>('.doc-image, .mermaid, .infographic');
     const rendered = getRenderedFigures();
@@ -314,7 +318,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
   };
 
   const handleResizeStart = (event: React.PointerEvent<HTMLButtonElement>, axis: 'width' | 'height') => {
-    if (!selectedFigure || !figureElementRef.current) return;
+    if (!selectedFigure || !figureElementRef.current || isPreviewStale()) return;
     event.preventDefault();
     event.stopPropagation();
     const element = figureElementRef.current;
@@ -471,7 +475,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
       onParagraphContinuation: pageIndex => paragraphContinuations.add(pageIndex),
     });
     return { pages, paragraphContinuations };
-  }, [markdown, fontStack, header.show, header.hideOnCover, footer.show, footer.hideOnCover, hasInlineCover, inlineCoverHeight, style, pageMargins, mermaidHeights, infographicHeights, mathEpoch, imageEpoch, fontEpoch, theme, zoom]);
+  }, [markdown, fontStack, header.show, header.hideOnCover, footer.show, footer.hideOnCover, hasInlineCover, inlineCoverHeight, style, pageMargins, mermaidHeights, infographicHeights, mathEpoch, imageEpoch, fontEpoch, assetRevision, zoom]);
   const rawContentPages = contentPagination.pages;
 
   // Build TOC page numbers from the same pages rendered below.
@@ -550,7 +554,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
         }
       }
       setCurrentPage(activeNum);
-      if (!suppressScrollSync && scrollSyncEnabled && onScrollPositionChange) {
+      if (!suppressScrollSync && scrollSyncEnabled && onScrollPositionChange && !isPreviewStale()) {
         const contentPages = container.querySelectorAll<HTMLElement>('[data-content-page-index]');
         const syncProbeY = containerRect.top + container.clientHeight / 3;
         let closestPage: HTMLElement | undefined;
@@ -733,13 +737,13 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
         contentPageIndex,
       }];
     });
-  }, [rawContentPages, contentPagination.paragraphContinuations, contentSections, toc.headingNumbering, style, theme.mermaid]);
+  }, [rawContentPages, contentPagination.paragraphContinuations, contentSections, toc.headingNumbering, style, theme.mermaid, assetRevision]);
   contentPageItems.forEach((item) => pages.push({ type: 'content', pageNum: pageCounter++, ...item }));
 
   const totalPages = pages.length;
 
   useEffect(() => {
-    if (!navigationTarget || rawContentPages.length === 0) return;
+    if (!navigationTarget || rawContentPages.length === 0 || isPreviewStale()) return;
     const container = containerRef.current;
     if (!container) return;
 
@@ -760,7 +764,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
       if (navigationTarget.behavior === 'auto') expectedScrollTopRef.current = nextScrollTop;
       container.scrollTo({ top: nextScrollTop, behavior: navigationTarget.behavior ?? 'smooth' });
     });
-  }, [navigationTarget]);
+  }, [navigationTarget, markdown]);
 
   useEffect(() => {
     const sheets = containerRef.current?.querySelectorAll<HTMLElement>('.a4-sheet-page');
@@ -1095,7 +1099,7 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
               data-page-num={page.pageNum}
               data-content-page-index={page.contentPageIndex}
               onDoubleClick={!scrollSyncEnabled && page.type === 'content' && page.contentPageIndex !== undefined
-                ? () => onNavigateToEditor?.(getMarkdownPositionForPreviewPage(markdown, rawContentPages, page.contentPageIndex!))
+                ? () => { if (!isPreviewStale()) onNavigateToEditor?.(getMarkdownPositionForPreviewPage(markdown, rawContentPages, page.contentPageIndex!)); }
                 : undefined}
               className={`a4-sheet-page w-[210mm] h-[297mm] max-h-[297mm] bg-white text-slate-900 relative my-2 flex flex-col justify-between shrink-0 rounded-sm overflow-hidden transition-all duration-300 ${
                 isDark ? 'shadow-[0_10px_35px_rgba(0,0,0,0.6)]' : 'shadow-[0_10px_30px_rgba(0,0,0,0.12)] outline outline-1 outline-slate-200 print:outline-none'
@@ -1634,4 +1638,4 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
 
     </div>
   );
-};
+});

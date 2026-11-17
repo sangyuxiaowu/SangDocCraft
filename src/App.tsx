@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, startTransition } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { HeaderBar } from './components/HeaderBar';
 import { Editor, type EditorHandle } from './components/Editor';
@@ -47,6 +47,21 @@ import { AiToolContext } from './utils/aiAssistantService';
 import { useDocumentPersistence } from './hooks/useDocumentPersistence';
 import { useAiDiffReview } from './hooks/useAiDiffReview';
 
+function usePreviewSnapshot<T>(documentId: string, value: T): T {
+  const [snapshot, setSnapshot] = useState({ documentId, value });
+  useEffect(() => {
+    if (snapshot.documentId !== documentId) {
+      setSnapshot({ documentId, value });
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      startTransition(() => setSnapshot({ documentId, value }));
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [documentId, value]);
+  return snapshot.documentId === documentId ? snapshot.value : value;
+}
+
 export default function App() {
   const builtinThemes = getRegisteredThemes();
   const [documentId, setDocumentId] = useState<string>(() => crypto.randomUUID());
@@ -91,6 +106,8 @@ export default function App() {
   }, [meta]);
 
   const [markdown, setMarkdown] = useState('');
+  const markdownRef = useRef(markdown);
+  markdownRef.current = markdown;
   const {
     diffReviewSession, handleAcceptHunk, handleRejectHunk, handleAcceptAllHunks,
     handleRejectAllHunks, handleApplyResolution, handleCancelReview, startDiffReview,
@@ -474,10 +491,18 @@ export default function App() {
     await refreshAssets();
   };
 
-  const handleMarkdownChange = (value: string) => {
+  const handleMarkdownChange = useCallback((value: string) => {
     setMarkdown(value);
     setIsDocumentDirty(true);
-  };
+  }, []);
+  const getLatestMarkdown = useCallback(() => markdownRef.current, []);
+  const handlePreviewNavigate = useCallback((position: number) => editorRef.current?.navigateToPosition(position), []);
+  const handlePreviewScroll = useCallback((position: number) => editorRef.current?.scrollToPosition(position), []);
+  const handlePreviewOverflow = useCallback((pageNumbers: number[]) => setOverflowPageNumbers((current) => (
+    current.length === pageNumbers.length && current.every((pageNumber, index) => pageNumber === pageNumbers[index])
+      ? current
+      : pageNumbers
+  )), []);
 
   const handleNewDocument = () => {
     void refreshUnsavedDrafts();
@@ -790,11 +815,15 @@ export default function App() {
   const uiMode = effectiveUiMode;
   const isDark = effectiveUiMode === 'dark';
   const previewTheme = useMemo(() => {
-    const nextTheme = structuredClone(hasActiveDocument ? theme : builtinThemes[0]);
-    if (nextTheme.cover.logoUrl) nextTheme.cover.logoUrl = resolveImageSrc(nextTheme.cover.logoUrl);
-    if (nextTheme.header.logoUrl) nextTheme.header.logoUrl = resolveImageSrc(nextTheme.header.logoUrl);
-    return nextTheme;
+    const sourceTheme = hasActiveDocument ? theme : builtinThemes[0];
+    return {
+      ...sourceTheme,
+      cover: sourceTheme.cover.logoUrl ? { ...sourceTheme.cover, logoUrl: resolveImageSrc(sourceTheme.cover.logoUrl) } : sourceTheme.cover,
+      header: sourceTheme.header.logoUrl ? { ...sourceTheme.header, logoUrl: resolveImageSrc(sourceTheme.header.logoUrl) } : sourceTheme.header,
+    };
   }, [assets, hasActiveDocument, theme]);
+  const currentPreviewInputs = useMemo(() => ({ markdown, meta, theme: previewTheme }), [markdown, meta, previewTheme]);
+  const previewInputs = usePreviewSnapshot(documentId, currentPreviewInputs);
 
   const aiToolContext: AiToolContext = {
     markdown,
@@ -947,24 +976,20 @@ export default function App() {
             isDark ? 'bg-[#1E1E1E]' : 'bg-slate-200/80'
           }`}>
             <A4Preview
-              markdown={markdown}
+              markdown={previewInputs.markdown}
               onMarkdownChange={handleMarkdownChange}
+              getLatestMarkdown={getLatestMarkdown}
               isConfigPanelOpen={isConfigPanelOpen}
-              meta={meta}
-              theme={previewTheme}
+              meta={previewInputs.meta}
+              theme={previewInputs.theme}
+              assetRevision={assets}
               uiMode={uiMode}
               viewMode={viewMode}
               navigationTarget={previewNavigationTarget}
-              onNavigateToEditor={(position) => editorRef.current?.navigateToPosition(position)}
+              onNavigateToEditor={handlePreviewNavigate}
               scrollSyncEnabled={scrollSyncEnabled}
-              onScrollPositionChange={(position) => {
-                if (scrollSyncEnabled) editorRef.current?.scrollToPosition(position);
-              }}
-              onOverflowPageNumbersChange={(pageNumbers) => setOverflowPageNumbers((current) => (
-                current.length === pageNumbers.length && current.every((pageNumber, index) => pageNumber === pageNumbers[index])
-                  ? current
-                  : pageNumbers
-              ))}
+              onScrollPositionChange={handlePreviewScroll}
+              onOverflowPageNumbersChange={handlePreviewOverflow}
             />
           </div>
         )}
