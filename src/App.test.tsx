@@ -111,7 +111,7 @@ vi.mock('./components/styleConfig/Panel', () => ({ StyleConfigPanel: ({ theme, o
   <button onClick={() => onChange({ ...theme, cover: { ...theme.cover, logoUrl: '@library/img-12eecd3f64fb38a4998a013b' } })}>设置封面图片</button>
 ) }));
 vi.mock('./components/WelcomeDashboard', () => ({
-  WelcomeDashboard: ({ onSelectTemplate, onOpenLocalFile, onRestoreDraft, onOpenRecent, isOpen, currentDocument, onClose }: ComponentProps<typeof WelcomeDashboard>) => (
+  WelcomeDashboard: ({ onSelectTemplate, onOpenLocalFile, onRestoreDraft, onOpenRecent, isOpen, currentDocument, onClose, onCloseDocument }: ComponentProps<typeof WelcomeDashboard>) => (
     <>
       <button onClick={() => onSelectTemplate(DOCUMENT_TEMPLATES[0])}>新建</button>
       {isOpen && <button onClick={onOpenLocalFile}>打开 .sdc 文档</button>}
@@ -123,6 +123,7 @@ vi.mock('./components/WelcomeDashboard', () => ({
         <section aria-label="当前打开的文档">
           {currentDocument.title}
           {currentDocument.hasUnsavedChanges && <span>有未保存修改</span>}
+          <button onClick={onCloseDocument}>关闭文档</button>
           <button onClick={onClose}>继续编辑</button>
         </section>
       )}
@@ -391,6 +392,55 @@ describe('document saving', () => {
     expect(container.querySelector('[data-testid="body"]')?.textContent).toBe('first');
     expect(container.querySelector('output')?.textContent).toBe('unsaved');
     expect(openDocumentWindow).not.toHaveBeenCalled();
+  });
+
+  it('preserves unsaved changes as a draft before closing the current document', async () => {
+    await act(async () => { root.render(<App />); });
+    await act(async () => { click('新建'); });
+    await act(async () => { click('第一次编辑'); });
+    await act(async () => { click('返回欢迎页'); });
+    await act(async () => { click('关闭文档'); });
+    expect(saveDraft).toHaveBeenCalledWith(expect.objectContaining({ markdown: 'first', savedToSdc: false }));
+    expect(container.querySelector('[aria-label="当前打开的文档"]')).not.toBeNull();
+    await act(async () => { pendingSaves[0](); });
+    expect(container.querySelector('[aria-label="当前打开的文档"]')).toBeNull();
+    await act(async () => { click('新建'); });
+    expect(openDocumentWindow).not.toHaveBeenCalled();
+  });
+
+  it('keeps the document open when its recovery draft cannot be saved', async () => {
+    saveDraft.mockRejectedValueOnce(new Error('草稿写入失败'));
+    await act(async () => { root.render(<App />); });
+    await act(async () => { click('新建'); });
+    await act(async () => { click('第一次编辑'); });
+    await act(async () => { click('返回欢迎页'); });
+    await act(async () => { click('关闭文档'); });
+    expect(container.querySelector('[aria-label="当前打开的文档"]')).not.toBeNull();
+    expect(alert).toHaveBeenCalledWith(expect.objectContaining({ title: '关闭文档失败' }));
+  });
+
+  it('closes a saved file without creating a recovery draft', async () => {
+    isTauriEnvironment.mockReturnValue(true);
+    openSangDocument.mockResolvedValue({ document: pickedDocument, path: 'document.sdc' });
+    await act(async () => { root.render(<App />); });
+    await act(async () => { click('打开 .sdc 文档'); });
+    await act(async () => { click('返回欢迎页'); });
+    await act(async () => { click('关闭文档'); });
+    expect(container.querySelector('[aria-label="当前打开的文档"]')).toBeNull();
+    expect(saveDraft).not.toHaveBeenCalled();
+  });
+
+  it('preserves unsaved file changes in a recovery draft', async () => {
+    isTauriEnvironment.mockReturnValue(true);
+    openSangDocument.mockResolvedValue({ document: pickedDocument, path: 'document.sdc' });
+    await act(async () => { root.render(<App />); });
+    await act(async () => { click('打开 .sdc 文档'); });
+    await act(async () => { click('第一次编辑'); });
+    await act(async () => { click('返回欢迎页'); });
+    await act(async () => { click('关闭文档'); });
+    expect(saveDraft).toHaveBeenCalledWith(expect.objectContaining({ markdown: 'first', path: 'document.sdc', savedToSdc: false }));
+    await act(async () => { pendingSaves[0](); });
+    expect(container.querySelector('[aria-label="当前打开的文档"]')).toBeNull();
   });
 
   it.each([false, true])('reads the selected file before opening another window (edited: %s)', async (edited) => {

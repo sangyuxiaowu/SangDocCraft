@@ -71,6 +71,7 @@ export default function App() {
   const [isWelcomeOpen, setIsWelcomeOpen] = useState(true);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isLoadingDocument, setIsLoadingDocument] = useState(false);
+  const [isClosingDocument, setIsClosingDocument] = useState(false);
   const [hasActiveDocument, setHasActiveDocument] = useState(false);
   const [unsavedDrafts, setUnsavedDrafts] = useState<DocumentDraftSummary[]>([]);
   const [recentDocuments, setRecentDocuments] = useState<RecentDocumentItem[]>([]);
@@ -230,8 +231,8 @@ export default function App() {
     }
   };
 
-  const { saveStatus, saveError, lastSavedAt, handleSaveDocument, handleSaveAs, handleExportSdc } = useDocumentPersistence({
-    documentId, documentCreatedAt, documentPath, browserFile, documentSettings, isDocumentDirty,
+  const { saveStatus, saveError, lastSavedAt, handleSaveDocument, handleSaveAs, handleExportSdc, prepareCloseDocument } = useDocumentPersistence({
+    hasActiveDocument, documentId, documentCreatedAt, documentPath, browserFile, documentSettings, isDocumentDirty,
     history, markdown, meta, theme, assets, setDocumentPath, setBrowserFile, setHistory,
     setIsDocumentDirty, setRecentDocuments, refreshUnsavedDrafts,
   });
@@ -482,6 +483,32 @@ export default function App() {
     void refreshUnsavedDrafts();
     refreshRecentDocs();
     setIsWelcomeOpen(true);
+  };
+
+  const handleCloseDocument = async () => {
+    if (isClosingDocument || saveStatus === 'saving') return;
+    setIsClosingDocument(true);
+    try {
+      await prepareCloseDocument();
+      handleCancelReview();
+      releaseDocumentSessionRef.current?.();
+      releaseDocumentSessionRef.current = undefined;
+      clearDocumentAssetUrls();
+      hasActiveDocumentRef.current = false;
+      setHasActiveDocument(false);
+      setDocumentId(crypto.randomUUID());
+      setDocumentPath(undefined);
+      setBrowserFile(undefined);
+      setMarkdown('');
+      setHistory([]);
+      setIsDocumentDirty(false);
+      await refreshUnsavedDrafts();
+      refreshRecentDocs();
+    } catch (error) {
+      await modal.alert({ title: '关闭文档失败', message: error instanceof Error ? error.message : '无法保存恢复草稿，文档仍保持打开。', type: 'error' });
+    } finally {
+      setIsClosingDocument(false);
+    }
   };
 
   const handleSelectTemplate = async (template: DocumentTemplateItem) => {
@@ -1064,7 +1091,9 @@ export default function App() {
       {/* Word-style Welcome Dashboard / Template Center */}
       <WelcomeDashboard
         isOpen={isWelcomeOpen && !isLoadingDocument}
-        onClose={() => setIsWelcomeOpen(false)}
+        onClose={() => { if (!isClosingDocument) setIsWelcomeOpen(false); }}
+        onCloseDocument={handleCloseDocument}
+        isClosingDocument={isClosingDocument}
         canClose={hasActiveDocument}
         currentDocument={hasActiveDocument ? {
           title: resolveDocumentTitle({ themeTitle: meta.title, documentPath: documentPath || browserFile?.handle.name, markdown }),

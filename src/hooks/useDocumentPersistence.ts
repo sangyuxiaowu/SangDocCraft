@@ -11,6 +11,7 @@ import { addRecentDocument, type RecentDocumentItem } from '../utils/recentDocum
 import { isTauriEnvironment } from '../utils/tauriHelper';
 
 interface DocumentPersistenceOptions {
+  hasActiveDocument: boolean;
   documentId: string;
   documentCreatedAt: string;
   documentPath?: string;
@@ -31,7 +32,7 @@ interface DocumentPersistenceOptions {
 }
 
 export function useDocumentPersistence({
-  documentId, documentCreatedAt, documentPath, browserFile, documentSettings, isDocumentDirty,
+  hasActiveDocument, documentId, documentCreatedAt, documentPath, browserFile, documentSettings, isDocumentDirty,
   history, markdown, meta, theme, assets, setDocumentPath, setBrowserFile, setHistory,
   setIsDocumentDirty, setRecentDocuments, refreshUnsavedDrafts,
 }: DocumentPersistenceOptions) {
@@ -44,6 +45,7 @@ export function useDocumentPersistence({
   const getSaveSnapshot = (savedHistory = history) => ({ documentId, markdown, meta, theme, documentSettings, history: savedHistory, assets });
   const activeSaveSnapshotRef = useRef<ReturnType<typeof getSaveSnapshot> | null>(null);
   const pendingSaveWriteRef = useRef(Promise.resolve());
+  const closingDocumentRef = useRef(false);
   const queueSaveWrite = <T,>(write: () => Promise<T>): Promise<T> => {
     const result = pendingSaveWriteRef.current.then(write, write);
     pendingSaveWriteRef.current = result.then(() => {}, () => {});
@@ -51,7 +53,7 @@ export function useDocumentPersistence({
   };
   const isCurrentSave = (snapshot: ReturnType<typeof getSaveSnapshot>) => {
     const current = currentSaveSnapshotRef.current;
-    return current.documentId === snapshot.documentId && current.markdown === snapshot.markdown
+    return !closingDocumentRef.current && current.documentId === snapshot.documentId && current.markdown === snapshot.markdown
       && current.meta === snapshot.meta && current.theme === snapshot.theme
       && current.documentSettings === snapshot.documentSettings && current.history === snapshot.history
       && current.assets === snapshot.assets;
@@ -70,6 +72,7 @@ export function useDocumentPersistence({
   };
 
   useEffect(() => {
+    closingDocumentRef.current = false;
     setSaveStatus('saved');
     setSaveError(null);
     setLastSavedAt(null);
@@ -202,9 +205,36 @@ export function useDocumentPersistence({
     }
   };
 
+  const prepareCloseDocument = async () => {
+    closingDocumentRef.current = true;
+    try {
+      if (isDocumentDirty || saveError || (!documentPath && !browserFile)) {
+        await queueSaveWrite(() => saveDraft({
+          formatVersion: CURRENT_DRAFT_FORMAT_VERSION,
+          documentId,
+          createdAt: documentCreatedAt,
+          updatedAt: new Date().toISOString(),
+          path: documentPath,
+          markdown,
+          meta,
+          theme,
+          settings: documentSettings,
+          history,
+          savedToSdc: false,
+        }));
+      } else {
+        await pendingSaveWriteRef.current;
+      }
+    } catch (error) {
+      closingDocumentRef.current = false;
+      throw error;
+    }
+  };
+
   useEffect(() => {
+    if (!hasActiveDocument) return;
     const timer = window.setTimeout(() => {
-      if (!isDocumentDirty) return;
+      if (closingDocumentRef.current || !isDocumentDirty) return;
       const snapshot = getSaveSnapshot();
       activeSaveSnapshotRef.current = snapshot;
       setSaveStatus('saving');
@@ -254,10 +284,10 @@ export function useDocumentPersistence({
       }
     }, 1500);
     return () => window.clearTimeout(timer);
-  }, [documentId, documentCreatedAt, documentPath, browserFile, documentSettings, markdown, meta, theme, history, assets, isDocumentDirty]);
+  }, [hasActiveDocument, documentId, documentCreatedAt, documentPath, browserFile, documentSettings, markdown, meta, theme, history, assets, isDocumentDirty]);
 
   useEffect(() => {
-    if (!documentSettings.historyEnabled) return;
+    if (!hasActiveDocument || !documentSettings.historyEnabled) return;
     const timer = window.setTimeout(() => {
       const snapshot = getSaveSnapshot();
       void createHistoryEntry(markdown, meta, theme, 'idle').then((entry) => {
@@ -295,18 +325,18 @@ export function useDocumentPersistence({
       });
     }, documentSettings.historyIdleMinutes * 60_000);
     return () => window.clearTimeout(timer);
-  }, [documentSettings.historyEnabled, documentSettings.historyIdleMinutes, markdown, meta, theme, browserFile, documentPath]);
+  }, [hasActiveDocument, documentSettings.historyEnabled, documentSettings.historyIdleMinutes, markdown, meta, theme, browserFile, documentPath]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+      if (hasActiveDocument && !closingDocumentRef.current && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
         event.preventDefault();
         void handleSaveDocument();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [documentId, documentPath, browserFile, documentCreatedAt, documentSettings, markdown, meta, theme, history, assets]);
+  }, [hasActiveDocument, documentId, documentPath, browserFile, documentCreatedAt, documentSettings, markdown, meta, theme, history, assets]);
 
-  return { saveStatus, saveError, lastSavedAt, handleSaveDocument, handleSaveAs: () => handleSaveDocument(true), handleExportSdc };
+  return { saveStatus, saveError, lastSavedAt, handleSaveDocument, handleSaveAs: () => handleSaveDocument(true), handleExportSdc, prepareCloseDocument };
 }

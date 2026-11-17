@@ -38,6 +38,8 @@ const DOCUMENT_TEMPLATE_FILTERS: ReadonlyArray<{
 interface WelcomeDashboardProps {
   isOpen: boolean;
   onClose?: () => void;
+  onCloseDocument: () => void;
+  isClosingDocument: boolean;
   canClose: boolean; // 是否可以关闭（例如已有文档正在编辑中）
   currentDocument?: {
     title: string;
@@ -67,6 +69,8 @@ interface WelcomeDashboardProps {
 export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
   isOpen,
   onClose,
+  onCloseDocument,
+  isClosingDocument,
   canClose,
   currentDocument,
   isDark,
@@ -142,7 +146,7 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
   };
 
   return (
-    <div className={`fixed inset-0 z-50 overflow-y-auto flex flex-col select-none transition-colors duration-200 ${
+    <div inert={isClosingDocument} aria-busy={isClosingDocument} className={`fixed inset-0 z-50 overflow-y-auto flex flex-col select-none transition-colors duration-200 ${
       isDark ? 'bg-[#121212] text-zinc-100' : 'bg-slate-50 text-slate-900'
     }`}>
       {/* ================= Top Header (Consistent with Editor HeaderBar) ================= */}
@@ -238,18 +242,6 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
             <Info className="w-4 h-4" />
           </button>
 
-          {/* Return to Current Document (if editing) */}
-          {canClose && onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-xs transition ml-1.5"
-              title="返回当前编辑文档 (Esc)"
-            >
-              <span>返回编辑</span>
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
         </div>
         </div>
       </header>
@@ -465,9 +457,14 @@ export const WelcomeDashboard: React.FC<WelcomeDashboardProps> = ({
                 </p>
               </div>
             </div>
-            <button type="button" onClick={onClose} className="self-start sm:self-auto shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition">
-              继续编辑<ChevronRight className="w-4 h-4" aria-hidden="true" />
-            </button>
+            <div className="self-start sm:self-auto shrink-0 flex items-center gap-2">
+              <button type="button" onClick={onCloseDocument} disabled={isClosingDocument || currentDocument.isSaving} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border text-xs font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-slate-300 text-slate-600 hover:bg-white'}`}>
+                <X className="w-4 h-4" aria-hidden="true" />关闭文档
+              </button>
+              <button type="button" onClick={onClose} disabled={isClosingDocument} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed">
+                继续编辑<ChevronRight className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </div>
           </section>
         )}
 
