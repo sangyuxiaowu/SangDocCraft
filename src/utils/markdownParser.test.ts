@@ -273,6 +273,20 @@ describe('Markdown pagination and numbering', () => {
     }
   });
 
+  it('measures content at the preview zoom', () => {
+    const zooms: string[] = [];
+    const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains('pagination-measurer')) zooms.push(this.style.zoom);
+      return 0;
+    });
+    try {
+      paginateContentByDom('Page content', { style: theme.style, zoom: 1.35 });
+      expect(zooms).toContain('1.35');
+    } finally {
+      scrollHeight.mockRestore();
+    }
+  });
+
   it('reserves the rendered header and footer for complete blocks', () => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       return this.querySelectorAll('p').length * 450;

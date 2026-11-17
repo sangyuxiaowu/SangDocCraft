@@ -100,6 +100,7 @@ export interface DomPaginationOptions {
   infographicHeights?: Record<string, number>;
   firstPageReservedHeight?: number;
   pageMargins?: { top: number; right: number; bottom: number; left: number };
+  zoom?: number;
   onParagraphContinuation?: (pageIndex: number) => void;
 }
 
@@ -543,6 +544,7 @@ export function paginateContentByDom(
   measurer.style.pointerEvents = 'none';
   measurer.style.boxSizing = 'border-box';
   measurer.style.display = 'flow-root';
+  measurer.style.zoom = String(options.zoom ?? 1);
   const pageMargins = options.pageMargins ?? { top: 20, right: 15, bottom: 20, left: 15 };
   measurer.style.width = `${210 - pageMargins.left - pageMargins.right}mm`;
   measurer.style.fontFamily = options.fontFamily || 'sans-serif';

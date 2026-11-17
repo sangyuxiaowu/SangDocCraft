@@ -465,12 +465,13 @@ export const A4Preview: React.FC<A4PreviewProps> = ({ markdown: sourceMarkdown, 
       style,
       firstPageReservedHeight: inlineCoverHeight,
       pageMargins,
+      zoom: zoom / 100,
       mermaidHeights,
       infographicHeights,
       onParagraphContinuation: pageIndex => paragraphContinuations.add(pageIndex),
     });
     return { pages, paragraphContinuations };
-  }, [markdown, fontStack, header.show, header.hideOnCover, footer.show, footer.hideOnCover, hasInlineCover, inlineCoverHeight, style, pageMargins, mermaidHeights, infographicHeights, mathEpoch, imageEpoch, fontEpoch, theme]);
+  }, [markdown, fontStack, header.show, header.hideOnCover, footer.show, footer.hideOnCover, hasInlineCover, inlineCoverHeight, style, pageMargins, mermaidHeights, infographicHeights, mathEpoch, imageEpoch, fontEpoch, theme, zoom]);
   const rawContentPages = contentPagination.pages;
 
   // Build TOC page numbers from the same pages rendered below.
