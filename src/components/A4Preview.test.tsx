@@ -48,6 +48,19 @@ describe('A4Preview asynchronous pagination', () => {
     image.dispatchEvent(new Event('load'));
   };
 
+  it('renders both parts of a split bold paragraph without exposing Markdown delimiters', async () => {
+    vi.mocked(markdownParser.paginateContentByDom).mockImplementation((_markdown, options) => {
+      options?.onParagraphSplit?.(0, '**', '**');
+      options?.onParagraphContinuation?.(1);
+      return ['**加粗前半', '加粗后半**'];
+    });
+    await act(async () => root.render(<A4Preview markdown="**加粗前半加粗后半**" meta={DEFAULT_DOCUMENT_META} theme={theme} />));
+    const bodies = Array.from(container.querySelectorAll('.markdown-rendered-body'));
+    expect(bodies.map(body => body.querySelector('strong')?.textContent)).toEqual(['加粗前半', '加粗后半']);
+    expect(bodies.map(body => body.textContent).join('')).not.toContain('**');
+    expect(bodies[1].querySelector('p')?.classList.contains('p-continuation')).toBe(true);
+  });
+
   it('remeasures after each image loads, including nodes replaced by an earlier pagination', async () => {
     const markdown = '![](https://example.test/pagination-first.png)\n\n![](https://example.test/pagination-second.png)';
     await act(async () => root.render(<A4Preview markdown={markdown} meta={DEFAULT_DOCUMENT_META} theme={theme} />));

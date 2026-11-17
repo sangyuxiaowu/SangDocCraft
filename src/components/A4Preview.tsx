@@ -454,6 +454,8 @@ export const A4Preview: React.FC<A4PreviewProps> = React.memo(function A4Preview
     : 0, [hasInlineCover, coverTemplate, meta, cover, style, fontEpoch]);
   const contentPagination = useMemo(() => {
     const paragraphContinuations = new Set<number>();
+    const paragraphPrefixes = new Map<number, string>();
+    const paragraphSuffixes = new Map<number, string>();
     const pages = paginateContentByDom(markdown, {
       fontSize: style.fontSize,
       lineHeight: style.lineHeight,
@@ -473,8 +475,12 @@ export const A4Preview: React.FC<A4PreviewProps> = React.memo(function A4Preview
       mermaidHeights,
       infographicHeights,
       onParagraphContinuation: pageIndex => paragraphContinuations.add(pageIndex),
+      onParagraphSplit: (pageIndex, closing, opening) => {
+        paragraphSuffixes.set(pageIndex, closing);
+        paragraphPrefixes.set(pageIndex + 1, opening);
+      },
     });
-    return { pages, paragraphContinuations };
+    return { pages, paragraphContinuations, paragraphPrefixes, paragraphSuffixes };
   }, [markdown, fontStack, header.show, header.hideOnCover, footer.show, footer.hideOnCover, hasInlineCover, inlineCoverHeight, style, pageMargins, mermaidHeights, infographicHeights, mathEpoch, imageEpoch, fontEpoch, assetRevision, zoom]);
   const rawContentPages = contentPagination.pages;
 
@@ -723,7 +729,7 @@ export const A4Preview: React.FC<A4PreviewProps> = React.memo(function A4Preview
     return rawContentPages.flatMap((pageMd, contentPageIndex) => {
       const trimmed = pageMd.trim();
       if (!trimmed && rawContentPages.length !== 1) return [];
-      const preprocessedMd = preprocessMarkdownCaptions(trimmed || pageMd);
+      const preprocessedMd = preprocessMarkdownCaptions((contentPagination.paragraphPrefixes.get(contentPageIndex) ?? '') + (trimmed || pageMd) + (contentPagination.paragraphSuffixes.get(contentPageIndex) ?? ''));
       const rawHtml = marked.parse(preprocessedMd) as string;
       const numberedHtml = transformMarkdownHeadings(rawHtml, heading => {
         const level = Number(heading.tagName.slice(1));

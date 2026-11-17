@@ -367,6 +367,95 @@ describe('Markdown pagination and numbering', () => {
     }
   });
 
+  it.each(['**', '__'])('preserves %s bold formatting across multiple pages without changing the source', (marker) => {
+    const text = '加粗内容'.repeat(800);
+    const source = `前文 ${marker}${text}${marker} 后文`;
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return Array.from(this.querySelectorAll('p')).reduce((total, paragraph) => total + (paragraph.textContent?.length ?? 0), 0);
+    });
+    try {
+      const prefixes = new Map<number, string>();
+      const suffixes = new Map<number, string>();
+      const pages = paginateContentByDom(source, {
+        style: theme.style, headerShow: true, footerShow: true,
+        onParagraphSplit: (index, closing, opening) => { suffixes.set(index, closing); prefixes.set(index + 1, opening); },
+      });
+      expect(pages.length).toBeGreaterThan(2);
+      expect(pages.join('')).toBe(source);
+      const elements = pages.map((page, index) => {
+        const rendered = document.createElement('div');
+        rendered.innerHTML = marked.parse((prefixes.get(index) ?? '') + page + (suffixes.get(index) ?? '')) as string;
+        return rendered;
+      });
+      expect(elements.map(element => element.querySelector('strong')?.textContent ?? '').join('')).toBe(text);
+      expect(elements.map(element => element.textContent?.trim()).join('')).toBe(`前文 ${text} 后文`);
+    } finally {
+      height.mockRestore();
+    }
+  });
+
+  it('preserves nested emphasis while keeping links and formulas intact across page breaks', () => {
+    const boldStart = '甲'.repeat(700);
+    const italicText = '斜体'.repeat(700);
+    const boldEnd = '乙'.repeat(700);
+    const source = `前文 **${boldStart} *${italicText}* [链接](https://example.com) $x+y$ ${boldEnd}** 后文`;
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return Array.from(this.querySelectorAll('p')).reduce((total, paragraph) => total + (paragraph.textContent?.length ?? 0), 0);
+    });
+    try {
+      const prefixes = new Map<number, string>();
+      const suffixes = new Map<number, string>();
+      const pages = paginateContentByDom(source, {
+        style: theme.style, headerShow: true, footerShow: true,
+        onParagraphSplit: (index, closing, opening) => { suffixes.set(index, closing); prefixes.set(index + 1, opening); },
+      });
+      const elements = pages.map((page, index) => {
+        const rendered = document.createElement('div');
+        rendered.innerHTML = marked.parse((prefixes.get(index) ?? '') + page + (suffixes.get(index) ?? '')) as string;
+        return rendered;
+      });
+      expect(pages.length).toBeGreaterThan(2);
+      expect(pages.join('')).toBe(source);
+      const emphasized = elements.flatMap(element => Array.from(element.querySelectorAll('em')));
+      expect(emphasized.every(element => element.closest('strong') || element.querySelector('strong'))).toBe(true);
+      expect(emphasized.map(element => element.textContent).join('')).toBe(italicText);
+      const links = elements.flatMap(element => Array.from(element.querySelectorAll('strong a')));
+      expect(links).toHaveLength(1);
+      expect(links[0].getAttribute('href')).toBe('https://example.com');
+      expect(elements.map(element => element.textContent).join('')).not.toContain('**');
+      expect(elements.map(element => element.textContent).join('')).not.toContain('[链接]');
+    } finally {
+      height.mockRestore();
+    }
+  });
+
+  it('does not split surrogate pairs or HTML entities inside bold text', () => {
+    const text = '😀 &amp; 字符 '.repeat(700).trimEnd();
+    const source = `**${text}**`;
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return Array.from(this.querySelectorAll('p')).reduce((total, paragraph) => total + (paragraph.textContent?.length ?? 0), 0);
+    });
+    try {
+      const prefixes = new Map<number, string>();
+      const suffixes = new Map<number, string>();
+      const pages = paginateContentByDom(source, {
+        style: theme.style, headerShow: true, footerShow: true,
+        onParagraphSplit: (index, closing, opening) => { suffixes.set(index, closing); prefixes.set(index + 1, opening); },
+      });
+      expect(pages.length).toBeGreaterThan(1);
+      expect(pages.join('')).toBe(source);
+      expect(pages.every(page => !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(page))).toBe(true);
+      const rendered = pages.map((page, index) => {
+        const element = document.createElement('div');
+        element.innerHTML = marked.parse((prefixes.get(index) ?? '') + page + (suffixes.get(index) ?? '')) as string;
+        return element.querySelector('strong')?.textContent;
+      }).join('');
+      expect(rendered).toBe('😀 & 字符 '.repeat(700).trimEnd());
+    } finally {
+      height.mockRestore();
+    }
+  });
+
   it('uses the remaining height instead of reserving an extra strip at the page bottom', () => {
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       return this.querySelectorAll('p').length * 443;

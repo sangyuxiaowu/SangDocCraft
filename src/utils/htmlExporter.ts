@@ -93,6 +93,8 @@ export function generateStandaloneHtml(
   // Split markdown body using dynamic DOM measurement algorithm
   const coverListItems = resolveCoverList(cover.coverlist ?? [], meta);
   const paragraphContinuations = new Set<number>();
+  const paragraphPrefixes = new Map<number, string>();
+  const paragraphSuffixes = new Map<number, string>();
   const rawContentPages = paginateContentByDom(markdownText, {
     fontSize: style.fontSize,
     lineHeight: style.lineHeight,
@@ -112,6 +114,10 @@ export function generateStandaloneHtml(
     mermaidHeights,
     infographicHeights,
     onParagraphContinuation: pageIndex => paragraphContinuations.add(pageIndex),
+    onParagraphSplit: (pageIndex, closing, opening) => {
+      paragraphSuffixes.set(pageIndex, closing);
+      paragraphPrefixes.set(pageIndex + 1, opening);
+    },
   });
   const contentSections = getPageSections(rawContentPages);
   const tocSection = { h1: toc.title || '目 录', h2: toc.title || '目 录' };
@@ -843,7 +849,7 @@ export function generateStandaloneHtml(
     return rawContentPages.map((pageMd, idx) => {
       const pageNum = (hasStandaloneCover ? 1 : 0) + (hasToc ? tocPages.length : 0) + idx + 1;
       const section = contentSections[idx];
-      const preprocessed = preprocessMarkdownCaptions(pageMd || '');
+      const preprocessed = preprocessMarkdownCaptions((paragraphPrefixes.get(idx) ?? '') + (pageMd || '') + (paragraphSuffixes.get(idx) ?? ''));
       const rawHtml = marked.parse(preprocessed) as string;
       const numberedHtml = addHeadingNumbers(rawHtml, toc.headingNumbering, headingCounters);
       const renderedHtml = postProcessRenderedHtml(numberedHtml, style, exportCounters, theme.mermaid, paragraphContinuations.has(idx));

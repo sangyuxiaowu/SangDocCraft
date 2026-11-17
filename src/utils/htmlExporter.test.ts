@@ -58,6 +58,26 @@ describe('generateStandaloneHtml', () => {
     }
   });
 
+  it('exports bold text across pages without Markdown delimiters', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return Array.from(this.querySelectorAll('p')).reduce((total, paragraph) => total + (paragraph.textContent?.length ?? 0), 0);
+    });
+    try {
+      const text = '加粗内容'.repeat(700);
+      const base = PRESET_THEMES[0];
+      const html = generateStandaloneHtml(`**${text}**`, {
+        ...base, cover: { ...base.cover, showCover: false }, toc: { ...base.toc, show: false },
+      });
+      const parsed = new DOMParser().parseFromString(html, 'text/html');
+      const paragraphs = Array.from(parsed.querySelectorAll('.markdown-content > p'));
+      expect(paragraphs.length).toBeGreaterThan(1);
+      expect(paragraphs.map(paragraph => paragraph.querySelector('strong')?.textContent).join('')).toBe(text);
+      expect(paragraphs.map(paragraph => paragraph.textContent).join('')).not.toContain('**');
+    } finally {
+      height.mockRestore();
+    }
+  });
+
   it('uses the muted text color for both headers and footers', () => {
     const base = PRESET_THEMES[0];
     const html = generateStandaloneHtml('# Content', {

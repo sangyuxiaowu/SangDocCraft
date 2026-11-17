@@ -102,6 +102,7 @@ export interface DomPaginationOptions {
   pageMargins?: { top: number; right: number; bottom: number; left: number };
   zoom?: number;
   onParagraphContinuation?: (pageIndex: number) => void;
+  onParagraphSplit?: (pageIndex: number, closing: string, opening: string) => void;
 }
 
 const imageDimensions = new Map<string, { width: number; height: number }>();
@@ -325,9 +326,61 @@ function findDomParagraphSplit(
   text: string,
   measurer: HTMLElement,
   maxHeight: number,
-  paragraphContinuation: boolean = false
-): { part1: string; part2: string } | null {
+  paragraphContinuation: boolean = false,
+  opening: string = ''
+): { part1: string; part2: string; closing: string; opening: string } | null {
   if (!text || text.length < 10) return null;
+
+  const formattedText = opening + text;
+  const wrappers: Array<{ start: number; end: number; contentStart: number; contentEnd: number; opening: string; closing: string }> = [];
+  const protectedRanges: Array<{ start: number; end: number }> = getMathRanges(formattedText);
+  const collectRanges = (tokens: ReturnType<typeof marked.Lexer.lexInline>, start: number) => {
+    let position = start;
+    for (const token of tokens) {
+      const end = position + token.raw.length;
+      if ((token.type === 'strong' || token.type === 'em' || token.type === 'del') && token.tokens) {
+        const contentStart = position + token.raw.indexOf(token.text);
+        const contentEnd = contentStart + token.text.length;
+        wrappers.push({
+          start: position, end, contentStart, contentEnd,
+          opening: formattedText.slice(position, contentStart),
+          closing: formattedText.slice(contentEnd, end),
+        });
+        collectRanges(token.tokens, contentStart);
+      } else if (token.type !== 'text') {
+        protectedRanges.push({ start: position, end });
+      }
+      position = end;
+    }
+  };
+  collectRanges(marked.Lexer.lexInline(formattedText), 0);
+  for (const match of formattedText.matchAll(/&(?:#[xX][\da-fA-F]+|#\d+|[a-zA-Z][a-zA-Z\d]+);/g)) {
+    protectedRanges.push({ start: match.index, end: match.index + match[0].length });
+  }
+
+  const splitAt = (requested: number) => {
+    let position = opening.length + requested;
+    let previous: number;
+    do {
+      previous = position;
+      while (position > opening.length && (/\s/.test(formattedText[position - 1]) || /\s/.test(formattedText[position] ?? ''))) position--;
+      if (position > 0 && position < formattedText.length
+        && /[\uD800-\uDBFF]/.test(formattedText[position - 1]) && /[\uDC00-\uDFFF]/.test(formattedText[position])) position--;
+      for (const range of protectedRanges) {
+        if (position > range.start && position < range.end) position = range.start;
+      }
+      for (const wrapper of wrappers) {
+        if (position > wrapper.start && position <= wrapper.contentStart) position = wrapper.start;
+        else if (position >= wrapper.contentEnd && position < wrapper.end) position = wrapper.contentEnd - 1;
+      }
+    } while (position !== previous);
+    const active = wrappers.filter(wrapper => position > wrapper.contentStart && position < wrapper.contentEnd);
+    return {
+      index: Math.max(0, position - opening.length),
+      closing: [...active].reverse().map(wrapper => wrapper.closing).join(''),
+      opening: active.map(wrapper => wrapper.opening).join(''),
+    };
+  };
 
   const testP = document.createElement('p');
   if (paragraphContinuation) testP.className = 'p-continuation';
@@ -335,41 +388,34 @@ function findDomParagraphSplit(
 
   let low = 1;
   let high = text.length;
-  let bestFitIdx = -1;
+  let bestSplit: ReturnType<typeof splitAt> | undefined;
 
   while (low <= high) {
     const mid = Math.floor((low + high) / 2);
-    testP.innerHTML = marked.parseInline(text.slice(0, mid)) as string;
+    const split = splitAt(mid);
+    testP.innerHTML = marked.parseInline(opening + text.slice(0, split.index).trimEnd() + split.closing) as string;
     
     if (measurer.scrollHeight <= maxHeight + 1) {
-      bestFitIdx = mid;
+      bestSplit = split;
       low = mid + 1;
     } else {
       high = mid - 1;
     }
   }
 
-  if (bestFitIdx <= 5 || bestFitIdx >= text.length - 2) {
+  if (!bestSplit || bestSplit.index <= 5 || bestSplit.index >= text.length - 2) {
     measurer.removeChild(testP);
     return null;
   }
 
-  let splitIdx = bestFitIdx;
   measurer.removeChild(testP);
 
-  // 公式不能被拆到两页：切点落在 $...$ 内部时前移到公式之前，让公式整体进入下一页
-  const mathRange = getMathRanges(text).find((range) => splitIdx > range.start && splitIdx < range.end);
-  if (mathRange) {
-    if (mathRange.start <= 5) return null;
-    splitIdx = mathRange.start;
-  }
-
-  const part1 = text.slice(0, splitIdx).trim();
-  const part2 = text.slice(splitIdx).trim();
+  const part1 = text.slice(0, bestSplit.index).trim();
+  const part2 = text.slice(bestSplit.index).trim();
 
   if (!part1 || !part2) return null;
 
-  return { part1, part2 };
+  return { part1, part2, closing: bestSplit.closing, opening: bestSplit.opening };
 }
 
 function findDomListSplit(
@@ -634,7 +680,7 @@ export function paginateContentByDom(
         }
 
         const tempContainer = document.createElement('template');
-        const rawTokenHtml = marked.parse(token.raw || '') as string;
+        const rawTokenHtml = marked.parse((token.paragraphPrefix || '') + (token.raw || '')) as string;
         tempContainer.innerHTML = postProcessRenderedHtml(rawTokenHtml, options.style, undefined, undefined, !!token.paragraphContinuation);
         if (token.type === 'code' && (isMermaidLang(token.lang) || isInfographicLang(token.lang))) {
           const isInfographic = isInfographicLang(token.lang);
@@ -673,11 +719,12 @@ export function paginateContentByDom(
         tokenNodes.forEach(node => node.remove());
 
         if (token.type === 'paragraph' && !paragraphContainsImage(token)) {
-          const splitRes = findDomParagraphSplit(token.text || token.raw || '', measurer, pageMaxHeight, !!token.paragraphContinuation);
+          const splitRes = findDomParagraphSplit(token.text || token.raw || '', measurer, pageMaxHeight, !!token.paragraphContinuation, token.paragraphPrefix);
           if (splitRes) {
             currentPageTokens.push(splitRes.part1);
+            options.onParagraphSplit?.(pages.length, splitRes.closing, splitRes.opening);
             flushPage();
-            processToken({ ...token, type: 'paragraph', text: splitRes.part2, raw: splitRes.part2, paragraphContinuation: true });
+            processToken({ ...token, type: 'paragraph', text: splitRes.part2, raw: splitRes.part2, paragraphContinuation: true, paragraphPrefix: splitRes.opening });
             return;
           }
         } else if (token.type === 'list') {
