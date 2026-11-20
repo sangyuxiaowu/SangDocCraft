@@ -28,6 +28,54 @@ import type { MermaidConfig } from '../types';
 registerMathExtensions();
 
 let mermaidExtensionsRegistered = false;
+let adjacentStrongExtensionRegistered = false;
+
+function registerAdjacentStrongExtension(): void {
+  if (adjacentStrongExtensionRegistered) return;
+  adjacentStrongExtensionRegistered = true;
+  marked.use({
+    extensions: [{
+      name: 'adjacentStrong',
+      level: 'inline',
+      start(source) {
+        const doubleAsterisk = source.indexOf('**');
+        const doubleUnderscore = source.indexOf('__');
+        if (doubleAsterisk < 0) return doubleUnderscore < 0 ? undefined : doubleUnderscore;
+        if (doubleUnderscore < 0) return doubleAsterisk;
+        return Math.min(doubleAsterisk, doubleUnderscore);
+      },
+      tokenizer(source) {
+        const marker = source.startsWith('***') ? ''
+          : source.startsWith('**') ? '**'
+          : source.startsWith('___') ? ''
+          : source.startsWith('__') ? '__' : '';
+        if (!marker || !/\S/.test(source[marker.length] || '')) return;
+        const markerCharacter = marker[0];
+        let end = source.indexOf(marker, marker.length);
+        while (end >= marker.length) {
+          const content = source.slice(marker.length, end);
+          const after = source[end + marker.length] || '';
+          if (content.trim() && !/\s/.test(content.at(-1) || '')
+            && source[end - 1] !== markerCharacter && after !== markerCharacter
+            && after && !/\s/.test(after)) {
+            return {
+              type: 'adjacentStrong',
+              raw: source.slice(0, end + marker.length),
+              text: content,
+              tokens: this.lexer.inlineTokens(content),
+            };
+          }
+          end = source.indexOf(marker, end + marker.length);
+        }
+      },
+      renderer(token) {
+        return `<strong>${this.parser.parseInline(token.tokens)}</strong>`;
+      },
+    }],
+  });
+}
+
+registerAdjacentStrongExtension();
 
 export function registerMermaidExtensions(): void {
   if (mermaidExtensionsRegistered) return;
@@ -339,6 +387,7 @@ function findDomParagraphSplit(
     for (const token of tokens) {
       const end = position + token.raw.length;
       const canSplitWrapper = token.type === 'strong'
+        || token.type === 'adjacentStrong'
         || token.type === 'em'
         || token.type === 'del'
         || (token.type === 'link' && token.raw.startsWith('['));

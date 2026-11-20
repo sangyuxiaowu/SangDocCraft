@@ -22,6 +22,16 @@ import {
 const theme = PRESET_THEMES[0];
 
 describe('Markdown blockquotes', () => {
+  it.each(['**加粗** 这样', '**加粗**这样', '前文**加粗**后文', '__加粗__这样'])(
+    'renders adjacent strong markup in %j',
+    (source) => {
+      const container = document.createElement('div');
+      container.innerHTML = postProcessRenderedHtml(marked.parse(source) as string, theme.style);
+      expect(container.querySelector('strong')?.textContent).toBe('加粗');
+      expect(container.textContent).not.toContain('**');
+    },
+  );
+
   it('preserves quoted and lazy continuation line breaks without changing ordinary paragraphs', () => {
     const source = '>1. 完善文档元数据\n2. 更换合适的主题\n3. 输入您的正文内容\n\n> 12323\n> 21323\n\n> 12323\n21323\n\nordinary\nparagraph';
     const container = document.createElement('div');
@@ -367,9 +377,13 @@ describe('Markdown pagination and numbering', () => {
     }
   });
 
-  it.each(['**', '__'])('preserves %s bold formatting across multiple pages without changing the source', (marker) => {
+  it.each([
+    ['**', '前文 '],
+    ['**', '前文'],
+    ['__', '前文 '],
+  ])('preserves %s bold formatting after %j across multiple pages without changing the source', (marker, prefix) => {
     const text = '加粗内容'.repeat(800);
-    const source = `前文 ${marker}${text}${marker} 后文`;
+    const source = `${prefix}${marker}${text}${marker}后文`;
     const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
       return Array.from(this.querySelectorAll('p')).reduce((total, paragraph) => total + (paragraph.textContent?.length ?? 0), 0);
     });
@@ -388,7 +402,7 @@ describe('Markdown pagination and numbering', () => {
         return rendered;
       });
       expect(elements.map(element => element.querySelector('strong')?.textContent ?? '').join('')).toBe(text);
-      expect(elements.map(element => element.textContent?.trim()).join('')).toBe(`前文 ${text} 后文`);
+      expect(elements.map(element => element.textContent?.trim()).join('')).toBe(`${prefix}${text}后文`);
     } finally {
       height.mockRestore();
     }
