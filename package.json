@@ -12,7 +12,7 @@
     "test": "vitest run",
     "release": "node scripts/release.cjs",
     "dev:tauri": "tauri dev",
-    "prebuild:tauri": "node scripts/sync-tauri-version.cjs && npx tauri icon --output src-tauri/icons docs/assets/logo.png",
+    "prebuild:tauri": "node scripts/sync-tauri-version.cjs && node node_modules/@tauri-apps/cli/tauri.js icon --output src-tauri/icons docs/assets/logo.png",
     "build:tauri": "tauri build",
     "tauri": "tauri"
   },
