@@ -429,6 +429,48 @@ describe('Markdown pagination and numbering', () => {
     }
   });
 
+  it('measures a Markdown link by its rendered label instead of its destination length', () => {
+    const source = `产品认证 [百度百科](${'https://baike.baidu.com/item/'.repeat(40)}) 信息`;
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return Array.from(this.querySelectorAll('p')).reduce((total, paragraph) => total + (paragraph.textContent?.length ?? 0), 0);
+    });
+    try {
+      expect(paginateContentByDom(source, { style: theme.style })).toEqual([source]);
+    } finally {
+      height.mockRestore();
+    }
+  });
+
+  it('splits long link labels by rendered text and preserves the same clickable target on every page', () => {
+    const linkText = '产品认证百度百科'.repeat(260);
+    const href = 'https://baike.baidu.com/item/%E5%8C%97%E4%BA%AC%EF%BC%88%E5%8C%97%E4%BA%AC%EF%BC%89';
+    const source = `前文 [${linkText}](${href}) 后文`;
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return Array.from(this.querySelectorAll('p')).reduce((total, paragraph) => total + (paragraph.textContent?.length ?? 0), 0);
+    });
+    try {
+      const prefixes = new Map<number, string>();
+      const suffixes = new Map<number, string>();
+      const pages = paginateContentByDom(source, {
+        style: theme.style, headerShow: true, footerShow: true,
+        onParagraphSplit: (index, closing, opening) => { suffixes.set(index, closing); prefixes.set(index + 1, opening); },
+      });
+      expect(pages.length).toBeGreaterThan(1);
+      expect(pages.join('')).toBe(source);
+      const elements = pages.map((page, index) => {
+        const rendered = document.createElement('div');
+        rendered.innerHTML = marked.parse((prefixes.get(index) ?? '') + page + (suffixes.get(index) ?? '')) as string;
+        return rendered;
+      });
+      const links = elements.flatMap(element => Array.from(element.querySelectorAll('a')));
+      expect(links.length).toBeGreaterThan(1);
+      expect(links.every(link => link.getAttribute('href') === href)).toBe(true);
+      expect(links.map(link => link.textContent).join('')).toBe(linkText);
+    } finally {
+      height.mockRestore();
+    }
+  });
+
   it('does not split surrogate pairs or HTML entities inside bold text', () => {
     const text = '😀 &amp; 字符 '.repeat(700).trimEnd();
     const source = `**${text}**`;

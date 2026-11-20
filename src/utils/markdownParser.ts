@@ -338,9 +338,15 @@ function findDomParagraphSplit(
     let position = start;
     for (const token of tokens) {
       const end = position + token.raw.length;
-      if ((token.type === 'strong' || token.type === 'em' || token.type === 'del') && token.tokens) {
-        const contentStart = position + token.raw.indexOf(token.text);
-        const contentEnd = contentStart + token.text.length;
+      const canSplitWrapper = token.type === 'strong'
+        || token.type === 'em'
+        || token.type === 'del'
+        || (token.type === 'link' && token.raw.startsWith('['));
+      const wrapperText = canSplitWrapper && 'text' in token ? token.text : '';
+      const contentOffset = wrapperText ? token.raw.indexOf(wrapperText) : -1;
+      if (canSplitWrapper && 'tokens' in token && token.tokens && contentOffset >= 0) {
+        const contentStart = position + contentOffset;
+        const contentEnd = contentStart + wrapperText.length;
         wrappers.push({
           start: position, end, contentStart, contentEnd,
           opening: formattedText.slice(position, contentStart),
